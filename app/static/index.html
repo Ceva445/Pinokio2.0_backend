@@ -6,11 +6,15 @@
 
 <style>
 body {
-    font-family: system-ui;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont;
     background: #0f172a;
     color: #e5e7eb;
     margin: 0;
     padding: 20px;
+}
+
+h1 {
+    margin-bottom: 16px;
 }
 
 .container {
@@ -25,11 +29,24 @@ body {
     background: #1e293b;
     margin-bottom: 8px;
     cursor: pointer;
+    transition: background 0.2s;
 }
 
-.device.online { border-left: 4px solid #22c55e; }
-.device.offline { opacity: 0.4; }
-.device.active { background: #2563eb; }
+.device:hover {
+    background: #334155;
+}
+
+.device.online {
+    border-left: 4px solid #22c55e;
+}
+
+.device.offline {
+    opacity: 0.4;
+}
+
+.device.active {
+    background: #2563eb;
+}
 
 pre {
     background: #020617;
@@ -37,6 +54,7 @@ pre {
     border-radius: 8px;
     height: 300px;
     overflow: auto;
+    font-size: 14px;
 }
 </style>
 </head>
@@ -58,11 +76,23 @@ pre {
 </div>
 
 <script>
-const ws = new WebSocket(`ws://${location.host}/ws`);
+/* === WebSocket (WS / WSS auto) === */
+const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+
 let devicesCache = {};
 let activeDevice = null;
 
-ws.onmessage = e => {
+/* === WebSocket events === */
+ws.onopen = () => {
+    console.log("WebSocket connected");
+};
+
+ws.onclose = () => {
+    console.warn("WebSocket disconnected");
+};
+
+ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
     if (msg.type === "device_list") {
@@ -71,17 +101,21 @@ ws.onmessage = e => {
     }
 
     if (msg.type === "esp32_data") {
-        document.getElementById("output").textContent =
-            JSON.stringify(msg.data, null, 2);
+        if (msg.device_id === activeDevice) {
+            document.getElementById("output").textContent =
+                JSON.stringify(msg.data, null, 2);
+        }
     }
 };
 
+/* === UI rendering === */
 function renderDevices() {
     const el = document.getElementById("devices");
     el.innerHTML = "";
 
     Object.values(devicesCache).forEach(d => {
         const div = document.createElement("div");
+
         div.className =
             `device ${d.is_online ? "online" : "offline"} ` +
             (activeDevice === d.id ? "active" : "");
@@ -96,18 +130,32 @@ function renderDevices() {
     });
 }
 
+/* === Subscribe / Unsubscribe === */
 function toggleSubscribe(deviceId) {
     if (activeDevice === deviceId) {
-        ws.send(JSON.stringify({ command: "unsubscribe" }));
+        ws.send(JSON.stringify({
+            command: "unsubscribe",
+            device_id: deviceId
+        }));
+
         activeDevice = null;
         document.getElementById("output").textContent = "No device subscribed";
     } else {
+        if (activeDevice) {
+            ws.send(JSON.stringify({
+                command: "unsubscribe",
+                device_id: activeDevice
+            }));
+        }
+
         ws.send(JSON.stringify({
             command: "subscribe",
             device_id: deviceId
         }));
+
         activeDevice = deviceId;
     }
+
     renderDevices();
 }
 </script>
