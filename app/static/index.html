@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>ESP32 Live Monitor</title>
+
+<style>
+body {
+    font-family: system-ui;
+    background: #0f172a;
+    color: #e5e7eb;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+}
+
+.device {
+    padding: 10px;
+    border-radius: 8px;
+    background: #1e293b;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.device.online { border-left: 4px solid #22c55e; }
+.device.offline { opacity: 0.4; }
+.device.active { background: #2563eb; }
+
+pre {
+    background: #020617;
+    padding: 15px;
+    border-radius: 8px;
+    height: 300px;
+    overflow: auto;
+}
+</style>
+</head>
+
+<body>
+
+<h1>ESP32 Live Monitor</h1>
+
+<div class="container">
+    <div>
+        <h3>Devices</h3>
+        <div id="devices"></div>
+    </div>
+
+    <div>
+        <h3>Live Data</h3>
+        <pre id="output">No device subscribed</pre>
+    </div>
+</div>
+
+<script>
+const ws = new WebSocket(`ws://${location.host}/ws`);
+let devicesCache = {};
+let activeDevice = null;
+
+ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === "device_list") {
+        devicesCache = msg.data.devices;
+        renderDevices();
+    }
+
+    if (msg.type === "esp32_data") {
+        document.getElementById("output").textContent =
+            JSON.stringify(msg.data, null, 2);
+    }
+};
+
+function renderDevices() {
+    const el = document.getElementById("devices");
+    el.innerHTML = "";
+
+    Object.values(devicesCache).forEach(d => {
+        const div = document.createElement("div");
+        div.className =
+            `device ${d.is_online ? "online" : "offline"} ` +
+            (activeDevice === d.id ? "active" : "");
+
+        div.innerHTML = `
+            <b>${d.name}</b><br>
+            ${d.is_online ? "🟢 Online" : "🔴 Offline"}
+        `;
+
+        div.onclick = () => toggleSubscribe(d.id);
+        el.appendChild(div);
+    });
+}
+
+function toggleSubscribe(deviceId) {
+    if (activeDevice === deviceId) {
+        ws.send(JSON.stringify({ command: "unsubscribe" }));
+        activeDevice = null;
+        document.getElementById("output").textContent = "No device subscribed";
+    } else {
+        ws.send(JSON.stringify({
+            command: "subscribe",
+            device_id: deviceId
+        }));
+        activeDevice = deviceId;
+    }
+    renderDevices();
+}
+</script>
+
+</body>
+</html>

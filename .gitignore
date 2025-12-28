@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.env
+.venv
+poetry.lock
+build/
+dist/
+
+# База даних (SQLite)
+*.db
+*.sqlite3
+
+# FastAPI / Логи
+logs/
+*.log
+
+# Frontend / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+build/
+dist/
+
+# IDE (VS Code, PyCharm)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Системні файли
+.DS_Store
+Thumbs.db
