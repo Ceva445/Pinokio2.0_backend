@@ -9,6 +9,7 @@ from config import STATIC_DIR, LOG_CONFIG
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
 from routers import api, pages, websocket
+from fastapi.middleware.cors import CORSMiddleware
 
 # Налаштування логування
 logging.basicConfig(**LOG_CONFIG)
@@ -59,6 +60,14 @@ async def cleanup_offline_devices():
 app = FastAPI(
     title="ESP32 Multi-Device Monitor",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Монтування статичних файлів
