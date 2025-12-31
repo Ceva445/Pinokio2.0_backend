@@ -26,6 +26,20 @@ String lastUID = "";
 unsigned long lastSend = 0;
 const unsigned long SEND_DELAY = 1000; // 1 сек
 
+unsigned long lastWifiCheck = 0;
+const unsigned long WIFI_RECONNECT_INTERVAL = 5000;
+
+void checkWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  unsigned long now = millis();
+  if (now - lastWifiCheck < WIFI_RECONNECT_INTERVAL) return;
+
+  lastWifiCheck = now;
+  WiFi.disconnect();
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -44,6 +58,8 @@ void setup() {
 }
 
 void loop() {
+  checkWiFi();
+
   if (!rfid.PICC_IsNewCardPresent()) return;
   if (!rfid.PICC_ReadCardSerial()) return;
 
