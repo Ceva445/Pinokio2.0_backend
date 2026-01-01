@@ -1,0 +1,12 @@
+from pydantic import BaseModel
+from schemas.device import DeviceOut
+
+class EmployeeOut(BaseModel):
+    first_name: str
+    last_name: str
+    company: str
+    rfid: str
+    device: DeviceOut | None
+
+    class Config:
+        from_attributes = True
