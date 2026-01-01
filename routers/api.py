@@ -1,7 +1,8 @@
 from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
@@ -33,22 +34,19 @@ async def receive_esp32_data(
     data: Dict[str, Any],
     devices: DeviceManager = Depends(get_devices),
     manager: ConnectionManager = Depends(get_manager),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    # 1️⃣ Оновлення даних ESP32 (існуюча логіка)
-    device = devices.update_device_data(device_id, data)
+    devices.update_device_data(device_id, data)
 
-    # 2️⃣ 🔍 RFID RESOLVE
     rfid_info = None
     rfid = data.get("rfid")
 
     if rfid:
-        # Перевіряємо працівника
-        employee = (
-            db.query(EmployeeDB)
-            .filter(EmployeeDB.rfid == rfid)
-            .first()
+        # 🔹 Перевіряємо працівника
+        result = await db.execute(
+            select(EmployeeDB).where(EmployeeDB.rfid == rfid)
         )
+        employee = result.scalar_one_or_none()
 
         if employee:
             rfid_info = {
@@ -59,12 +57,11 @@ async def receive_esp32_data(
                 "company": employee.company,
             }
         else:
-            # Якщо не працівник — перевіряємо пристрій
-            device_db = (
-                db.query(DeviceDB)
-                .filter(DeviceDB.rfid == rfid)
-                .first()
+            # 🔹 Якщо не працівник — перевіряємо пристрій
+            result = await db.execute(
+                select(DeviceDB).where(DeviceDB.rfid == rfid)
             )
+            device_db = result.scalar_one_or_none()
 
             if device_db:
                 rfid_info = {
@@ -99,16 +96,18 @@ async def receive_esp32_data(
 # ---------- EMPLOYEES ----------
 
 @router.post("/employees", status_code=status.HTTP_201_CREATED)
-def create_employee(
+async def create_employee(
     payload: Dict[str, Any],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     rfid = payload.get("rfid")
     if not rfid:
         raise HTTPException(400, "rfid is required")
 
-    # Перевірка унікальності RFID
-    if db.query(EmployeeDB).filter(EmployeeDB.rfid == rfid).first():
+    result = await db.execute(
+        select(EmployeeDB).where(EmployeeDB.rfid == rfid)
+    )
+    if result.scalar_one_or_none():
         raise HTTPException(409, "Employee with this RFID already exists")
 
     employee = EmployeeDB(
@@ -120,8 +119,8 @@ def create_employee(
     )
 
     db.add(employee)
-    db.commit()
-    db.refresh(employee)
+    await db.commit()
+    await db.refresh(employee)
 
     return {
         "id": employee.id,
@@ -136,16 +135,18 @@ def create_employee(
 # ---------- DEVICES ----------
 
 @router.post("/devices", status_code=status.HTTP_201_CREATED)
-def create_device(
+async def create_device(
     payload: Dict[str, Any],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     rfid = payload.get("rfid")
     if not rfid:
         raise HTTPException(400, "rfid is required")
 
-    # Перевірка унікальності RFID
-    if db.query(DeviceDB).filter(DeviceDB.rfid == rfid).first():
+    result = await db.execute(
+        select(DeviceDB).where(DeviceDB.rfid == rfid)
+    )
+    if result.scalar_one_or_none():
         raise HTTPException(409, "Device with this RFID already exists")
 
     device = DeviceDB(
@@ -156,8 +157,8 @@ def create_device(
     )
 
     db.add(device)
-    db.commit()
-    db.refresh(device)
+    await db.commit()
+    await db.refresh(device)
 
     return {
         "id": device.id,
