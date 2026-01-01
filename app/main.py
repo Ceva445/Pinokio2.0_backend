@@ -23,15 +23,12 @@ manager = ConnectionManager(device_manager)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Контекст життя додатку"""
-    # Запуск
     logger.info("ESP32 Multi-Device Monitor started")
     
-    # Запуск фонової задачі для очищення офлайн пристроїв
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
     
     yield
     
-    # Завершення
     cleanup_task.cancel()
     try:
         await cleanup_task

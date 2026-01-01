@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
 
-from db.session import SessionLocal
+from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB
 
@@ -23,14 +23,6 @@ def get_manager():
 def get_devices():
     from app.main import device_manager
     return device_manager
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # ---------- ENDPOINT ----------

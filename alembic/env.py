@@ -1,12 +1,17 @@
 from logging.config import fileConfig
+import os
 import sys
 from pathlib import Path
-
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+from db.base import Base
+from models import db_device, db_employee
+
+load_dotenv()
+
 # -------------------------------------------------
-# ДОДАЄМО КОРІНЬ ПРОЄКТУ В PYTHONPATH
 # project_root/
 # ├── alembic/
 # ├── db/
@@ -16,23 +21,15 @@ from alembic import context
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(BASE_DIR))
 
-# -------------------------------------------------
-# ІМПОРТИ SQLAlchemy Base та моделей
-# -------------------------------------------------
-from db.base import Base
-from models import db_device, db_employee  # важливо: просто імпорт
 
-# -------------------------------------------------
 # Alembic config
-# -------------------------------------------------
 config = context.config
+
+config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# -------------------------------------------------
-# ГОЛОВНЕ: metadata для autogenerate
-# -------------------------------------------------
 target_metadata = Base.metadata
 
 
@@ -44,7 +41,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,      # ✅ корисно
+        compare_type=True,
         compare_server_default=True,
     )
 
@@ -64,7 +61,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,          # ✅ корисно
+            compare_type=True,
             compare_server_default=True,
         )
 
