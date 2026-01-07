@@ -1,5 +1,5 @@
-from sqlalchemy import String, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Enum, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
 import enum
 
@@ -15,3 +15,9 @@ class DeviceDB(Base):
     rfid: Mapped[str] = mapped_column(String, unique=True, index=True)
     serial_number: Mapped[str] = mapped_column(String, unique=True)
     type: Mapped[DeviceType]
+
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employees.id"), nullable=True
+    )
+
+    employee = relationship("EmployeeDB", back_populates="devices")

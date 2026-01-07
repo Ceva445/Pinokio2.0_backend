@@ -6,7 +6,7 @@ class EmployeeOut(BaseModel):
     last_name: str
     company: str
     rfid: str
-    device: DeviceOut | None
+    devices: list[DeviceOut] = []
 
     class Config:
         from_attributes = True
