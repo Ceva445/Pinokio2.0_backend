@@ -14,7 +14,7 @@ body {
 }
 
 h1 {
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 
 .container {
@@ -23,6 +23,7 @@ h1 {
     gap: 20px;
 }
 
+/* ===== Devices list ===== */
 .device {
     padding: 10px;
     border-radius: 8px;
@@ -48,6 +49,33 @@ h1 {
     background: #2563eb;
 }
 
+/* ===== Status messages ===== */
+#status {
+    margin-bottom: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    display: none;
+}
+
+.status-success {
+    display: block;
+    background: #052e16;
+    color: #22c55e;
+}
+
+.status-error {
+    display: block;
+    background: #450a0a;
+    color: #ef4444;
+}
+
+.status-info {
+    display: block;
+    background: #020617;
+    color: #38bdf8;
+}
+
+/* ===== Live data ===== */
 pre {
     background: #020617;
     padding: 15px;
@@ -62,6 +90,8 @@ pre {
 <body>
 
 <h1>ESP32 Live Monitor</h1>
+
+<div id="status"></div>
 
 <div class="container">
     <div>
@@ -106,7 +136,30 @@ ws.onmessage = (e) => {
                 JSON.stringify(msg.data, null, 2);
         }
     }
+
+    if (msg.type === "registration_status") {
+        showStatus(msg.status, msg.message);
+    }
 };
+
+/* ===== Status UI ===== */
+function showStatus(status, message) {
+    const el = document.getElementById("status");
+
+    el.className = "";
+    el.textContent = message;
+
+    if (status === "success") el.classList.add("status-success");
+    else if (status === "error") el.classList.add("status-error");
+    else el.classList.add("status-info");
+
+    el.style.display = "block";
+
+    // автоочистка через 5 сек
+    setTimeout(() => {
+        el.style.display = "none";
+    }, 5000);
+}
 
 /* === UI rendering === */
 function renderDevices() {

@@ -10,6 +10,7 @@ from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
 from routers import api, pages, websocket
 from fastapi.middleware.cors import CORSMiddleware
+from managers.registration_manager import RegistrationManager
 
 # Налаштування логування
 logging.basicConfig(**LOG_CONFIG)
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Глобальні менеджери
 device_manager = DeviceManager(timeout_minutes=10)
 manager = ConnectionManager(device_manager)
+registration_manager = RegistrationManager(timeout_seconds=360)
+
 
 
 @asynccontextmanager
