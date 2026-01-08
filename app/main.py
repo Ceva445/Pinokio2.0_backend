@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 # Глобальні менеджери
 device_manager = DeviceManager(timeout_minutes=10)
 manager = ConnectionManager(device_manager)
-registration_manager = RegistrationManager(timeout_seconds=360)
-
+registration_manager = RegistrationManager(timeout_seconds=60)
 
 
 @asynccontextmanager

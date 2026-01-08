@@ -37,21 +37,9 @@ async def receive_esp32_data(
     manager: ConnectionManager = Depends(get_manager),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Прийом даних від ESP32.
-    - Оновлює live-дані пристрою
-    - Розсилає їх підписаним клієнтам
-    - Реєструє працівника та/або пристрій через RFID
-    - Автоматично показує нові ESP32 у списку
-    """
-    # ---------------------------
-    # 🔹 1. Оновлюємо або реєструємо пристрій
-    # ---------------------------
+    
     device = devices.update_device_data(device_id, data)
 
-    # ---------------------------
-    # 🔹 2. Broadcast live-даних всім підписаним на цей ESP32
-    # ---------------------------
     if device.latest_data:
         await manager.broadcast_device_data(
             device_id,
@@ -62,14 +50,8 @@ async def receive_esp32_data(
             }
         )
 
-    # ---------------------------
-    # 🔹 3. Broadcast оновленого списку пристроїв всім клієнтам
-    # ---------------------------
     await manager.broadcast_device_list()
 
-    # ---------------------------
-    # 🔹 4. Логіка реєстрації через RFID
-    # ---------------------------
     rfid = data.get("rfid")
     ui_message = None
     ui_status = "info"
@@ -77,7 +59,6 @@ async def receive_esp32_data(
     if rfid:
         from app.main import registration_manager
 
-        # 4a. Перевірка: чи RFID належить працівнику
         result = await db.execute(
             select(EmployeeDB)
             .options(selectinload(EmployeeDB.devices))
@@ -88,28 +69,32 @@ async def receive_esp32_data(
         if employee:
             registration_manager.start_or_replace(device_id, employee)
             ui_message = (
-                f"Працівник {employee.first_name} {employee.last_name} активний. "
-                f"Прикладіть сканер або принтер"
+                f"Pracownik {employee.first_name} {employee.last_name} aktywny. "
+                f"Przyłóż skaner lub drukarkę"
             )
             ui_status = "success"
         else:
-            # 4b. Перевірка: чи RFID належить пристрою
             result = await db.execute(
                 select(DeviceDB).where(DeviceDB.rfid == rfid)
             )
             device_db = result.scalar_one_or_none()
 
             if not device_db:
-                ui_message = "Невідомий RFID"
+                ui_message = "Nieznany RFID"
                 ui_status = "error"
             else:
                 session = registration_manager.get(device_id)
                 if not session:
-                    ui_message = "Спочатку прикладіть картку працівника"
-                    ui_status = "error"
+                    if device_db.employee_id is not None:
+                        device_db.employee_id = None
+                        await db.commit()
+                        ui_message = f"{device_db.type.value} został odpięty"
+                        ui_status = "success"
+                    else:
+                        ui_message = "Najpierw przyłóż kartę pracownika"
+                        ui_status = "error"
                 else:
                     employee = session.employee
-                    # 🔹 Завантажуємо актуальні пристрої з бази
                     result = await db.execute(
                         select(DeviceDB.type)
                         .where(DeviceDB.employee_id == employee.id)
@@ -118,9 +103,8 @@ async def receive_esp32_data(
                     owned_types = {d.type for d in employee.devices}
                     owned_types = set(owned_types_list)
 
-
                     if device_db.type in owned_types:
-                        ui_message = f"Працівник вже має {device_db.type.value}"
+                        ui_message = f"Pracownik już posiada {device_db.type.value}"
                         ui_status = "error"
                     else:
                         device_db.employee_id = employee.id
@@ -128,16 +112,12 @@ async def receive_esp32_data(
 
                         ui_message = (
                             f"{device_db.type.value} "
-                            f"привʼязано до {employee.first_name} {employee.last_name}"
+                            f"przypisano do {employee.first_name} {employee.last_name}"
                         )
                         ui_status = "success"
 
-                        # 🔁 Продовжуємо сесію
                         registration_manager.refresh(device_id)
 
-        # ---------------------------
-        # 🔹 5. Broadcast статусу реєстрації працівника/пристрою
-        # ---------------------------
         await manager.broadcast_device_data(
             device_id,
             {

@@ -9,7 +9,7 @@ class RegistrationSession:
         self.started_at = datetime.now()
 
 class RegistrationManager:
-    def __init__(self, timeout_seconds: int = 30):
+    def __init__(self, timeout_seconds: int = 60):
         self.sessions: dict[str, RegistrationSession] = {}
         self.timeout = timedelta(seconds=timeout_seconds)
 
