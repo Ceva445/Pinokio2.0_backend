@@ -29,3 +29,6 @@ class RegistrationManager:
         session = self.sessions.get(esp_id)
         if session:
             session.touch()
+
+    def end(self, esp_id: str):
+        self.sessions.pop(esp_id, None)

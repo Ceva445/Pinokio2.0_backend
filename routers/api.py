@@ -1,6 +1,7 @@
 from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from schemas.device import DeviceType
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -37,7 +38,6 @@ async def receive_esp32_data(
     manager: ConnectionManager = Depends(get_manager),
     db: AsyncSession = Depends(get_db),
 ):
-    
     device = devices.update_device_data(device_id, data)
 
     if device.latest_data:
@@ -84,6 +84,7 @@ async def receive_esp32_data(
                 ui_status = "error"
             else:
                 session = registration_manager.get(device_id)
+
                 if not session:
                     if device_db.employee_id is not None:
                         device_db.employee_id = None
@@ -95,13 +96,12 @@ async def receive_esp32_data(
                         ui_status = "error"
                 else:
                     employee = session.employee
+
                     result = await db.execute(
                         select(DeviceDB.type)
                         .where(DeviceDB.employee_id == employee.id)
                     )
-                    owned_types_list = [row[0] for row in result.all()]
-                    owned_types = {d.type for d in employee.devices}
-                    owned_types = set(owned_types_list)
+                    owned_types = {row[0] for row in result.all()}
 
                     if device_db.type in owned_types:
                         ui_message = f"Pracownik już posiada {device_db.type.value}"
@@ -110,13 +110,29 @@ async def receive_esp32_data(
                         device_db.employee_id = employee.id
                         await db.commit()
 
-                        ui_message = (
-                            f"{device_db.type.value} "
-                            f"przypisano do {employee.first_name} {employee.last_name}"
+                        result = await db.execute(
+                            select(DeviceDB.type)
+                            .where(DeviceDB.employee_id == employee.id)
                         )
-                        ui_status = "success"
-
-                        registration_manager.refresh(device_id)
+                        owned_types = {row[0].value for row in result.all()}
+                        print(" Owned types ",owned_types)
+                        if owned_types == {"scanner", "printer"}:
+                            print("ENDING SESSION FOR", device_id)
+                            print("BEFORE:", registration_manager.sessions)
+                            registration_manager.end(device_id)
+                            print("AFTER:", registration_manager.sessions)
+                            ui_message = (
+                                f"{employee.first_name} {employee.last_name} "
+                                f"ma już skaner i drukarkę. Rejestracja zakończona."
+                            )
+                            ui_status = "success"
+                        else:
+                            registration_manager.refresh(device_id)
+                            ui_message = (
+                                f"{device_db.type.value} "
+                                f"przypisano do {employee.first_name} {employee.last_name}"
+                            )
+                            ui_status = "success"
 
         await manager.broadcast_device_data(
             device_id,
@@ -128,6 +144,7 @@ async def receive_esp32_data(
         )
 
     return {"status": "ok"}
+
 
 # ---------- EMPLOYEES ----------
 
