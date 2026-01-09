@@ -57,6 +57,7 @@ async def receive_esp32_data(
     ui_status = "info"
 
     if rfid:
+        
         from app.main import registration_manager
 
         result = await db.execute(
@@ -218,3 +219,14 @@ async def create_device(
         "serial_number": device.serial_number,
         "type": device.type,
     }
+
+
+@router.post("/end-session/{device_id}")
+async def end_session(device_id: str):
+    from app.main import registration_manager
+    session = registration_manager.get(device_id)
+    if not session:
+        return {"status": "error", "message": "Brak aktywnej sesji"}
+
+    registration_manager.sessions.pop(device_id, None)
+    return {"status": "success", "message": f"Sesja dla {device_id} zakończona"}

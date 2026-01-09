@@ -76,6 +76,22 @@ h1 {
 }
 
 /* ===== Live data ===== */
+
+#endSessionBtn {
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #dc2626;
+    color: white;
+    cursor: pointer;
+}
+
+#endSessionBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 pre {
     background: #020617;
     padding: 15px;
@@ -92,6 +108,8 @@ pre {
 <h1>ESP32 Live Monitor</h1>
 
 <div id="status"></div>
+
+<button id="endSessionBtn" disabled>Zakończ sesję</button>
 
 <div class="container">
     <div>
@@ -112,6 +130,8 @@ const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
 
 let devicesCache = {};
 let activeDevice = null;
+
+const endBtn = document.getElementById("endSessionBtn");
 
 /* === WebSocket events === */
 ws.onopen = () => {
@@ -209,8 +229,17 @@ function toggleSubscribe(deviceId) {
         activeDevice = deviceId;
     }
 
+    endBtn.disabled = !activeDevice;
     renderDevices();
 }
+
+endBtn.onclick = async () => {
+    if (!activeDevice) return;
+
+    const res = await fetch(`/api/end-session/${activeDevice}`, { method: "POST" });
+    const data = await res.json();
+    showStatus(data.status, data.message);
+};
 </script>
 
 </body>
