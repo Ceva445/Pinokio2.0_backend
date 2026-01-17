@@ -21,3 +21,7 @@ class DeviceDB(Base):
     )
 
     employee = relationship("EmployeeDB", back_populates="devices")
+    transactions = relationship(
+            "TransactionDB",
+            back_populates="device"
+        )

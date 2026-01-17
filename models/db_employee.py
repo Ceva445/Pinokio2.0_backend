@@ -15,3 +15,7 @@ class EmployeeDB(Base):
         back_populates="employee",
         cascade="all, delete-orphan"
     )
+    transactions = relationship(
+        "TransactionDB",
+        back_populates="user"
+    )

@@ -12,6 +12,8 @@ from managers.device_manager import DeviceManager
 from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB
+from models.db_transaction import TransactionDB
+from schemas.transaction import TransactionType
 
 router = APIRouter(prefix="/api", tags=["API"])
 
@@ -92,6 +94,13 @@ async def receive_esp32_data(
                         await db.commit()
                         ui_message = f"{device_db.type.value} został odpięty"
                         ui_status = "success"
+                        transaction = TransactionDB(
+                            type=TransactionType.unregistered,
+                            device_id=device_db.id,
+                            user_id=None
+                        )
+                        db.add(transaction)
+                        await db.commit()
                     else:
                         ui_message = "Najpierw przyłóż kartę pracownika"
                         ui_status = "error"
@@ -127,6 +136,13 @@ async def receive_esp32_data(
                                 f"ma już skaner i drukarkę. Rejestracja zakończona."
                             )
                             ui_status = "success"
+                            transaction = TransactionDB(
+                                type=TransactionType.registered,
+                                device_id=device_db.id,
+                                user_id=employee.id
+                            )
+                            db.add(transaction)
+                            await db.commit()
                         else:
                             registration_manager.refresh(device_id)
                             ui_message = (
@@ -134,6 +150,13 @@ async def receive_esp32_data(
                                 f"przypisano do {employee.first_name} {employee.last_name}"
                             )
                             ui_status = "success"
+                            transaction = TransactionDB(
+                                type=TransactionType.registered,
+                                device_id=device_db.id,
+                                user_id=employee.id
+                            )
+                            db.add(transaction)
+                            await db.commit()
 
         await manager.broadcast_device_data(
             device_id,
