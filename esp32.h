@@ -1,5 +1,6 @@
 /*
   ESP32 RFID → FastAPI (Pinokio 2.0)
+  POST без очікування response (короткий таймаут)
 */
 
 #include <WiFi.h>
@@ -21,14 +22,19 @@ MFRC522DriverPinSimple ss_pin(5);
 MFRC522DriverSPI driver{ ss_pin };
 MFRC522 rfid{ driver };
 
+// ===== Buzzer =====
+#define BUZZER_PIN 25
+
 // Анти-дубль
 String lastUID = "";
 unsigned long lastSend = 0;
-const unsigned long SEND_DELAY = 1000; // 1 сек
+const unsigned long SEND_DELAY = 1000;
 
+// WiFi reconnect
 unsigned long lastWifiCheck = 0;
 const unsigned long WIFI_RECONNECT_INTERVAL = 5000;
 
+// ===== WiFi check =====
 void checkWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
 
@@ -40,8 +46,19 @@ void checkWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 }
 
+// ===== Buzzer =====
+void beep(int duration = 100) {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(duration);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+// ===== Setup =====
 void setup() {
   Serial.begin(115200);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   // WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -57,6 +74,7 @@ void setup() {
   Serial.println("RFID ready");
 }
 
+// ===== Loop =====
 void loop() {
   checkWiFi();
 
@@ -82,29 +100,26 @@ void loop() {
   lastSend = now;
 
   Serial.println("RFID: " + uid);
+  beep(300);
 
   sendToServer(uid);
 
   rfid.PICC_HaltA();
 }
 
-// ===== HTTP POST =====
+// ===== HTTP POST (short timeout) =====
 void sendToServer(const String& uid) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   HTTPClient http;
-  String fullUrl = String(API_URL) + DEVICE_ID;
+  http.setTimeout(200);
 
+  String fullUrl = String(API_URL) + DEVICE_ID;
   http.begin(fullUrl);
   http.addHeader("Content-Type", "application/json");
 
   String body = "{\"rfid\":\"" + uid + "\"}";
-  int code = http.POST(body);
-
-  Serial.print("POST ");
-  Serial.print(code);
-  Serial.print(" → ");
-  Serial.println(body);
+  http.POST(body);
 
   http.end();
 }
