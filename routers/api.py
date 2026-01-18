@@ -42,6 +42,7 @@ async def receive_esp32_data(
 ):
     device = devices.update_device_data(device_id, data)
 
+    # Передаємо дані пристрою всім підключеним клієнтам
     if device.latest_data:
         await manager.broadcast_device_data(
             device_id,
@@ -92,7 +93,7 @@ async def receive_esp32_data(
                     if device_db.employee_id is not None:
                         device_db.employee_id = None
                         await db.commit()
-                        ui_message = f"{device_db.type.value} został odpięty"
+                        ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
                         ui_status = "success"
                         transaction = TransactionDB(
                             type=TransactionType.unregistered,
@@ -108,32 +109,39 @@ async def receive_esp32_data(
                     employee = session.employee
 
                     result = await db.execute(
-                        select(DeviceDB.type)
+                        select(DeviceDB)
                         .where(DeviceDB.employee_id == employee.id)
                     )
-                    owned_types = {row[0] for row in result.all()}
+                    user_devices = result.scalars().all()
+                    owned_types = {d.type for d in user_devices}
 
                     if device_db.type in owned_types:
-                        ui_message = f"Pracownik już posiada {device_db.type.value}"
+                        ui_message = f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         ui_status = "error"
                     else:
                         device_db.employee_id = employee.id
                         await db.commit()
 
                         result = await db.execute(
-                            select(DeviceDB.type)
+                            select(DeviceDB)
                             .where(DeviceDB.employee_id == employee.id)
                         )
-                        owned_types = {row[0].value for row in result.all()}
-                        print(" Owned types ",owned_types)
+                        user_devices = result.scalars().all()
+                        owned_types = {d.type.value for d in user_devices}
+                        print(owned_types)
+                        print(user_devices)
+                        for d in user_devices:
+                            print(f"Device id={d.id}, name={d.name}, type={d.type}")
+
                         if owned_types == {"scanner", "printer"}:
-                            print("ENDING SESSION FOR", device_id)
-                            print("BEFORE:", registration_manager.sessions)
                             registration_manager.end(device_id)
-                            print("AFTER:", registration_manager.sessions)
+
+                            scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
+                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)                         
                             ui_message = (
                                 f"{employee.first_name} {employee.last_name} "
-                                f"ma już skaner i drukarkę. Rejestracja zakończona."
+                                f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
+                                f"Rejestracja zakończona."
                             )
                             ui_status = "success"
                             transaction = TransactionDB(
@@ -146,7 +154,7 @@ async def receive_esp32_data(
                         else:
                             registration_manager.refresh(device_id)
                             ui_message = (
-                                f"{device_db.type.value} "
+                                f"{device_db.type.value} {device_db.name} "
                                 f"przypisano do {employee.first_name} {employee.last_name}"
                             )
                             ui_status = "success"
