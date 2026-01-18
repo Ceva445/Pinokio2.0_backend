@@ -7,3 +7,6 @@ sqlalchemy==2.0.44
 alembic==1.17.2
 python-dotenv
 asyncpg
+pytest
+httpx 
+pytest-asyncio

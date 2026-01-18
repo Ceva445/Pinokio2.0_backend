@@ -12,6 +12,9 @@ from routers import api, pages, websocket
 from fastapi.middleware.cors import CORSMiddleware
 from managers.registration_manager import RegistrationManager
 
+from pathlib import Path
+import sys
+
 # Налаштування логування
 logging.basicConfig(**LOG_CONFIG)
 logger = logging.getLogger(__name__)
@@ -21,6 +24,9 @@ device_manager = DeviceManager(timeout_minutes=10)
 manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=60)
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
