@@ -128,10 +128,6 @@ async def receive_esp32_data(
                         )
                         user_devices = result.scalars().all()
                         owned_types = {d.type.value for d in user_devices}
-                        print(owned_types)
-                        print(user_devices)
-                        for d in user_devices:
-                            print(f"Device id={d.id}, name={d.name}, type={d.type}")
 
                         if owned_types == {"scanner", "printer"}:
                             registration_manager.end(device_id)
