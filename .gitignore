@@ -41,3 +41,5 @@ dist/
 # Системні файли
 .DS_Store
 Thumbs.db
+
+scripts/

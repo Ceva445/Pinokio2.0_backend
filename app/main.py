@@ -8,10 +8,10 @@ from contextlib import asynccontextmanager
 from config import STATIC_DIR, LOG_CONFIG
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
-from routers import api, pages, websocket
+from routers import api, pages, websocket, auth
 from fastapi.middleware.cors import CORSMiddleware
 from managers.registration_manager import RegistrationManager
-
+from managers.auth_manager import auth_manager
 from pathlib import Path
 import sys
 
@@ -34,12 +34,15 @@ async def lifespan(app: FastAPI):
     logger.info("ESP32 Multi-Device Monitor started")
     
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
+    auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
     
     yield
     
     cleanup_task.cancel()
+    auth_cleanup_task.cancel()
     try:
         await cleanup_task
+        await auth_cleanup_task
     except asyncio.CancelledError:
         pass
     logger.info("ESP32 Multi-Device Monitor stopped")
@@ -61,6 +64,15 @@ async def cleanup_offline_devices():
             logger.error("Error in cleanup task: %s", exc)
 
 
+async def cleanup_auth_sessions():
+    while True:
+        try:
+            await asyncio.sleep(3600)  # кожну годину
+            auth_manager.cleanup_expired_sessions()
+        except Exception as exc:
+            logger.error("Error in auth cleanup task: %s", exc)
+
+
 # Ініціалізація додатку
 app = FastAPI(
     title="ESP32 Multi-Device Monitor",
@@ -79,6 +91,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Підключення маршрутів
+app.include_router(auth.router)
 app.include_router(api.router)
 app.include_router(websocket.router)
 app.include_router(pages.router)

@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 from db.base import Base
-from models import db_device, db_employee, db_transaction
+from models import db_device, db_employee, db_transaction, db_user
 
 load_dotenv()
 
