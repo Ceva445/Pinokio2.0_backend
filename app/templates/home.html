@@ -2,7 +2,14 @@
 
 {% block title %}ESP32 Real-time Monitor{% endblock %}
 
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+{% endblock %}
+
 {% block content %}
-    <h1>ESP32 Real-time Monitor</h1>
-    <p>Open <a href="/monitor">/monitor</a> to see real-time data</p>
+<h1>ESP32 Real-time Monitor</h1>
+
+<p>
+    Open <a href="/monitor">/monitor</a> to see real-time data
+</p>
 {% endblock %}

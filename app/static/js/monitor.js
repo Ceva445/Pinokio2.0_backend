@@ -52,7 +52,7 @@ function showStatus(status, message) {
     // автоочистка через 5 сек
     setTimeout(() => {
         el.style.display = "none";
-    }, 5000);
+    }, 10000);
 }
 
 /* === UI rendering === */

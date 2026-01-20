@@ -5,10 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ESP32 Live Monitor{% endblock %}</title>
     {% block styles %}{% endblock %}
-    {% block head_scripts %}{% endblock %}
 </head>
 <body>
-    {% block content %}{% endblock %}
-    {% block body_scripts %}{% endblock %}
+
+<header style="display:flex; justify-content:flex-end; margin-bottom:20px; gap:10px;">
+    <a href="/login" id="loginBtn">Увійти</a>
+    <a href="#" id="logoutBtn" class="button-link" style="display:none;">Вийти</a>
+</header>
+
+{% block content %}{% endblock %}
+
+<script>
+async function checkAuth() {
+    const res = await fetch("/auth/me", {
+        credentials: "include" 
+    });
+
+    if (res.ok) {
+        document.getElementById("loginBtn").style.display = "none";
+        document.getElementById("logoutBtn").style.display = "inline";
+    }
+}
+
+document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    await fetch("/auth/logout", {
+        method: "POST",
+        credentials: "include"
+    });
+    location.reload();
+});
+
+checkAuth();
+</script>
+
+{% block body_scripts %}{% endblock %}
 </body>
 </html>

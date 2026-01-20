@@ -1,5 +1,5 @@
 """Маршрути для автентифікації користувачів"""
-from fastapi import APIRouter, Depends, HTTPException, status, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Form, Request, Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,10 +16,17 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
+def get_token_from_cookie(request: Request) -> str | None:
+    return request.cookies.get("access_token")
+
+
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
+    token = token or get_token_from_cookie(request)
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -129,6 +136,7 @@ async def register_user(
 
 @router.post("/login", response_model=Token)
 async def login_form(
+    response: Response,
     username: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db)
@@ -145,7 +153,7 @@ async def login_form(
     
     access_token = auth_manager.create_access_token(
         data={"sub": user.username},
-        expires_delta=timedelta(minutes=30)
+        expires_delta=timedelta(days=7)
     )
     
     user_dict = {
@@ -157,15 +165,27 @@ async def login_form(
         "is_active": user.is_active
     }
     auth_manager.add_session(access_token, user_dict)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax"
+    )
     
     return Token(access_token=access_token, token_type="bearer")
 
 
 @router.post("/logout")
 async def logout(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     token: str = Depends(oauth2_scheme)
 ):
-    """Вихід з системи"""
     auth_manager.remove_session(token)
+    response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
+
+@router.get("/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    return current_user

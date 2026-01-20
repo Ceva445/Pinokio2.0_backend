@@ -1,0 +1,63 @@
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #0f172a; /* optional фон */
+}
+
+.login-form {
+    background: #1e293b;
+    padding: 32px;       /* трохи більше паддінгу для балансу */
+    border-radius: 12px;
+    width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); /* додаємо тінь для глибини */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;           /* рівний відступ між елементами */
+    box-sizing: border-box;
+}
+
+.login-form input,
+.login-form button {
+    width: 100%;
+    padding: 12px 14px;  /* трохи більше для симетрії */
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.login-form input {
+    background: #334155;
+    color: #f1f5f9;
+}
+
+.login-form input::placeholder {
+    color: #94a3b8;
+}
+
+.login-form input:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    background: #3b4256;
+}
+
+.login-form button {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.login-form button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.login-form button:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}

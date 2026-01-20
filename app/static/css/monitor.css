@@ -1,95 +1,443 @@
+/* Основний стиль */
+:root {
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --success: #10b981;
+    --error: #ef4444;
+    --warning: #f59e0b;
+    --background: #0f172a;
+    --surface: #1e293b;
+    --surface-light: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont;
-    background: #0f172a;
-    color: #e5e7eb;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--background);
+    background-image: 
+        radial-gradient(at 40% 20%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+        radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+    color: var(--text-primary);
     margin: 0;
-    padding: 20px;
+    padding: 24px;
+    min-height: 100vh;
+    line-height: 1.6;
 }
 
-h1 {
-    margin-bottom: 10px;
-}
-
+/* Контейнер */
 .container {
     display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 20px;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
 }
 
-/* ===== Devices list ===== */
+/* Заголовки */
+h1 {
+    margin-bottom: 12px;
+    font-weight: 700;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+}
+
+/* Пристрої */
+.devices-list {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
 .device {
-    padding: 10px;
-    border-radius: 8px;
-    background: #1e293b;
-    margin-bottom: 8px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    margin-bottom: 12px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.device::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--text-secondary);
+    transition: width 0.3s ease;
 }
 
 .device:hover {
-    background: #334155;
+    background: var(--surface-light);
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.device.online {
-    border-left: 4px solid #22c55e;
+.device:hover::before {
+    width: 6px;
+    background: var(--primary);
+}
+
+.device.online::before {
+    background: var(--success);
+    animation: pulse 2s infinite;
 }
 
 .device.offline {
-    opacity: 0.4;
+    opacity: 0.6;
+    filter: grayscale(0.5);
+}
+
+.device.offline::before {
+    background: var(--text-secondary);
 }
 
 .device.active {
-    background: #2563eb;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(30, 64, 175, 0.1));
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary), 0 8px 24px rgba(59, 130, 246, 0.2);
 }
 
-/* ===== Status messages ===== */
+.device.active::before {
+    background: var(--primary);
+    width: 6px;
+}
+
+/* Статус повідомлення */
 #status {
-    margin-bottom: 12px;
-    padding: 10px;
-    border-radius: 8px;
-    display: none;
+    margin-bottom: 16px;
+    padding: 24px;
+    border-radius: var(--radius-md);
+    font-size: 24px;
+    animation: slideIn 0.5s ease;
+    border: 1px solid transparent;
+    backdrop-filter: blur(10px);
 }
 
 .status-success {
-    display: block;
-    background: #052e16;
-    color: #22c55e;
+    background: rgba(16, 185, 129, 0.15);
+    color: #a7f3d0;
+    border-color: rgba(16, 185, 129, 0.3);
 }
 
 .status-error {
-    display: block;
-    background: #450a0a;
-    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fecaca;
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 .status-info {
-    display: block;
-    background: #020617;
-    color: #38bdf8;
+    background: rgba(59, 130, 246, 0.15);
+    color: #bfdbfe;
+    border-color: rgba(59, 130, 246, 0.3);
 }
 
-/* ===== Live data ===== */
-
+/* Кнопки */
 #endSessionBtn {
-    margin-bottom: 12px;
-    padding: 10px 16px;
-    border-radius: 8px;
+    margin-bottom: 20px;
+    padding: 14px 24px;
+    border-radius: var(--radius-md);
     border: none;
-    background: #dc2626;
+    background: linear-gradient(135deg, var(--error), #dc2626);
     color: white;
     cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+#endSessionBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s;
+}
+
+#endSessionBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
+#endSessionBtn:hover::before {
+    left: 100%;
+}
+
+#endSessionBtn:active {
+    transform: translateY(0);
 }
 
 #endSessionBtn:disabled {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
+/* Live data */
 pre {
-    background: #020617;
-    padding: 15px;
-    border-radius: 8px;
-    height: 300px;
+    background: rgba(15, 23, 42, 0.8);
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    height: 250px;
     overflow: auto;
     font-size: 14px;
+    line-height: 1.5;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow);
+    position: relative;
+}
+
+pre::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, transparent 50%, rgba(59, 130, 246, 0.1) 50%);
+    border-top-right-radius: var(--radius-lg);
+    pointer-events: none;
+}
+
+/* Скролбар */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
+}
+
+/* Анімації */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптивність */
+@media (max-width: 1024px) {
+    .container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .devices-list {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+}
+
+/* Додаткові декоративні елементи */
+.main-content {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow);
+}
+
+/* Покращений вивід JSON */
+pre .key { color: #60a5fa; }
+pre .string { color: #34d399; }
+pre .number { color: #fbbf24; }
+pre .boolean { color: #f87171; }
+pre .null { color: #c084fc; }
+
+/* ===== Стилі для посилань ===== */
+a {
+    color: #60a5fa;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+a:hover {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.1);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+a:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Різні типи посилань для різних контекстів */
+a.primary-link {
+    color: #3b82f6;
+    font-weight: 600;
+    background: linear-gradient(120deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+    padding: 4px 8px;
+    border-left: 3px solid #3b82f6;
+}
+
+a.primary-link:hover {
+    background: linear-gradient(120deg, rgba(59, 130, 246, 0.2) 0%, transparent 100%);
+}
+
+a.success-link {
+    color: #10b981;
+    border-left: 3px solid #10b981;
+}
+
+a.warning-link {
+    color: #f59e0b;
+    border-left: 3px solid #f59e0b;
+}
+
+/* Посилання в текстовому контенті */
+.content-area a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    margin: 0 2px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 6px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.content-area a:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+/* Посилання в пре (код) */
+pre a {
+    color: #93c5fd;
+    background: rgba(147, 197, 253, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid rgba(147, 197, 253, 0.2);
+}
+
+pre a:hover {
+    background: rgba(147, 197, 253, 0.2);
+    color: #bfdbfe;
+}
+
+/* Іконки для посилань (опційно) */
+a[href^="http"]::after {
+    content: "↗";
+    margin-left: 4px;
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+a[href^="mailto"]::before {
+    content: "✉️";
+    margin-right: 4px;
+}
+
+/* Посилання в списках */
+li a {
+    display: inline-block;
+    margin: 2px 0;
+}
+
+/* Кнопкоподібні посилання */
+a.button-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+a.button-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    text-decoration: none;
+    color: white;
+}
+
+a.button-link:active {
+    transform: translateY(0);
+}
+
+/* Посилання в навігації */
+nav a {
+    color: #e5e7eb;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+nav a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+nav a.active {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border-left: 3px solid #3b82f6;
 }

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Вхід в систему{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <form id="loginForm" class="login-form">
+        <h2>Вхід</h2>
+        <input name="username" placeholder="Логін" required>
+        <input name="password" type="password" placeholder="Пароль" required>
+        <button type="submit">Увійти</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block body_scripts %}
+    <script src="{{ url_for('static', path='js/login.js') }}"></script>
+{% endblock %}

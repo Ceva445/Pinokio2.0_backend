@@ -24,3 +24,11 @@ async def monitor(request: Request) -> HTMLResponse:
         "monitor.html",
         {"request": request}
     )
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request}
+    )
