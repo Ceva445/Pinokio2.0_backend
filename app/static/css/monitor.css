@@ -205,7 +205,7 @@ pre {
     background: rgba(15, 23, 42, 0.8);
     padding: 24px;
     border-radius: var(--radius-lg);
-    height: 250px;
+    height: 150px;
     overflow: auto;
     font-size: 14px;
     line-height: 1.5;
