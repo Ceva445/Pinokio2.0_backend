@@ -1,12 +1,15 @@
 """Конфігурація додатку"""
 from pathlib import Path
+from fastapi.templating import Jinja2Templates
 
 # Шляхи
 BASE_DIR = Path(__file__).resolve().parent
 APP_DIR = BASE_DIR / "app"
 
 STATIC_DIR = APP_DIR / "static"
-INDEX_FILE = STATIC_DIR / "index.html"
+
+TEMPLATES_DIR = BASE_DIR / "app" / "templates"
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Типи повідомлень
 MSG_UPDATE = "update"

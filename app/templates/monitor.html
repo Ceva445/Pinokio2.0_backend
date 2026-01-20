@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}ESP32 Live Monitor{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+{% endblock %}
+
+{% block content %}
+    <h1>ESP32 Live Monitor</h1>
+
+    <div id="status"></div>
+
+    <button id="endSessionBtn" disabled>Zakończ sesję</button>
+
+    <div class="container">
+        <div>
+            <h3>Devices</h3>
+            <div id="devices"></div>
+        </div>
+
+        <div>
+            <h3>Live Data</h3>
+            <pre id="output">No device subscribed</pre>
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_scripts %}
+    <script src="{{ url_for('static', path='js/monitor.js') }}"></script>
+{% endblock %}

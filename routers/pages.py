@@ -1,28 +1,26 @@
 """Маршрути для HTML сторінок"""
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from config import INDEX_FILE
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
+from config import templates
 
 router = APIRouter(tags=["Pages"])
 
 
 @router.get("/", response_class=HTMLResponse)
-async def home() -> HTMLResponse:
+async def home(request: Request) -> HTMLResponse:
     """Головна сторінка"""
-    return HTMLResponse(
-        """
-        <html>
-            <body>
-                <h1>ESP32 Real-time Monitor</h1>
-                <p>Open <a href="/monitor">/monitor</a> to see real-time data</p>
-            </body>
-        </html>
-        """
+    return templates.TemplateResponse(
+        "home.html",
+        {"request": request}
     )
 
 
 @router.get("/monitor", response_class=HTMLResponse)
-async def monitor() -> HTMLResponse:
+async def monitor(request: Request) -> HTMLResponse:
     """Сторінка моніторингу"""
-    with open(INDEX_FILE, encoding="utf-8") as file:
-        return HTMLResponse(file.read())
+    return templates.TemplateResponse(
+        "monitor.html",
+        {"request": request}
+    )

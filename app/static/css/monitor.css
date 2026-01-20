@@ -1,0 +1,95 @@
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont;
+    background: #0f172a;
+    color: #e5e7eb;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+}
+
+/* ===== Devices list ===== */
+.device {
+    padding: 10px;
+    border-radius: 8px;
+    background: #1e293b;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.device:hover {
+    background: #334155;
+}
+
+.device.online {
+    border-left: 4px solid #22c55e;
+}
+
+.device.offline {
+    opacity: 0.4;
+}
+
+.device.active {
+    background: #2563eb;
+}
+
+/* ===== Status messages ===== */
+#status {
+    margin-bottom: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    display: none;
+}
+
+.status-success {
+    display: block;
+    background: #052e16;
+    color: #22c55e;
+}
+
+.status-error {
+    display: block;
+    background: #450a0a;
+    color: #ef4444;
+}
+
+.status-info {
+    display: block;
+    background: #020617;
+    color: #38bdf8;
+}
+
+/* ===== Live data ===== */
+
+#endSessionBtn {
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #dc2626;
+    color: white;
+    cursor: pointer;
+}
+
+#endSessionBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+pre {
+    background: #020617;
+    padding: 15px;
+    border-radius: 8px;
+    height: 300px;
+    overflow: auto;
+    font-size: 14px;
+}
