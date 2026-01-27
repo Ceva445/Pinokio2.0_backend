@@ -84,6 +84,7 @@ function toggleSubscribe(deviceId) {
             command: "unsubscribe",
             device_id: deviceId
         }));
+        fetch(`/api/unsubscribe-esp/${deviceId}`, { method: "POST" });
 
         activeDevice = null;
         document.getElementById("output").textContent = "No device subscribed";
@@ -93,12 +94,14 @@ function toggleSubscribe(deviceId) {
                 command: "unsubscribe",
                 device_id: activeDevice
             }));
+            fetch(`/api/unsubscribe-esp/${activeDevice}`, { method: "POST" });
         }
 
         ws.send(JSON.stringify({
             command: "subscribe",
             device_id: deviceId
         }));
+        fetch(`/api/subscribe-esp/${deviceId}`, { method: "POST" });
 
         activeDevice = deviceId;
     }

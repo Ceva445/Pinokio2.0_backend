@@ -19,67 +19,77 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 def get_token_from_cookie(request: Request) -> str | None:
     return request.cookies.get("access_token")
 
+def get_current_user(required: bool = True):
+    async def _get_current_user(
+        request: Request,
+        token: str = Depends(oauth2_scheme),
+        db: AsyncSession = Depends(get_db)
+    ):
+        token = token or get_token_from_cookie(request)
 
-async def get_current_user(
-    request: Request,
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-):
-    token = token or get_token_from_cookie(request)
+        # 🔹 Якщо користувач НЕ обовʼязковий і токена немає
+        if not token:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return None
 
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user_data = auth_manager.get_user_from_token(token)
-    if user_data:
-        return user_data
-    
-    payload = auth_manager.decode_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    username = payload.get("sub")
-    if not username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        )
-    
-    result = await db.execute(
-        select(UserDB).where(UserDB.username == username)
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-        )
-    
-    user_dict = {
-        "id": user.id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "role": user.role.value,
-        "is_active": user.is_active
-    }
-    
-    auth_manager.add_session(token, user_dict)
-    
-    return user_dict
+        # 🔹 Спроба взяти з кешу
+        user_data = auth_manager.get_user_from_token(token)
+        if user_data:
+            return user_data
 
+        payload = auth_manager.decode_token(token)
+        if not payload:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return None
+
+        username = payload.get("sub")
+        if not username:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials",
+                )
+            return None
+
+        result = await db.execute(
+            select(UserDB).where(UserDB.username == username)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user or not user.is_active:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found or inactive",
+                )
+            return None
+
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role.value,
+            "is_active": user.is_active
+        }
+
+        auth_manager.add_session(token, user_dict)
+        return user_dict
+
+    return _get_current_user
 
 def require_role(required_role: UserRole):
-    def role_checker(current_user: dict = Depends(get_current_user)):
+    def role_checker(current_user: dict = Depends(get_current_user())):
         if current_user["role"] != required_role.value:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -93,7 +103,7 @@ def require_role(required_role: UserRole):
 async def register_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user())
 ):
     if current_user["role"] != UserRole.admin.value:
         raise HTTPException(
@@ -179,7 +189,7 @@ async def login_form(
 @router.post("/logout")
 async def logout(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user()),
     token: str = Depends(oauth2_scheme)
 ):
     auth_manager.remove_session(token)
@@ -187,5 +197,5 @@ async def logout(
     return {"message": "Successfully logged out"}
 
 @router.get("/me")
-async def me(current_user: dict = Depends(get_current_user)):
+async def me(current_user: dict = Depends(get_current_user())):
     return current_user

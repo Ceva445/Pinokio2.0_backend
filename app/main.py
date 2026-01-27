@@ -24,6 +24,9 @@ device_manager = DeviceManager(timeout_minutes=10)
 manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=60)
 
+esp_allowed_users: dict[str, set[int]] = {}
+print(esp_allowed_users)
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

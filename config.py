@@ -33,3 +33,5 @@ DEVICE_CONFIG = {
     "timeout_minutes": 10,  # через скільки хвилин вважати пристрій офлайн
     "max_devices": 100  # максимальна кількість пристроїв
 }
+
+ALLOW_REGISTRATION_WITHOUT_LOGIN = False
