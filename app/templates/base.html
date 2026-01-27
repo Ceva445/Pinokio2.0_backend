@@ -28,11 +28,17 @@ async function checkAuth() {
 }
 
 document.getElementById("logoutBtn")?.addEventListener("click", async () => {
-    await fetch("/auth/logout", {
+    const res = await fetch("/auth/logout", {
         method: "POST",
         credentials: "include"
     });
-    location.reload();
+
+    if (res.ok) {
+        // Redirect to homepage after logout
+        window.location.href = "/";
+    } else {
+        alert("Не вдалося вийти. Спробуйте ще раз.");
+    }
 });
 
 checkAuth();
