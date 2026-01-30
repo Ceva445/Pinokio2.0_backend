@@ -9,6 +9,8 @@
 <body>
 
 <header style="display:flex; justify-content:flex-end; margin-bottom:20px; gap:10px;">
+    <a href="/" id="homeBtn" style="display:none;">На головну</a>
+    <a href="/admin" id="adminBtn" style="display:none;">Адмінка</a>
     <a href="/login" id="loginBtn">Увійти</a>
     <a href="#" id="logoutBtn" class="button-link" style="display:none;">Вийти</a>
 </header>
@@ -17,13 +19,46 @@
 
 <script>
 async function checkAuth() {
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const adminBtn = document.getElementById("adminBtn");
+    const homeBtn  = document.getElementById("homeBtn");
+
+    const isAdminPage = window.location.pathname.startsWith("/admin");
+
     const res = await fetch("/auth/me", {
-        credentials: "include" 
+        credentials: "include"
     });
 
-    if (res.ok) {
-        document.getElementById("loginBtn").style.display = "none";
-        document.getElementById("logoutBtn").style.display = "inline";
+    if (!res.ok) {
+        // ❌ не залогінений
+        loginBtn.style.display = "inline";
+        logoutBtn.style.display = "none";
+        adminBtn.style.display = "none";
+        homeBtn.style.display = "none";
+        return;
+    }
+
+    const user = await res.json();
+
+    // ✔ залогінений
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline";
+
+    if (user.role === "admin") {
+        if (isAdminPage) {
+            // 🟢 в адмінці → показати "На головну"
+            adminBtn.style.display = "none";
+            homeBtn.style.display = "inline";
+        } else {
+            // 🟢 не в адмінці → показати "Адмінка"
+            adminBtn.style.display = "inline";
+            homeBtn.style.display = "none";
+        }
+    } else {
+        // 👤 не адмін
+        adminBtn.style.display = "none";
+        homeBtn.style.display = "none";
     }
 }
 
@@ -34,15 +69,15 @@ document.getElementById("logoutBtn")?.addEventListener("click", async () => {
     });
 
     if (res.ok) {
-        // Redirect to homepage after logout
         window.location.href = "/";
     } else {
-        alert("Не вдалося вийти. Спробуйте ще раз.");
+        alert("Не вдалося вийти");
     }
 });
 
 checkAuth();
 </script>
+
 
 {% block body_scripts %}{% endblock %}
 </body>

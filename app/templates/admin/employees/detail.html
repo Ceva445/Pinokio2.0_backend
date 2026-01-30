@@ -1,0 +1,19 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Працівник #{{ employee_id }}</h2>
+
+<form id="employeeForm">
+    <input name="first_name">
+    <input name="last_name">
+    <input name="company">
+    <input name="rfid">
+    <button type="submit">Зберегти</button>
+    <button type="button" onclick="deleteEmployee()">🗑 Видалити</button>
+</form>
+
+<script>
+const employeeId = {{ employee_id }};
+</script>
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

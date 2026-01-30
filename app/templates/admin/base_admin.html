@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+    <aside class="admin-sidebar">
+        <h3>Адмінка</h3>
+        <ul>
+            <li><a href="/admin">Dashboard</a></li>
+            <li><a href="/admin/employees">Працівники</a></li>
+            <li><a href="/admin/devices">Пристрої</a></li>
+            <li><a href="/admin/transactions">Транзакції</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-content">
+        {% block admin_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
