@@ -34,12 +34,19 @@ async function api(url, options = {}) {
 
 async function loadEmployees() {
     const tbody = document.querySelector("#employeesTable tbody");
+    const searchInput = document.getElementById("search");
+    const q = searchInput?.value ?? "";
+
     if (!tbody) return;
 
     tbody.innerHTML = "<tr><td colspan='5'>Завантаження...</td></tr>";
 
     try {
-        const employees = await api("/admin/api/employees");
+        const url = q
+            ? `/admin/api/employees?q=${encodeURIComponent(q)}`
+            : "/admin/api/employees";
+
+        const employees = await api(url);
 
         tbody.innerHTML = "";
 
@@ -47,6 +54,7 @@ async function loadEmployees() {
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
+                <td>${e.wms_login}</td>
                 <td>${e.first_name}</td>
                 <td>${e.last_name}</td>
                 <td>${e.company}</td>
@@ -64,6 +72,7 @@ async function loadEmployees() {
 }
 
 
+
 /* ================================
    ДЕТАЛІ ПРАЦІВНИКА
 ================================ */
@@ -75,6 +84,7 @@ async function loadEmployeeDetail(employeeId) {
     try {
         const employee = await api(`/admin/api/employees/${employeeId}`);
 
+        form.wms_login.value = employee.wms_login ?? "";
         form.first_name.value = employee.first_name ?? "";
         form.last_name.value = employee.last_name ?? "";
         form.company.value = employee.company ?? "";
@@ -91,6 +101,7 @@ async function loadEmployeeDetail(employeeId) {
         await api(`/admin/api/employees/${employeeId}`, {
             method: "PUT",
             body: JSON.stringify({
+                wms_login: form.wms_login.value,
                 first_name: form.first_name.value,
                 last_name: form.last_name.value,
                 company: form.company.value,
@@ -125,10 +136,12 @@ async function createEmployee() {
     const last_name = prompt("Прізвище:");
     const company = prompt("Компанія:");
     const rfid = prompt("RFID:");
+    const wms_login = prompt("WMS_LOGIN:");
 
     await api("/admin/api/employees", {
         method: "POST",
         body: JSON.stringify({
+            wms_login,
             first_name,
             last_name,
             company,
@@ -146,6 +159,15 @@ async function createEmployee() {
 
 document.addEventListener("DOMContentLoaded", () => {
     loadEmployees();
+
+    const searchInput = document.getElementById("search");
+    if (searchInput) {
+        let timeout;
+        searchInput.addEventListener("input", () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(loadEmployees, 300);
+        });
+    }
 
     if (typeof employeeId !== "undefined") {
         loadEmployeeDetail(employeeId);

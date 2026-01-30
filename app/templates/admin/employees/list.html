@@ -3,12 +3,17 @@
 {% block admin_content %}
 <h2>Працівники</h2>
 
-<!-- <input type="text" id="search" placeholder="Пошук по імені / RFID"> -->
-<!-- <button onclick="createEmployee()">➕ Додати</button> -->
+<input
+    type="text"
+    id="search"
+    placeholder="Пошук по імені / прізвищу / логіну"
+    style="margin-bottom: 10px; width: 300px;"
+><!-- <button onclick="createEmployee()">➕ Додати</button> -->
 
 <table id="employeesTable">
     <thead>
         <tr>
+            <th>WMS_LOGIN</th>
             <th>Імʼя</th>
             <th>Прізвище</th>
             <th>Компанія</th>

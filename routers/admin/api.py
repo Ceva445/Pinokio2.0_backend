@@ -1,7 +1,8 @@
 from http.client import HTTPException
 from fastapi import APIRouter, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
+from fastapi.params import Query
 from db.session import get_db
 from app.dependencies.admin import require_admin
 from models.db_employee import EmployeeDB
@@ -13,10 +14,22 @@ router = APIRouter(
 
 @router.get("/employees")
 async def get_employees(
+    q: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    result = await db.execute(select(EmployeeDB))
+    stmt = select(EmployeeDB)
+
+    if q:
+        stmt = stmt.where(
+            or_(
+                EmployeeDB.first_name.ilike(f"%{q}%"),
+                EmployeeDB.last_name.ilike(f"%{q}%"),
+                EmployeeDB.wms_login.ilike(f"%{q}%")
+            )
+        )
+
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
