@@ -126,31 +126,39 @@ async function deleteEmployee(employeeId) {
 
 
 /* ================================
-   СТВОРЕННЯ ПРАЦІВНИКА
+   СТВОРЕННЯ ПРАЦІВНИКА (ФОРМА)
 ================================ */
 
-async function createEmployee() {
-    const first_name = prompt("Імʼя:");
-    if (!first_name) return;
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("employeeCreateForm");
+    if (!form) return;
 
-    const last_name = prompt("Прізвище:");
-    const company = prompt("Компанія:");
-    const rfid = prompt("RFID:");
-    const wms_login = prompt("WMS_LOGIN:");
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-    await api("/admin/api/employees", {
-        method: "POST",
-        body: JSON.stringify({
-            wms_login,
-            first_name,
-            last_name,
-            company,
-            rfid
-        })
+        const data = {
+            wms_login: form.wms_login.value || null,
+            first_name: form.first_name.value,
+            last_name: form.last_name.value,
+            company: form.company.value,
+            rfid: form.rfid.value
+        };
+
+        try {
+            await api("/admin/api/employees", {
+                method: "POST",
+                body: JSON.stringify(data)
+            });
+
+            alert("Працівника створено ✅");
+            window.location.href = "/admin/employees";
+
+        } catch (err) {
+            alert("Помилка створення ❌\n" + err.message);
+        }
     });
+});
 
-    loadEmployees();
-}
 
 
 /* ================================

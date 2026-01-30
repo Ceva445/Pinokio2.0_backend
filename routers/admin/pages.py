@@ -32,6 +32,16 @@ async def employees_list(
     )
 
 
+@router.get("/employees/create", response_class=HTMLResponse)
+async def employee_create_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/employees/create.html",
+        {"request": request}
+    )
+
 @router.get("/employees/{employee_id}", response_class=HTMLResponse)
 async def employee_detail(
     employee_id: int,
