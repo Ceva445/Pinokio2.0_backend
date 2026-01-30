@@ -56,3 +56,43 @@ async def employee_detail(
         }
     )
 
+
+# ===============================
+# DEVICES PAGES
+# ===============================
+
+@router.get("/devices", response_class=HTMLResponse)
+async def devices_list(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/devices/list.html",
+        {"request": request}
+    )
+
+
+@router.get("/devices/create", response_class=HTMLResponse)
+async def device_create_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/devices/create.html",
+        {"request": request}
+    )
+
+
+@router.get("/devices/{device_id}", response_class=HTMLResponse)
+async def device_detail(
+    device_id: int,
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/devices/detail.html",
+        {
+            "request": request,
+            "device_id": device_id
+        }
+    )

@@ -1,0 +1,37 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Створення пристрою</h2>
+
+<form id="deviceCreateForm" class="admin-form">
+    <div class="form-group">
+        <label>Назва *</label>
+        <input type="text" name="name" required>
+    </div>
+
+    <div class="form-group">
+        <label>Тип *</label>
+        <select name="type" required>
+            <option value="scanner">Сканер</option>
+            <option value="printer">Принтер</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Серійний номер *</label>
+        <input type="text" name="serial_number" required>
+    </div>
+
+    <div class="form-group">
+        <label>RFID *</label>
+        <input type="text" name="rfid" required>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">💾 Створити</button>
+        <a href="/admin/devices" class="btn">Скасувати</a>
+    </div>
+</form>
+
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

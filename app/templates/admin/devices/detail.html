@@ -1,0 +1,40 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Пристрій #{{ device_id }}</h2>
+
+<form id="deviceForm" class="admin-form">
+    <div class="form-group">
+        <label>Назва</label>
+        <input name="name">
+    </div>
+
+    <div class="form-group">
+        <label>Тип</label>
+        <select name="type">
+            <option value="scanner">Сканер</option>
+            <option value="printer">Принтер</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Серійний номер</label>
+        <input name="serial_number">
+    </div>
+
+    <div class="form-group">
+        <label>RFID</label>
+        <input name="rfid">
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Зберегти</button>
+        <button type="button" class="btn btn-danger" onclick="deleteDevice()">🗑 Видалити</button>
+    </div>
+</form>
+
+<script>
+const deviceId = {{ device_id }};
+</script>
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

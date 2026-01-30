@@ -1,0 +1,33 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Пристрої</h2>
+
+<input
+    type="text"
+    id="deviceSearch"
+    placeholder="Пошук по назві / серійному / RFID"
+    style="margin-bottom: 10px; width: 300px;"
+>
+
+<div style="margin-bottom: 10px;">
+    <a href="/admin/devices/create" class="btn btn-primary">
+        ➕ Додати пристрій
+    </a>
+</div>
+
+<table id="devicesTable">
+    <thead>
+        <tr>
+            <th>Назва</th>
+            <th>Тип</th>
+            <th>Серійний №</th>
+            <th>RFID</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

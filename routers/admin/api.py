@@ -5,6 +5,7 @@ from sqlalchemy import select, or_
 from db.session import get_db
 from app.dependencies.admin import require_admin
 from models.db_employee import EmployeeDB
+from models.db_device import DeviceDB, DeviceType
 
 
 router = APIRouter(
@@ -111,3 +112,112 @@ async def update_employee(
     await db.refresh(employee)
 
     return employee
+
+
+# ===============================
+# DEVICES
+# ===============================
+
+@router.post("/devices")
+async def create_device(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    device = DeviceDB(
+        name=payload["name"],
+        type=DeviceType(payload["type"]),
+        serial_number=payload["serial_number"],
+        rfid=payload["rfid"]
+    )
+
+    db.add(device)
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+@router.get("/devices")
+async def get_devices(
+    q: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    stmt = select(DeviceDB)
+    print(stmt)
+    if q:
+        stmt = stmt.where(
+            or_(
+                DeviceDB.name.ilike(f"%{q}%"),
+                DeviceDB.serial_number.ilike(f"%{q}%"),
+                DeviceDB.rfid.ilike(f"%{q}%")
+            )
+        )
+
+    result = await db.execute(stmt)
+    print(result)
+    return result.scalars().all()
+
+
+@router.get("/devices/{device_id:int}")
+async def get_device(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    result = await db.execute(
+        select(DeviceDB).where(DeviceDB.id == device_id)
+    )
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    return device
+
+
+@router.put("/devices/{device_id:int}")
+async def update_device(
+    device_id: int,
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    result = await db.execute(
+        select(DeviceDB).where(DeviceDB.id == device_id)
+    )
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    for field in ["name", "serial_number", "rfid", "type"]:
+        if field in payload:
+            value = (
+                DeviceType(payload[field])
+                if field == "type"
+                else payload[field]
+            )
+            setattr(device, field, value)
+
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+@router.delete("/devices/{device_id:int}")
+async def delete_device(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    result = await db.execute(
+        select(DeviceDB).where(DeviceDB.id == device_id)
+    )
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    await db.delete(device)
+    await db.commit()
