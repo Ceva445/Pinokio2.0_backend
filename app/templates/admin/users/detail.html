@@ -1,0 +1,28 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+
+<h2>Користувач #{{ user_id }}</h2>
+
+<form id="userForm">
+    <input name="first_name">
+    <input name="last_name">
+    <input name="password" type="password" placeholder="Новий пароль">
+
+    <select name="role">
+        <option value="manager">Manager</option>
+        <option value="admin">Admin</option>
+    </select>
+
+    <label>
+        <input type="checkbox" name="is_active"> Активний
+    </label>
+
+    <button type="submit">Зберегти</button>
+    <button type="button" onclick="deleteUser()">🗑</button>
+</form>
+
+<script>
+const userId = {{ user_id }};
+</script>
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

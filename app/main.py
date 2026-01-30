@@ -15,6 +15,7 @@ from managers.auth_manager import auth_manager
 from pathlib import Path
 import sys
 from routers.admin.api import router as admin_api_router
+from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.pages import router as admin_pages_router
 
 # Налаштування логування
@@ -99,6 +100,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(auth.router)
 app.include_router(api.router)
 app.include_router(admin_api_router)
+app.include_router(admin_users_api_router)
 app.include_router(admin_pages_router)
 app.include_router(websocket.router)
 app.include_router(pages.router)

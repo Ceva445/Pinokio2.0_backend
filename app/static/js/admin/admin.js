@@ -6,6 +6,8 @@
  *  - /admin/api/employees
  *  - /admin/devices
  *  - /admin/api/devices
+ *  - /admin/users
+ *  - /admin/api/users
  *************************************************/
 
 /* ================================
@@ -242,6 +244,103 @@ async function deleteDevice() {
 }
 
 /* ================================
+   USERS
+================================ */
+
+async function loadUsers() {
+    const tbody = document.querySelector("#usersTable tbody");
+    const search = document.getElementById("userSearch");
+    if (!tbody) return;
+
+    const q = search?.value ?? "";
+    const url = q
+        ? `/admin/api/users?q=${encodeURIComponent(q)}`
+        : "/admin/api/users";
+
+    try {
+        const users = await api(url);
+        tbody.innerHTML = "";
+
+        for (const u of users) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${u.username}</td>
+                <td>${u.first_name}</td>
+                <td>${u.last_name}</td>
+                <td>${u.role}</td>
+                <td>${u.is_active ? "✅" : "❌"}</td>
+                <td><a href="/admin/users/${u.id}">✏️</a></td>
+            `;
+            tbody.appendChild(tr);
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6">Помилка: ${err.message}</td></tr>`;
+    }
+}
+
+async function loadUserDetail(userId) {
+    const form = document.getElementById("userForm");
+    if (!form) return;
+
+    const u = await api(`/admin/api/users/${userId}`);
+
+    form.first_name.value = u.first_name;
+    form.last_name.value = u.last_name;
+    form.role.value = u.role;
+    form.is_active.checked = u.is_active;
+
+    form.addEventListener("submit", async e => {
+        e.preventDefault();
+
+        await api(`/admin/api/users/${userId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+                first_name: form.first_name.value,
+                last_name: form.last_name.value,
+                password: form.password.value || null,
+                role: form.role.value,
+                is_active: form.is_active.checked
+            })
+        });
+
+        alert("Збережено ✅");
+    });
+}
+
+async function deleteUser() {
+    if (!confirm("Видалити користувача?")) return;
+    await api(`/admin/api/users/${userId}`, { method: "DELETE" });
+    window.location.href = "/admin/users";
+}
+
+/* ================================
+   CREATE USER
+================================ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("userCreateForm");
+    if (!form) return;
+
+    form.addEventListener("submit", async e => {
+        e.preventDefault();
+
+        await api("/admin/api/users", {
+            method: "POST",
+            body: JSON.stringify({
+                username: form.username.value,
+                first_name: form.first_name.value,
+                last_name: form.last_name.value,
+                password: form.password.value,
+                role: form.role.value
+            })
+        });
+
+        alert("Користувача створено ✅");
+        window.location.href = "/admin/users";
+    });
+});
+
+/* ================================
    АВТОЗАПУСК
 ================================ */
 
@@ -250,6 +349,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (document.querySelector("#devicesTable")) {
         loadDevices();
+    }
+
+    if (document.querySelector("#usersTable")) {
+        loadUsers();
     }
 
     const searchInput = document.getElementById("search");
@@ -270,11 +373,24 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    const userSearch = document.getElementById("userSearch");
+    if (userSearch) {
+        let timeout;
+        userSearch.addEventListener("input", () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(loadUsers, 300);
+        });
+    }
+
     if (typeof employeeId !== "undefined") {
         loadEmployeeDetail(employeeId);
     }
 
     if (typeof deviceId !== "undefined") {
         loadDeviceDetail(deviceId);
+    }
+
+    if (typeof userId !== "undefined") {
+        loadUserDetail(userId);
     }
 });

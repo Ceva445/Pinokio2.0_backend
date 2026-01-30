@@ -96,3 +96,38 @@ async def device_detail(
             "device_id": device_id
         }
     )
+
+
+@router.get("/users", response_class=HTMLResponse)
+async def users_list(
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/users/list.html",
+        {"request": request}
+    )
+
+@router.get("/users/create", response_class=HTMLResponse)
+async def user_create_page(
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/users/create.html",
+        {"request": request}
+    )
+
+@router.get("/users/{user_id}", response_class=HTMLResponse)
+async def user_detail(
+    user_id: int,
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/users/detail.html",
+        {
+            "request": request,
+            "user_id": user_id
+        }
+    )
