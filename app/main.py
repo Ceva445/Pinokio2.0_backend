@@ -17,6 +17,7 @@ import sys
 from routers.admin.api import router as admin_api_router
 from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.pages import router as admin_pages_router
+from routers.admin.admin_transactions import router as admin_transactions_router
 
 # Налаштування логування
 logging.basicConfig(**LOG_CONFIG)
@@ -102,5 +103,6 @@ app.include_router(api.router)
 app.include_router(admin_api_router)
 app.include_router(admin_users_api_router)
 app.include_router(admin_pages_router)
+app.include_router(admin_transactions_router)
 app.include_router(websocket.router)
 app.include_router(pages.router)

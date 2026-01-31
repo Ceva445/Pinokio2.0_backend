@@ -1,0 +1,55 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+
+<h2>Транзакції</h2>
+
+<div style="margin-bottom:10px">
+    <input
+        id="transactionEmployeeSearch"
+        placeholder="Працівник"
+        style="width:220px"
+    >
+
+    <input
+        id="transactionDeviceSearch"
+        placeholder="Пристрій"
+        style="width:220px"
+    >
+
+    <input
+        id="transactionDateFrom"
+        type="date"
+        style="width:160px"
+    >
+
+    <input
+        id="transactionDateTo"
+        type="date"
+        style="width:160px"
+    >
+    <select id="transactionType" style="width:180px">
+        <option value="">Всі типи</option>
+        <option value="registered">registered</option>
+        <option value="unregistered">unregistered</option>
+    </select>
+</div>
+
+<table id="transactionsTable">
+    <thead>
+        <tr>
+            <th>Дата / час</th>
+            <th>Тип</th>
+            <th>Працівник</th>
+            <th>Пристрій</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div
+    id="transactionsPagination"
+    style="margin-top:10px"
+></div>
+
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+{% endblock %}

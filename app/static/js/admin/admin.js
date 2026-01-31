@@ -394,3 +394,118 @@ document.addEventListener("DOMContentLoaded", () => {
         loadUserDetail(userId);
     }
 });
+
+/* ================================
+   TRANSACTIONS 
+================================ */
+
+let transactionsPage = 1;
+const TRANSACTIONS_PER_PAGE = 10;
+
+async function loadTransactions(page = 1) {
+    const tbody = document.querySelector("#transactionsTable tbody");
+    if (!tbody) return;
+
+    const employeeInput = document.getElementById("transactionEmployeeSearch");
+    const deviceInput = document.getElementById("transactionDeviceSearch");
+    const dateFromInput = document.getElementById("transactionDateFrom");
+    const dateToInput = document.getElementById("transactionDateTo");
+    const typeInput = document.getElementById("transactionType");
+
+    const employee_q = employeeInput?.value ?? "";
+    const device_q = deviceInput?.value ?? "";
+    const date_from = dateFromInput?.value ?? "";
+    const date_to = dateToInput?.value ?? "";
+    const tx_type = typeInput?.value ?? "";
+
+    const params = new URLSearchParams({
+        page: page,
+        limit: TRANSACTIONS_PER_PAGE
+    });
+
+    if (employee_q) params.append("employee_q", employee_q);
+    if (device_q) params.append("device_q", device_q);
+    if (date_from) params.append("date_from", date_from);
+    if (date_to) params.append("date_to", date_to);
+    if (tx_type) params.append("tx_type", tx_type);
+
+    tbody.innerHTML = `<tr><td colspan="4">Завантаження...</td></tr>`;
+
+    try {
+        const data = await api(`/admin/api/transactions?${params.toString()}`);
+
+        tbody.innerHTML = "";
+
+        if (data.items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">Нічого не знайдено</td></tr>`;
+        }
+
+        for (const t of data.items) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${new Date(t.timestamp).toLocaleString()}</td>
+                <td>${t.type}</td>
+                <td>
+                    ${t.user
+                        ? `${t.user.wms_login ?? ""} ${t.user.first_name} ${t.user.last_name}`
+                        : "—"}
+                </td>
+                <td>${t.device?.name ?? "—"}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        renderTransactionsPagination(data.page, data.pages);
+
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4">Помилка: ${err.message}</td></tr>`;
+    }
+}
+
+function renderTransactionsPagination(page, pages) {
+    const container = document.getElementById("transactionsPagination");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    for (let p = 1; p <= pages; p++) {
+        const btn = document.createElement("button");
+        btn.textContent = p;
+        btn.disabled = p === page;
+        btn.addEventListener("click", () => loadTransactions(p));
+        container.appendChild(btn);
+    }
+}
+
+/* ================================
+   TRANSACTIONS AUTOSTART
+================================ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (!document.querySelector("#transactionsTable")) return;
+
+    loadTransactions();
+
+    const employeeInput = document.getElementById("transactionEmployeeSearch");
+    const deviceInput = document.getElementById("transactionDeviceSearch");
+    const dateFromInput = document.getElementById("transactionDateFrom");
+    const dateToInput = document.getElementById("transactionDateTo");
+    const typeInput = document.getElementById("transactionType");
+
+    let timeout;
+
+    // текстові поля — debounce
+    [employeeInput, deviceInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener("input", () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => loadTransactions(1), 300);
+        });
+    });
+
+    // date + select — одразу
+    [dateFromInput, dateToInput, typeInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener("change", () => loadTransactions(1));
+    });
+});

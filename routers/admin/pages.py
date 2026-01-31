@@ -131,3 +131,17 @@ async def user_detail(
             "user_id": user_id
         }
     )
+
+# ===============================
+# TRANSACTIONS PAGES
+# ===============================
+
+@router.get("/transactions", response_class=HTMLResponse)
+async def transactions_list(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/transactions/list.html",
+        {"request": request}
+    )
