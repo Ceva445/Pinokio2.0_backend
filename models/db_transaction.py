@@ -23,12 +23,12 @@ class TransactionDB(Base):
         nullable=False
     )
 
-    user_id: Mapped[int | None] = mapped_column(
+    employee_id: Mapped[int | None] = mapped_column(
         ForeignKey("employees.id"), nullable=True
     )
     device_id: Mapped[int | None] = mapped_column(
         ForeignKey("devices.id"), nullable=False
     )
 
-    user = relationship("EmployeeDB", back_populates="transactions")
+    employee = relationship("EmployeeDB", back_populates="transactions")
     device = relationship("DeviceDB", back_populates="transactions")

@@ -18,5 +18,5 @@ class EmployeeDB(Base):
     )
     transactions = relationship(
         "TransactionDB",
-        back_populates="user"
+        back_populates="employee"
     )

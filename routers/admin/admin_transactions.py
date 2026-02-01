@@ -32,10 +32,10 @@ async def get_transactions(
     stmt = (
         select(TransactionDB)
         .options(
-            joinedload(TransactionDB.user),
+            joinedload(TransactionDB.employee),
             joinedload(TransactionDB.device)
         )
-        .outerjoin(TransactionDB.user)
+        .outerjoin(TransactionDB.employee)
         .join(TransactionDB.device)
         .order_by(TransactionDB.timestamp.desc())
     )

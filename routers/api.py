@@ -11,6 +11,7 @@ from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 from models.db_transaction import TransactionDB
+from models.db_transaction import TransactionType as DbTransactionType
 from schemas.transaction import TransactionType
 from routers.auth import get_current_user
 from config import ALLOW_REGISTRATION_WITHOUT_LOGIN
@@ -156,7 +157,7 @@ async def receive_esp32_data(
                         transaction = TransactionDB(
                             type=TransactionType.unregistered,
                             device_id=device_db.id,
-                            user_id=None
+                            employee_id=None
                         )
                         db.add(transaction)
                         await db.commit()
@@ -203,7 +204,7 @@ async def receive_esp32_data(
                             transaction = TransactionDB(
                                 type=TransactionType.registered,
                                 device_id=device_db.id,
-                                user_id=employee.id
+                                employee_id=employee.id
                             )
                             db.add(transaction)
                             await db.commit()
@@ -217,7 +218,7 @@ async def receive_esp32_data(
                             transaction = TransactionDB(
                                 type=TransactionType.registered,
                                 device_id=device_db.id,
-                                user_id=employee.id
+                                employee_id=employee.id
                             )
                             db.add(transaction)
                             await db.commit()

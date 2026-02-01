@@ -12,7 +12,7 @@ class TransactionType(str, Enum):
 
 
 class TransactionCreate(BaseModel):
-    user_id: Optional[int] = None
+    employee_id: Optional[int] = None
     device_id: Optional[int] = None
     type: TransactionType
 
@@ -21,7 +21,7 @@ class TransactionOut(BaseModel):
     id: int
     timestamp: datetime
     type: TransactionType
-    user: Optional[EmployeeOut] = None
+    employee: Optional[EmployeeOut] = None
     device: Optional[DeviceOut] = None
 
     class Config:

@@ -1,6 +1,5 @@
 from sqlalchemy import String, Enum
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
 import enum
 
@@ -23,3 +22,8 @@ class UserDB(Base):
         default=UserRole.manager
     )
     is_active: Mapped[bool] = mapped_column(default=True)
+
+    device_change_transactions = relationship(
+        "models.device_transaction.DeviceChangeTransaction",
+        back_populates="user"
+    )

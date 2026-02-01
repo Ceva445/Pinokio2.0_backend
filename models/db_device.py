@@ -25,3 +25,9 @@ class DeviceDB(Base):
             "TransactionDB",
             back_populates="device"
         )
+    
+    device_change_transactions = relationship(
+        "models.device_transaction.DeviceChangeTransaction",
+        back_populates="device",
+        cascade="all, delete-orphan"
+    )
