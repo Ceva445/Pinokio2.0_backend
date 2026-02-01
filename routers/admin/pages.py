@@ -145,3 +145,17 @@ async def transactions_list(
         "admin/transactions/list.html",
         {"request": request}
     )
+
+# ===============================
+# DEVICE TRANSACTIONS PAGES
+# ===============================
+
+@router.get("/device-transactions", response_class=HTMLResponse)
+async def device_transactions_list(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/device_transactions/list.html",
+        {"request": request}
+    )

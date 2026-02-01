@@ -1,0 +1,122 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+
+<h2>Транзакції змін пристроїв</h2>
+
+<div style="margin-bottom:10px">
+    <input id="deviceTransactionUserSearch" placeholder="Користувач" style="width:220px">
+    <input id="deviceTransactionDeviceSearch" placeholder="Пристрій" style="width:220px">
+    <input id="deviceTransactionDateFrom" type="date" style="width:160px">
+    <input id="deviceTransactionDateTo" type="date" style="width:160px">
+</div>
+
+<table id="deviceTransactionsTable">
+    <thead>
+        <tr>
+            <th>Дата / час</th>
+            <th>Користувач</th>
+            <th>Пристрій</th>
+            <th>Опис змін</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div id="deviceTransactionsPagination" style="margin-top:10px"></div>
+
+<script>
+let deviceTransactionsPage = 1;
+const DEVICE_TRANSACTIONS_PER_PAGE = 10;
+
+async function loadDeviceTransactions(page = 1) {
+    const tbody = document.querySelector("#deviceTransactionsTable tbody");
+    if (!tbody) return;
+
+    const userInput = document.getElementById("deviceTransactionUserSearch");
+    const deviceInput = document.getElementById("deviceTransactionDeviceSearch");
+    const dateFromInput = document.getElementById("deviceTransactionDateFrom");
+    const dateToInput = document.getElementById("deviceTransactionDateTo");
+
+    const user_q = userInput?.value ?? "";
+    const device_q = deviceInput?.value ?? "";
+    const date_from = dateFromInput?.value ?? "";
+    const date_to = dateToInput?.value ?? "";
+
+    const params = new URLSearchParams({
+        page: page,
+        limit: DEVICE_TRANSACTIONS_PER_PAGE
+    });
+
+    if (user_q) params.append("user_q", user_q);
+    if (device_q) params.append("device_q", device_q);
+    if (date_from) params.append("date_from", date_from);
+    if (date_to) params.append("date_to", date_to);
+
+    tbody.innerHTML = `<tr><td colspan="4">Завантаження...</td></tr>`;
+
+    try {
+        const res = await fetch(`/admin/api/device-transactions?${params.toString()}`, { credentials: "include" });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        tbody.innerHTML = "";
+        if (data.items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">Нічого не знайдено</td></tr>`;
+        }
+
+        for (const t of data.items) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${new Date(t.timestamp).toLocaleString()}</td>
+                <td>${t.user ? `${t.user.username} ${t.user.first_name} ${t.user.last_name}` : "—"}</td>
+                <td>${t.device?.name ?? "—"}</td>
+                <td>${t.description}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        renderDeviceTransactionsPagination(data.page, data.pages);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4">Помилка: ${err.message}</td></tr>`;
+    }
+}
+
+function renderDeviceTransactionsPagination(page, pages) {
+    const container = document.getElementById("deviceTransactionsPagination");
+    container.innerHTML = "";
+
+    for (let p = 1; p <= pages; p++) {
+        const btn = document.createElement("button");
+        btn.textContent = p;
+        btn.disabled = p === page;
+        btn.addEventListener("click", () => loadDeviceTransactions(p));
+        container.appendChild(btn);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (!document.querySelector("#deviceTransactionsTable")) return;
+    loadDeviceTransactions();
+
+    const userInput = document.getElementById("deviceTransactionUserSearch");
+    const deviceInput = document.getElementById("deviceTransactionDeviceSearch");
+    const dateFromInput = document.getElementById("deviceTransactionDateFrom");
+    const dateToInput = document.getElementById("deviceTransactionDateTo");
+
+    let timeout;
+    [userInput, deviceInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener("input", () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => loadDeviceTransactions(1), 300);
+        });
+    });
+
+    [dateFromInput, dateToInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener("change", () => loadDeviceTransactions(1));
+    });
+});
+</script>
+
+{% endblock %}

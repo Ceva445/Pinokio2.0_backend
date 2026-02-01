@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
+from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
@@ -191,14 +192,26 @@ async def update_device(
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
+    changes = []
+
     for field in ["name", "serial_number", "rfid", "type"]:
         if field in payload:
-            value = (
-                DeviceType(payload[field])
-                if field == "type"
-                else payload[field]
+            new_value = (
+                DeviceType(payload[field]) if field == "type" else payload[field]
             )
-            setattr(device, field, value)
+            old_value = getattr(device, field)
+            if old_value != new_value:
+                changes.append(f"{field}: '{old_value}' → '{new_value}'")
+                setattr(device, field, new_value)
+
+    if changes:
+        description = "; ".join(changes)
+        tx = DeviceChangeTransaction(
+            user_id=user["id"],  # id адміністратора, який робить зміну
+            device_id=device.id,
+            description=description
+        )
+        db.add(tx)
 
     await db.commit()
     await db.refresh(device)
