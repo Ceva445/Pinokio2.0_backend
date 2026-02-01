@@ -1,18 +1,18 @@
 {% extends "admin/base_admin.html" %}
 {% block admin_content %}
 
-<h2>Транзакції</h2>
+<h2>Rejestracje</h2>
 
 <div style="margin-bottom:10px">
     <input
         id="transactionEmployeeSearch"
-        placeholder="Працівник"
+        placeholder="Pracownik"
         style="width:220px"
     >
 
     <input
         id="transactionDeviceSearch"
-        placeholder="Пристрій"
+        placeholder="Urządzenie"
         style="width:220px"
     >
 
@@ -28,7 +28,7 @@
         style="width:160px"
     >
     <select id="transactionType" style="width:180px">
-        <option value="">Всі типи</option>
+        <option value="">Wszystkie typy</option>
         <option value="registered">registered</option>
         <option value="unregistered">unregistered</option>
     </select>
@@ -37,10 +37,10 @@
 <table id="transactionsTable">
     <thead>
         <tr>
-            <th>Дата / час</th>
-            <th>Тип</th>
-            <th>Працівник</th>
-            <th>Пристрій</th>
+            <th>Data / czas</th>
+            <th>Typ</th>
+            <th>Pracownik</th>
+            <th>Urządzenie</th>
         </tr>
     </thead>
     <tbody></tbody>

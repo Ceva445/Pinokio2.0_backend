@@ -1,24 +1,24 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Пристрій #{{ device_id }}</h2>
+<h2>Urządzenie #{{ device_id }}</h2>
 
 <form id="deviceForm" class="admin-form">
     <div class="form-group">
-        <label>Назва</label>
+        <label>Nazwa</label>
         <input name="name">
     </div>
 
     <div class="form-group">
-        <label>Тип</label>
+        <label>Typ</label>
         <select name="type">
-            <option value="scanner">Сканер</option>
-            <option value="printer">Принтер</option>
+            <option value="scanner">Skaner</option>
+            <option value="printer">Drukarka</option>
         </select>
     </div>
 
     <div class="form-group">
-        <label>Серійний номер</label>
+        <label>Seriiowy №</label>
         <input name="serial_number">
     </div>
 
@@ -28,8 +28,8 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Зберегти</button>
-        <button type="button" class="btn btn-danger" onclick="deleteDevice()">🗑 Видалити</button>
+        <button type="submit" class="btn btn-primary">💾 Zapisz</button>
+        <button type="button" class="btn btn-danger" onclick="deleteDevice()">🗑 Usuń</button>
     </div>
 </form>
 

@@ -9,10 +9,10 @@
 <body>
 
 <header style="display:flex; justify-content:flex-end; margin-bottom:20px; gap:10px;">
-    <a href="/" id="homeBtn" style="display:none;">На головну</a>
-    <a href="/admin" id="adminBtn" style="display:none;">Адмінка</a>
-    <a href="/login" id="loginBtn">Увійти</a>
-    <a href="#" id="logoutBtn" class="button-link" style="display:none;">Вийти</a>
+    <a href="/" id="homeBtn" style="display:none;">Do strony głównej</a>
+    <a href="/admin" id="adminBtn" style="display:none;">Panel administracyjny</a>
+    <a href="/login" id="loginBtn">Zaloguj się</a>
+    <a href="#" id="logoutBtn" class="button-link" style="display:none;">Wyloguj się</a>
 </header>
 
 {% block content %}{% endblock %}
@@ -71,7 +71,7 @@ document.getElementById("logoutBtn")?.addEventListener("click", async () => {
     if (res.ok) {
         window.location.href = "/";
     } else {
-        alert("Не вдалося вийти");
+        alert("Nie udało się wylogować");
     }
 });
 

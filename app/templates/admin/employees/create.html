@@ -1,26 +1,26 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Створення працівника</h2>
+<h2>Utwórz pracownika</h2>
 
 <form id="employeeCreateForm" class="admin-form">
     <div class="form-group">
-        <label>WMS логін</label>
+        <label>WMS login</label>
         <input type="text" name="wms_login">
     </div>
 
     <div class="form-group">
-        <label>Імʼя *</label>
+        <label>Imię *</label>
         <input type="text" name="first_name" required>
     </div>
 
     <div class="form-group">
-        <label>Прізвище *</label>
+        <label>Nazwisko *</label>
         <input type="text" name="last_name" required>
     </div>
 
     <div class="form-group">
-        <label>Компанія *</label>
+        <label>Firma *</label>
         <input type="text" name="company" required>
     </div>
 
@@ -30,8 +30,8 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">💾 Створити</button>
-        <a href="/admin/employees" class="btn">Скасувати</a>
+        <button type="submit" class="btn btn-primary">💾 Stwórz</button>
+        <a href="/admin/employees" class="btn">Anuluj</a>
     </div>
 </form>
 

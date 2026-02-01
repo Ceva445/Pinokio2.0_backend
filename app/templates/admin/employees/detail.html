@@ -1,7 +1,7 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Працівник #{{ employee_id }}</h2>
+<h2>Pracownik #{{ employee_id }}</h2>
 
 <form id="employeeForm">
     <input name="first_name">
@@ -9,8 +9,8 @@
     <input name="company">
     <input name="rfid">
     <input name="wms_login">
-    <button type="submit">Зберегти</button>
-    <button type="button" onclick="deleteEmployee()">🗑 Видалити</button>
+    <button type="submit">Zapisz</button>
+    <button type="button" onclick="deleteEmployee()">🗑 Usuń</button>
 </form>
 
 <script>

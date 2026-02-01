@@ -1,12 +1,12 @@
 {% extends "admin/base_admin.html" %}
 {% block admin_content %}
 
-<h2>Користувач #{{ user_id }}</h2>
+<h2>Urzytkownik #{{ user_id }}</h2>
 
 <form id="userForm">
     <input name="first_name">
     <input name="last_name">
-    <input name="password" type="password" placeholder="Новий пароль">
+    <input name="password" type="password" placeholder="Nowe hasło">
 
     <select name="role">
         <option value="manager">Manager</option>
@@ -14,10 +14,10 @@
     </select>
 
     <label>
-        <input type="checkbox" name="is_active"> Активний
+        <input type="checkbox" name="is_active"> Aktywny
     </label>
 
-    <button type="submit">Зберегти</button>
+    <button type="submit">Zapisz</button>
     <button type="button" onclick="deleteUser()">🗑</button>
 </form>
 

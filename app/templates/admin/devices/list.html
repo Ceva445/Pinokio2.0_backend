@@ -1,27 +1,27 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Пристрої</h2>
+<h2>Urządzenia</h2>
 
 <input
     type="text"
     id="deviceSearch"
-    placeholder="Пошук по назві / серійному / RFID"
+    placeholder="Szukaj po nazwie / numerze seryjnym / RFID"
     style="margin-bottom: 10px; width: 300px;"
 >
 
 <div style="margin-bottom: 10px;">
     <a href="/admin/devices/create" class="btn btn-primary">
-        ➕ Додати пристрій
+        ➕ Dodaj urządzenie
     </a>
 </div>
 
 <table id="devicesTable">
     <thead>
         <tr>
-            <th>Назва</th>
-            <th>Тип</th>
-            <th>Серійний №</th>
+            <th>Nazwa</th>
+            <th>Typ</th>
+            <th>Seriiowy №</th>
             <th>RFID</th>
             <th></th>
         </tr>

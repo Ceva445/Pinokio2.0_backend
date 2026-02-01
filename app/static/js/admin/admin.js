@@ -86,7 +86,7 @@ async function loadEmployeeDetail(employeeId) {
         form.company.value = employee.company ?? "";
         form.rfid.value = employee.rfid ?? "";
     } catch (err) {
-        alert("Не вдалося завантажити працівника ❌");
+        alert("Nie udało się załadować pracownika ❌");
         console.error(err);
     }
 
@@ -104,12 +104,12 @@ async function loadEmployeeDetail(employeeId) {
             })
         });
 
-        alert("Збережено ✅");
+        alert("Zapisano ✅");
     });
 }
 
 async function deleteEmployee(employeeId) {
-    if (!confirm("Ви впевнені?")) return;
+    if (!confirm("Czy jesteś pewien?")) return;
     await api(`/admin/api/employees/${employeeId}`, { method: "DELETE" });
     window.location.href = "/admin/employees";
 }
@@ -137,10 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
-            alert("Працівника створено ✅");
+            alert("Pracownika stworzono ✅");
             window.location.href = "/admin/employees";
         } catch (err) {
-            alert("Помилка створення ❌\n" + err.message);
+            alert("Błąd tworzenia ❌\n" + err.message);
         }
     });
 });
@@ -175,7 +175,7 @@ async function loadDevices() {
             tbody.appendChild(tr);
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5">Помилка: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">Błąd: ${err.message}</td></tr>`;
     }
 }
 
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
             })
         });
 
-        alert("Пристрій створено ✅");
+        alert("Przyrząd stworzono ✅");
         window.location.href = "/admin/devices";
     });
 });
@@ -233,12 +233,12 @@ async function loadDeviceDetail(deviceId) {
             })
         });
 
-        alert("Збережено ✅");
+        alert("Zapisano ✅");
     });
 }
 
 async function deleteDevice() {
-    if (!confirm("Видалити пристрій?")) return;
+    if (!confirm("Czy usunąć urządzenie?")) return;
     await api(`/admin/api/devices/${deviceId}`, { method: "DELETE" });
     window.location.href = "/admin/devices";
 }
@@ -274,7 +274,7 @@ async function loadUsers() {
             tbody.appendChild(tr);
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6">Помилка: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6">Błąd: ${err.message}</td></tr>`;
     }
 }
 
@@ -303,12 +303,12 @@ async function loadUserDetail(userId) {
             })
         });
 
-        alert("Збережено ✅");
+        alert("Zapisano ✅");
     });
 }
 
 async function deleteUser() {
-    if (!confirm("Видалити користувача?")) return;
+    if (!confirm("Czy usunąć użytkownika?")) return;
     await api(`/admin/api/users/${userId}`, { method: "DELETE" });
     window.location.href = "/admin/users";
 }
@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
             })
         });
 
-        alert("Користувача створено ✅");
+        alert("Korzystnik stworzono ✅");
         window.location.href = "/admin/users";
     });
 });
@@ -429,7 +429,7 @@ async function loadTransactions(page = 1) {
     if (date_to) params.append("date_to", date_to);
     if (tx_type) params.append("tx_type", tx_type);
 
-    tbody.innerHTML = `<tr><td colspan="4">Завантаження...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4">Ładowanie danych...</td></tr>`;
 
     try {
         const data = await api(`/admin/api/transactions?${params.toString()}`);
@@ -437,7 +437,7 @@ async function loadTransactions(page = 1) {
         tbody.innerHTML = "";
 
         if (data.items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4">Нічого не знайдено</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4">Nic nie znaleziono</td></tr>`;
         }
 
         for (const t of data.items) {
@@ -458,7 +458,7 @@ async function loadTransactions(page = 1) {
         renderTransactionsPagination(data.page, data.pages);
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4">Помилка: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4">Błąd: ${err.message}</td></tr>`;
     }
 }
 

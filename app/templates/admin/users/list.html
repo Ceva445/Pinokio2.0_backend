@@ -1,22 +1,22 @@
 {% extends "admin/base_admin.html" %}
 {% block admin_content %}
 
-<h2>Користувачі системи</h2>
+<h2>Kontrola użytkowników</h2>
 
-<input id="userSearch" placeholder="Пошук..." style="width:300px">
+<input id="userSearch" placeholder="Szukaj..." style="width:300px">
 
 <div style="margin:10px 0">
-    <a href="/admin/users/create" class="btn btn-primary">➕ Додати</a>
+    <a href="/admin/users/create" class="btn btn-primary">➕ Dodaj</a>
 </div>
 
 <table id="usersTable">
     <thead>
         <tr>
-            <th>Username</th>
-            <th>Імʼя</th>
-            <th>Прізвище</th>
-            <th>Роль</th>
-            <th>Активний</th>
+            <th>Login</th>
+            <th>Imię</th>
+            <th>Nazwisko</th>
+            <th>Rola</th>
+            <th>Aktywny</th>
             <th></th>
         </tr>
     </thead>

@@ -1,24 +1,24 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Створення пристрою</h2>
+<h2>Utwórz urządzenie</h2>
 
 <form id="deviceCreateForm" class="admin-form">
     <div class="form-group">
-        <label>Назва *</label>
+        <label>Nazwa *</label>
         <input type="text" name="name" required>
     </div>
 
     <div class="form-group">
-        <label>Тип *</label>
+        <label>Typ *</label>
         <select name="type" required>
-            <option value="scanner">Сканер</option>
-            <option value="printer">Принтер</option>
+            <option value="scanner">Skaner</option>
+            <option value="printer">Drukarka</option>
         </select>
     </div>
 
     <div class="form-group">
-        <label>Серійний номер *</label>
+        <label>Seriiowy № *</label>
         <input type="text" name="serial_number" required>
     </div>
 
@@ -28,8 +28,8 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">💾 Створити</button>
-        <a href="/admin/devices" class="btn">Скасувати</a>
+        <button type="submit" class="btn btn-primary">💾 Stwórz</button>
+        <a href="/admin/devices" class="btn">Anuluj</a>
     </div>
 </form>
 

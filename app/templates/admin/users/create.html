@@ -1,20 +1,20 @@
 {% extends "admin/base_admin.html" %}
 {% block admin_content %}
 
-<h2>Створення користувача</h2>
+<h2>Tworzenie użytkownika</h2>
 
 <form id="userCreateForm">
-    <input name="username" placeholder="Username" required>
-    <input name="first_name" placeholder="Імʼя" required>
-    <input name="last_name" placeholder="Прізвище" required>
-    <input name="password" type="password" placeholder="Пароль" required>
+    <input name="username" placeholder="Login" required>
+    <input name="first_name" placeholder="Imię" required>
+    <input name="last_name" placeholder="Nazwisko" required>
+    <input name="password" type="password" placeholder="Hasło" required>
 
     <select name="role">
         <option value="manager">Manager</option>
         <option value="admin">Admin</option>
     </select>
 
-    <button type="submit">Створити</button>
+    <button type="submit">Dodaj</button>
 </form>
 
 <script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>

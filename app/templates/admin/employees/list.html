@@ -1,26 +1,26 @@
 {% extends "admin/base_admin.html" %}
 
 {% block admin_content %}
-<h2>Працівники</h2>
+<h2>Pracownicy</h2>
 
 <input
     type="text"
     id="search"
-    placeholder="Пошук по імені / прізвищу / логіну"
+    placeholder="Szukaj po imieniu / nazwisku / loginie"
     style="margin-bottom: 10px; width: 300px;"
 >
 <div style="margin-bottom: 10px;">
     <a href="/admin/employees/create" class="btn btn-primary">
-        ➕ Додати працівника
+        ➕ Dodaj pracownika
     </a>
 </div>
 <table id="employeesTable">
     <thead>
         <tr>
             <th>WMS_LOGIN</th>
-            <th>Імʼя</th>
-            <th>Прізвище</th>
-            <th>Компанія</th>
+            <th>Imię</th>
+            <th>Nazwisko</th>
+            <th>Kompania</th>
             <th>RFID</th>
             <th></th>
         </tr>

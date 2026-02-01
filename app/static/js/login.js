@@ -8,5 +8,5 @@ document.getElementById("loginForm").onsubmit = async e => {
     });
 
     if (res.ok) location.href = "/";
-    else alert("Помилка входу");
+    else alert("Blędne dane logowania");
 };
