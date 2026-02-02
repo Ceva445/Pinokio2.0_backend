@@ -1,6 +1,9 @@
 """Конфігурація додатку"""
 from pathlib import Path
+from dotenv import load_dotenv
 from fastapi.templating import Jinja2Templates
+
+load_dotenv()
 
 # Шляхи
 BASE_DIR = Path(__file__).resolve().parent
@@ -34,4 +37,4 @@ DEVICE_CONFIG = {
     "max_devices": 100  # максимальна кількість пристроїв
 }
 
-ALLOW_REGISTRATION_WITHOUT_LOGIN = False
+ALLOW_REGISTRATION_WITHOUT_LOGIN = bool("ALLOW_REGISTRATION_WITHOUT_LOGIN", False)
