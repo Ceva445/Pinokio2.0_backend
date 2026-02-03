@@ -15,7 +15,7 @@ const char* WIFI_PASS = "Malydomek1";
 const char* DEVICE_ID = "device-id";
 
 // ===== Server =====
-const char* API_URL = "https://pinokio2-0-backend.onrender.com/api/data/";
+const char* API_URL = "https://pinokio2-0.onrender.com/api/data/";
 
 // ===== RFID =====
 MFRC522DriverPinSimple ss_pin(5);
