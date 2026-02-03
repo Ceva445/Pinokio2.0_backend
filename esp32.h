@@ -5,22 +5,21 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <MFRC522v2.h>
-#include <MFRC522DriverSPI.h>
-#include <MFRC522DriverPinSimple.h>
+#include <Wire.h>
+#include <Adafruit_PN532.h>
 
 // ===== WiFi =====
 const char* WIFI_SSID = "Malydomek1";
 const char* WIFI_PASS = "Malydomek1";
-const char* DEVICE_ID = "device-id";
+const char* DEVICE_ID = "E-2";
 
 // ===== Server =====
 const char* API_URL = "https://pinokio2-0.onrender.com/api/data/";
 
-// ===== RFID =====
-MFRC522DriverPinSimple ss_pin(5);
-MFRC522DriverSPI driver{ ss_pin };
-MFRC522 rfid{ driver };
+// ===== RFID (PN532) =====
+#define SDA_PIN 21
+#define SCL_PIN 22
+Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
 
 // ===== Buzzer =====
 #define BUZZER_PIN 25
@@ -69,42 +68,57 @@ void setup() {
   }
   Serial.println("\nWiFi connected");
 
-  // RFID
-  rfid.PCD_Init();
-  Serial.println("RFID ready");
+  // RFID (PN532)
+  Wire.begin(SDA_PIN, SCL_PIN);
+  nfc.begin();
+  
+  uint32_t version = nfc.getFirmwareVersion();
+  if (!version) {
+    Serial.println("PN532 not found!");
+    while (1);
+  }
+  
+  nfc.SAMConfig();
+  Serial.println("PN532 ready");
+
+  // Два коротких звукових сигнали, що пристрій готовий до роботи
+  beep(100);
+  delay(150);
+  beep(100);
 }
 
 // ===== Loop =====
 void loop() {
   checkWiFi();
 
-  if (!rfid.PICC_IsNewCardPresent()) return;
-  if (!rfid.PICC_ReadCardSerial()) return;
-
-  // UID → string
-  String uid = "";
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
-    uid += String(rfid.uid.uidByte[i], HEX);
-    if (i < rfid.uid.size - 1) uid += ":";
-  }
-  uid.toUpperCase();
-
-  unsigned long now = millis();
-  if (uid == lastUID && now - lastSend < SEND_DELAY) {
-    rfid.PICC_HaltA();
+  uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
+  uint8_t uidLength;
+  
+  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100)) {
     return;
   }
 
-  lastUID = uid;
+  // UID → string
+  String uidStr = "";
+  for (byte i = 0; i < uidLength; i++) {
+    if (uid[i] < 0x10) uidStr += "0";
+    uidStr += String(uid[i], HEX);
+    if (i < uidLength - 1) uidStr += ":";
+  }
+  uidStr.toUpperCase();
+
+  unsigned long now = millis();
+  if (uidStr == lastUID && now - lastSend < SEND_DELAY) {
+    return;
+  }
+
+  lastUID = uidStr;
   lastSend = now;
 
-  Serial.println("RFID: " + uid);
+  Serial.println("RFID: " + uidStr);
   beep(300);
 
-  sendToServer(uid);
-
-  rfid.PICC_HaltA();
+  sendToServer(uidStr);
 }
 
 // ===== HTTP POST (short timeout) =====
