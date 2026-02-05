@@ -30,6 +30,38 @@ def get_devices():
     return device_manager
 
 
+# ===============================
+# REGISTRATION PERMISSION CHECK (STRICT AND)
+# ===============================
+async def can_register_on_device(
+    device_id: str,
+    manager,
+):
+    """
+    Дозвіл на реєстрацію якщо:
+    - є user у esp_allowed_users
+    - І є websocket слухач цього ESP
+    """
+
+    from app.main import esp_allowed_users
+
+    # users які дозволили реєстрацію
+    device_users = esp_allowed_users.get(device_id, set())
+    if not device_users:
+        return False
+
+    # websocket слухачі
+    listeners = [
+        ws for ws, subscribed in manager.connections.items()
+        if subscribed == device_id
+    ]
+
+    if not listeners:
+        return False
+
+    return True
+
+
 # ---------- DATA ENDPOINT (ESP32) ----------
 
 @router.post("/data/{device_id}")
@@ -64,15 +96,10 @@ async def receive_esp32_data(
     if ALLOW_REGISTRATION_WITHOUT_LOGIN:
         can_register = True
     else:
-        device_users = esp_allowed_users.get(device_id, set())
-        current_user_id = current_user["id"] if current_user else None
-
-        can_register = current_user_id in device_users if current_user else False
+        can_register = await can_register_on_device(device_id, manager)
 
         print("Allwed devices:", esp_allowed_users)
         print("Current user:", current_user)
-        print("Device users:", device_users)
-        print("Current user ID:", current_user_id)
         print("Can register:", can_register)
     print("Can register:", can_register)
     rfid = data.get("rfid")

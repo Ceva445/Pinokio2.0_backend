@@ -23,6 +23,14 @@ async def websocket_endpoint(
     devices: DeviceManager = Depends(get_devices),
 ):
     await manager.connect(websocket)
+    from routers.auth import get_current_user
+    try:
+        user = await get_current_user(False)(websocket)
+        if user:
+            websocket.user_id = user["id"]
+    except Exception as e:
+        print("WS auth error:", e)
+
     await manager.broadcast_device_list()
 
     try:

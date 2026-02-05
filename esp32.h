@@ -9,8 +9,8 @@
 #include <Adafruit_PN532.h>
 
 // ===== WiFi =====
-const char* WIFI_SSID = "Malydomek1";
-const char* WIFI_PASS = "Malydomek1";
+const char* WIFI_SSID = "AP_PiatekCeva";
+const char* WIFI_PASS = "Orange3546";
 const char* DEVICE_ID = "E-2";
 
 // ===== Server =====

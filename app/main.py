@@ -30,7 +30,6 @@ manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=60)
 
 esp_allowed_users: dict[str, set[int]] = {}
-print(esp_allowed_users)
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -80,6 +79,28 @@ async def cleanup_auth_sessions():
         except Exception as exc:
             logger.error("Error in auth cleanup task: %s", exc)
 
+
+# ===============================
+# CLEANUP USER ESP ACCESS
+# ===============================
+def remove_user_from_all_esps(user_id: int):
+    global esp_allowed_users
+
+    for esp_id in list(esp_allowed_users.keys()):
+        esp_allowed_users[esp_id].discard(user_id)
+
+        if not esp_allowed_users[esp_id]:
+            esp_allowed_users.pop(esp_id)
+
+
+def remove_user_ws_subscriptions(user_id: int):
+    from app.main import manager
+
+    for ws in list(manager.connections.keys()):
+        # websocket не знає user_id напряму
+        # але можна зберегти його в ws.state
+        if hasattr(ws, "user_id") and ws.user_id == user_id:
+            manager.unsubscribe(ws)
 
 # Ініціалізація додатку
 app = FastAPI(

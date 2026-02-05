@@ -192,6 +192,11 @@ async def logout(
     current_user: dict = Depends(get_current_user()),
     token: str = Depends(oauth2_scheme)
 ):
+    from app.main import remove_user_from_all_esps, remove_user_ws_subscriptions
+    user_id = current_user["id"]
+    remove_user_from_all_esps(user_id)
+    remove_user_ws_subscriptions(user_id)
+
     auth_manager.remove_session(token)
     response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
