@@ -37,4 +37,4 @@ DEVICE_CONFIG = {
     "max_devices": 100  # максимальна кількість пристроїв
 }
 
-ALLOW_REGISTRATION_WITHOUT_LOGIN = bool("ALLOW_REGISTRATION_WITHOUT_LOGIN", False)
+ALLOW_REGISTRATION_WITHOUT_LOGIN = False
