@@ -446,8 +446,8 @@ async function loadTransactions(page = 1) {
                 <td>${new Date(t.timestamp).toLocaleString()}</td>
                 <td>${t.type}</td>
                 <td>
-                    ${t.user
-                        ? `${t.user.wms_login ?? ""} ${t.user.first_name} ${t.user.last_name}`
+                    ${t.employee
+                        ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
                         : "—"}
                 </td>
                 <td>${t.device?.name ?? "—"}</td>
