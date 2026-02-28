@@ -7,6 +7,8 @@
 #include <HTTPClient.h>
 #include <Wire.h>
 #include <Adafruit_PN532.h>
+#include <SPI.h>
+#include <SD.h>
 
 // ===== WiFi =====
 const char* WIFI_SSID = "AP_PiatekCeva";
@@ -15,6 +17,15 @@ const char* DEVICE_ID = "E-2";
 
 // ===== Server =====
 const char* API_URL = "https://pinokio2-0.onrender.com/api/data/";
+
+// ===== SD =====
+#define SD_CS 5
+
+String sd_WIFI_SSID;
+String sd_WIFI_PASS;
+String sd_DEVICE_ID;
+String sd_API_URL;
+bool configLoaded = false;
 
 // ===== RFID (PN532) =====
 #define SDA_PIN 21
@@ -33,6 +44,47 @@ const unsigned long SEND_DELAY = 1000;
 unsigned long lastWifiCheck = 0;
 const unsigned long WIFI_RECONNECT_INTERVAL = 5000;
 
+
+// =======================
+// LOAD CONFIG FROM SD
+// =======================
+void loadConfigFromSD() {
+  if (!SD.begin(SD_CS)) {
+    Serial.println("SD not found → defaults");
+    return;
+  }
+
+  File file = SD.open("/config.txt");
+  if (!file) {
+    Serial.println("config.txt not found → defaults");
+    return;
+  }
+
+  Serial.println("Reading config.txt");
+
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+
+    if (line.startsWith("WIFI_SSID="))
+      sd_WIFI_SSID = line.substring(10);
+
+    else if (line.startsWith("WIFI_PASS="))
+      sd_WIFI_PASS = line.substring(10);
+
+    else if (line.startsWith("DEVICE_ID="))
+      sd_DEVICE_ID = line.substring(10);
+
+    else if (line.startsWith("API_URL="))
+      sd_API_URL = line.substring(8);
+  }
+
+  file.close();
+  configLoaded = true;
+
+  Serial.println("Config loaded from SD");
+}
+
 // ===== WiFi check =====
 void checkWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
@@ -42,7 +94,11 @@ void checkWiFi() {
 
   lastWifiCheck = now;
   WiFi.disconnect();
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  const char* ssid = (configLoaded && sd_WIFI_SSID.length()) ? sd_WIFI_SSID.c_str() : WIFI_SSID;
+  const char* pass = (configLoaded && sd_WIFI_PASS.length()) ? sd_WIFI_PASS.c_str() : WIFI_PASS;
+
+  WiFi.begin(ssid, pass);
 }
 
 // ===== Buzzer =====
@@ -56,11 +112,17 @@ void beep(int duration = 100) {
 void setup() {
   Serial.begin(115200);
 
+  loadConfigFromSD();   // ← ДОДАНО
+
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
   // WiFi
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  const char* ssid = (configLoaded && sd_WIFI_SSID.length()) ? sd_WIFI_SSID.c_str() : WIFI_SSID;
+  const char* pass = (configLoaded && sd_WIFI_PASS.length()) ? sd_WIFI_PASS.c_str() : WIFI_PASS;
+
+  WiFi.begin(ssid, pass);
+
   Serial.print("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -128,7 +190,11 @@ void sendToServer(const String& uid) {
   HTTPClient http;
   http.setTimeout(200);
 
-  String fullUrl = String(API_URL) + DEVICE_ID;
+  String urlBase = (configLoaded && sd_API_URL.length()) ? sd_API_URL : String(API_URL);
+  String devId   = (configLoaded && sd_DEVICE_ID.length()) ? sd_DEVICE_ID : String(DEVICE_ID);
+
+  String fullUrl = urlBase + devId;
+
   http.begin(fullUrl);
   http.addHeader("Content-Type", "application/json");
 
