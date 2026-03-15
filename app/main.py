@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from config import STATIC_DIR, LOG_CONFIG
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
-from routers import api, pages, websocket, auth
+from routers import api, email_agent, pages, websocket, auth
 from fastapi.middleware.cors import CORSMiddleware
 from managers.registration_manager import RegistrationManager
 from managers.auth_manager import auth_manager
@@ -19,6 +19,7 @@ from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
 from routers.admin.admin_device_transactions import router as admin_device_transactions_router
+
 
 # Налаштування логування
 logging.basicConfig(**LOG_CONFIG)
@@ -129,3 +130,4 @@ app.include_router(admin_transactions_router)
 app.include_router(admin_device_transactions_router)
 app.include_router(websocket.router)
 app.include_router(pages.router)
+app.include_router(email_agent.router)

@@ -10,6 +10,7 @@ class EmployeeDB(Base):
     rfid: Mapped[str] = mapped_column(unique=True, index=True)
     company: Mapped[str]
     wms_login: Mapped[str] = mapped_column(unique=True, index=True, nullable=True)
+    department: Mapped[str] = mapped_column(nullable=True, index=True)
 
     devices = relationship(
         "DeviceDB",
