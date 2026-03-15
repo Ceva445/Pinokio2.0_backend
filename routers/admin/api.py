@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
+from models.db_department_manager import DepartmentManagerDB
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -29,7 +30,8 @@ async def create_employee(
         last_name=payload["last_name"],
         company=payload["company"],
         rfid=payload["rfid"],
-        wms_login=payload.get("wms_login")
+        wms_login=payload.get("wms_login"),
+        department=payload.get("department")
     )
 
     db.add(employee)
@@ -105,7 +107,7 @@ async def update_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    for field in ["wms_login", "first_name", "last_name", "company", "rfid"]:
+    for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department"]:
         if field in payload:
             setattr(employee, field, payload[field])
 
@@ -234,3 +236,75 @@ async def delete_device(
 
     await db.delete(device)
     await db.commit()
+
+
+# ===============================
+# DEPARTMENT MANAGERS
+# ===============================
+@router.post("/department-managers")
+async def create_department_manager(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    manager = DepartmentManagerDB(
+        department=payload["department"],
+        email=payload["email"]
+    )
+    db.add(manager)
+    await db.commit()
+    await db.refresh(manager)
+    return manager
+
+@router.get("/department-managers")
+async def get_department_managers(
+    q: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    stmt = select(DepartmentManagerDB)
+    if q:
+        stmt = stmt.where(DepartmentManagerDB.department.ilike(f"%{q}%"))
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+@router.get("/department-managers/{manager_id:int}")
+async def get_department_manager(
+    manager_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    manager = await db.get(DepartmentManagerDB, manager_id)
+    if not manager:
+        raise HTTPException(status_code=404, detail="Manager not found")
+    return manager
+
+@router.put("/department-managers/{manager_id:int}")
+async def update_department_manager(
+    manager_id: int,
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    manager = await db.get(DepartmentManagerDB, manager_id)
+    if not manager:
+        raise HTTPException(status_code=404, detail="Manager not found")
+    for field in ["department", "email"]:
+        if field in payload:
+            setattr(manager, field, payload[field])
+    await db.commit()
+    await db.refresh(manager)
+    return manager
+
+@router.delete("/department-managers/{manager_id:int}")
+async def delete_department_manager(
+    manager_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    manager = await db.get(DepartmentManagerDB, manager_id)
+    if not manager:
+        raise HTTPException(status_code=404, detail="Manager not found")
+    await db.delete(manager)
+    await db.commit()
+    return

@@ -1,0 +1,31 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Kierownicy działów</h2>
+
+<input
+    type="text"
+    id="search"
+    placeholder="Szukaj po dziale"
+    style="margin-bottom: 10px; width: 300px;"
+>
+
+<div style="margin-bottom: 10px;">
+    <a href="/admin/department-managers/create" class="btn btn-primary">
+        ➕ Dodaj managera
+    </a>
+</div>
+
+<table id="managersTable">
+    <thead>
+        <tr>
+            <th>Dział</th>
+            <th>Email</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/department_managers.js') }}"></script>
+{% endblock %}

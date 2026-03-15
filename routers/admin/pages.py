@@ -159,3 +159,25 @@ async def device_transactions_list(
         "admin/device_transactions/list.html",
         {"request": request}
     )
+
+# DEPARTMENT MANAGERS
+@router.get("/department-managers", response_class=HTMLResponse)
+async def department_managers_list(request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/department_managers/list.html",
+        {"request": request}
+    )
+
+@router.get("/department-managers/create", response_class=HTMLResponse)
+async def department_manager_create(request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/department_managers/create.html",
+        {"request": request}
+    )
+
+@router.get("/department-managers/{manager_id}", response_class=HTMLResponse)
+async def department_manager_detail(manager_id: int, request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/department_managers/detail.html",
+        {"request": request, "manager_id": manager_id}
+    )

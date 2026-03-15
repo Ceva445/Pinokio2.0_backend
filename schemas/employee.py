@@ -9,6 +9,7 @@ class EmployeeOut(BaseModel):
     rfid: str
     devices: list[DeviceOut] = []
     wms_login: Optional[str] = None
+    department: Optional[str] = None
 
     class Config:
         from_attributes = True

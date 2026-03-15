@@ -60,6 +60,7 @@ async function loadEmployees() {
                 <td>${e.last_name}</td>
                 <td>${e.company}</td>
                 <td>${e.rfid}</td>
+                <td>${e.department ?? ""}</td>
                 <td><a href="/admin/employees/${e.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
@@ -85,6 +86,7 @@ async function loadEmployeeDetail(employeeId) {
         form.last_name.value = employee.last_name ?? "";
         form.company.value = employee.company ?? "";
         form.rfid.value = employee.rfid ?? "";
+        form.department.value = employee.department ?? "";
     } catch (err) {
         alert("Nie udało się załadować pracownika ❌");
         console.error(err);
@@ -100,7 +102,8 @@ async function loadEmployeeDetail(employeeId) {
                 first_name: form.first_name.value,
                 last_name: form.last_name.value,
                 company: form.company.value,
-                rfid: form.rfid.value
+                rfid: form.rfid.value,
+                department: form.department.value || null
             })
         });
 
@@ -133,7 +136,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     first_name: form.first_name.value,
                     last_name: form.last_name.value,
                     company: form.company.value,
-                    rfid: form.rfid.value
+                    rfid: form.rfid.value,
+                    department: form.department.value || null
                 })
             });
 
