@@ -121,7 +121,7 @@ async def receive_esp32_data(
         if can_register:
             registration_manager.start_or_replace(device_id, employee)
             ui_message = (
-                f"Pracownik {employee.wms_login}aktywny. "
+                f"Pracownik {employee.wms_login} aktywny. "
                 f"Przyłóż skaner lub drukarkę"
             )
             print("ui message:", ui_message)

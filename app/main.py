@@ -37,23 +37,23 @@ if str(ROOT) not in sys.path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Контекст життя додатку"""
     logger.info("ESP32 Multi-Device Monitor started")
     
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
     auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
-    deleted = registration_manager.cleanup_expired()
-    logger.info(f"Removed {deleted} expired sessions")
+    registration_cleanup_task = asyncio.create_task(cleanup_registration_sessions())
     
     yield
     
-    cleanup_task.cancel()
-    auth_cleanup_task.cancel()
-    try:
-        await cleanup_task
-        await auth_cleanup_task
-    except asyncio.CancelledError:
-        pass
+    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task]:
+        task.cancel()
+    
+    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task]:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     logger.info("ESP32 Multi-Device Monitor stopped")
 
 
@@ -81,6 +81,21 @@ async def cleanup_auth_sessions():
         except Exception as exc:
             logger.error("Error in auth cleanup task: %s", exc)
 
+
+async def cleanup_registration_sessions():
+    logger.info("Registration cleanup task started")
+    
+    while True:
+        try:
+            await asyncio.sleep(60)  # інтервал
+            
+            deleted = registration_manager.cleanup_expired()
+            
+            if deleted:
+                logger.info(f"Removed {deleted} expired sessions")
+                
+        except Exception as exc:
+            logger.error("Error in registration cleanup task: %s", exc)
 
 # ===============================
 # CLEANUP USER ESP ACCESS
