@@ -203,22 +203,22 @@ async def receive_esp32_data(
 
                     if device_db.type in owned_types:
                         # TODO - add logic to chek if owner of device is not curent employee finish curent session and unregister device from second one employee
-                        if device_db.employee_id != employee.id:
-                            device_db.employee_id = None
-                            await db.commit()
-                            ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
-                            ui_status = "success"
+                        # if device_db.employee_id != employee.id:
+                        #     device_db.employee_id = None
+                        #     await db.commit()
+                        #     ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
+                        #     ui_status = "success"
 
-                            transaction = TransactionDB(
-                                type=TransactionType.unregistered,
-                                device_id=device_db.id,
-                                employee_id=None
-                            )
-                            db.add(transaction)
-                            await db.commit()
+                        #     transaction = TransactionDB(
+                        #         type=TransactionType.unregistered,
+                        #         device_id=device_db.id,
+                        #         employee_id=None
+                        #     )
+                        #     db.add(transaction)
+                        #     await db.commit()
 
-                            session.end()
-
+                        #     session.end()
+                    
                         ui_message = (
                             f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         )
