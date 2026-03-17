@@ -28,8 +28,7 @@ logger = logging.getLogger(__name__)
 # Глобальні менеджери
 device_manager = DeviceManager(timeout_minutes=10)
 manager = ConnectionManager(device_manager)
-registration_manager = RegistrationManager(timeout_seconds=60)
-
+registration_manager = RegistrationManager(timeout_seconds=7)
 esp_allowed_users: dict[str, set[int]] = {}
 
 ROOT = Path(__file__).resolve().parents[1]

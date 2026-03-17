@@ -49,7 +49,7 @@ function showStatus(status, message) {
 
     el.style.display = "block";
 
-    // автоочистка через 5 сек
+    // автоочистка через 15 сек
     setTimeout(() => {
         el.style.display = "none";
     }, 10000);

@@ -90,18 +90,18 @@ async def receive_esp32_data(
         )
 
     await manager.broadcast_device_list()
-    print("Allwed devices:", esp_allowed_users)
-    print("Current user:", current_user)
-    # 🔐 Czy rejestracja dozwolona
+    # print("Allwed devices:", esp_allowed_users)
+    # print("Current user:", current_user)
+    # Czy rejestracja dozwolona
     if ALLOW_REGISTRATION_WITHOUT_LOGIN:
         can_register = True
     else:
         can_register = await can_register_on_device(device_id, manager)
 
-        print("Allwed devices:", esp_allowed_users)
-        print("Current user:", current_user)
-        print("Can register:", can_register)
-    print("Can register:", can_register)
+    #     print("Allwed devices:", esp_allowed_users)
+    #     print("Current user:", current_user)
+    #     print("Can register:", can_register)
+    # print("Can register:", can_register)
     rfid = data.get("rfid")
     ui_message = None
     ui_status = "info"
@@ -121,7 +121,7 @@ async def receive_esp32_data(
         if can_register:
             registration_manager.start_or_replace(device_id, employee)
             ui_message = (
-                f"Pracownik {employee.first_name} {employee.last_name} aktywny. "
+                f"Pracownik {employee.wms_login}aktywny. "
                 f"Przyłóż skaner lub drukarkę"
             )
             print("ui message:", ui_message)
@@ -165,7 +165,7 @@ async def receive_esp32_data(
                     employee_full_name = employee_full_name.scalar_one_or_none()
                     ui_message = (
                         f"{device_db.type.value} {device_db.name} "
-                        f"należy do {employee_full_name.first_name} {employee_full_name.last_name}. "
+                        f"należy do {employee_full_name.wms_login}. "
                         f"Brak uprawnień do rejestracji."
                     )
                     ui_status = "info"
@@ -202,6 +202,23 @@ async def receive_esp32_data(
                     owned_types = {d.type for d in user_devices}
 
                     if device_db.type in owned_types:
+                        # TODO - add logic to chek if owner of device is not curent employee finish curent session and unregister device from second one employee
+                        if device_db.employee_id != employee.id:
+                            device_db.employee_id = None
+                            await db.commit()
+                            ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
+                            ui_status = "success"
+
+                            transaction = TransactionDB(
+                                type=TransactionType.unregistered,
+                                device_id=device_db.id,
+                                employee_id=None
+                            )
+                            db.add(transaction)
+                            await db.commit()
+
+                            session.end()
+
                         ui_message = (
                             f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         )
@@ -223,7 +240,7 @@ async def receive_esp32_data(
                             scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
                             printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)                         
                             ui_message = (
-                                f"{employee.first_name} {employee.last_name} "
+                                f"{employee.wms_login}"
                                 f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
                                 f"Rejestracja zakończona."
                             )
@@ -239,7 +256,7 @@ async def receive_esp32_data(
                             registration_manager.refresh(device_id)
                             ui_message = (
                                 f"{device_db.type.value} {device_db.name} "
-                                f"przypisano do {employee.first_name} {employee.last_name}"
+                                f"przypisano do {employee.wms_login}"
                             )
                             ui_status = "success"
                             transaction = TransactionDB(
