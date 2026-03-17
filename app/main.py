@@ -42,6 +42,8 @@ async def lifespan(app: FastAPI):
     
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
     auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
+    deleted = registration_manager.cleanup_expired()
+    logger.info(f"Removed {deleted} expired sessions")
     
     yield
     

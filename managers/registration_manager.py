@@ -32,3 +32,16 @@ class RegistrationManager:
 
     def end(self, esp_id: str):
         self.sessions.pop(esp_id, None)
+
+    def cleanup_expired(self) -> int:
+        now = datetime.now()
+        expired_keys = [
+            esp_id
+            for esp_id, session in self.sessions.items()
+            if now - session.started_at > self.timeout + timedelta(seconds=1)
+        ]
+
+        for esp_id in expired_keys:
+            self.sessions.pop(esp_id, None)
+
+        return len(expired_keys)
