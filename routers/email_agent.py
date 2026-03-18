@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 import asyncio
 
@@ -37,10 +37,13 @@ def send_email_sync(to_email: str, subject: str, message: str):
     msg["From"] = SMTP_FROM
     msg["To"] = to_email
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM, to_email, msg.as_string())
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM, to_email, msg.as_string())
+    except Exception as e:
+        print("EMAIL ERROR:", e)
 
 
 @router.post("/send-email")
@@ -49,6 +52,18 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
     now = datetime.now(timezone.utc)
     twelve_hours_ago = now - timedelta(hours=12)
 
+    # 🔹 subquery: остання registered транзакція для кожного device
+    last_registered_subq = (
+        select(
+            TransactionDB.device_id,
+            func.max(TransactionDB.timestamp).label("last_ts")
+        )
+        .where(TransactionDB.type == TransactionType.registered)
+        .group_by(TransactionDB.device_id)
+        .subquery()
+    )
+
+    # 🔹 головний запит
     stmt = (
         select(
             EmployeeDB.first_name,
@@ -56,53 +71,37 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
             EmployeeDB.department,
             DeviceDB.name,
             DeviceDB.type,
-            TransactionDB.timestamp
+            last_registered_subq.c.last_ts
         )
-        .join(TransactionDB, EmployeeDB.id == TransactionDB.employee_id)
-        .join(DeviceDB, DeviceDB.id == TransactionDB.device_id)
+        .join(DeviceDB, DeviceDB.employee_id == EmployeeDB.id)
+        .join(last_registered_subq, last_registered_subq.c.device_id == DeviceDB.id)
         .where(
-            TransactionDB.type == TransactionType.registered,
-            TransactionDB.timestamp < twelve_hours_ago
+            DeviceDB.employee_id.is_not(None),
+            last_registered_subq.c.last_ts < twelve_hours_ago
         )
     )
 
     result = await db.execute(stmt)
-    transactions = result.all()
+    rows = result.all()
 
     employees_devices: dict[str, list[str]] = {}
 
-    for first_name, last_name, department, device_name, device_type, timestamp in transactions:
+    for first_name, last_name, department, device_name, device_type, timestamp in rows:
 
-        last_event_stmt = (
-            select(TransactionDB.type)
-            .join(DeviceDB, DeviceDB.id == TransactionDB.device_id)
-            .where(DeviceDB.name == device_name)
-            .order_by(TransactionDB.timestamp.desc())
-            .limit(1)
-        )
-
-        last_event_result = await db.execute(last_event_stmt)
-        last_event = last_event_result.scalar_one_or_none()
-
-        if last_event == TransactionType.unregistered:
-            continue
-
-        # обрахунок часу
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-        hours = int((now - timestamp).total_seconds() // 3600)
-        minutes = int(((now - timestamp).total_seconds() % 3600) // 60)
+        delta = now - timestamp
+        hours = int(delta.total_seconds() // 3600)
+        minutes = int((delta.total_seconds() % 3600) // 60)
 
         device_type_pl = DEVICE_TYPE_PL.get(device_type.value, device_type.value)
 
-        if department not in employees_devices:
-            employees_devices[department] = []
-
-        employees_devices[department].append(
+        employees_devices.setdefault(department, []).append(
             f"{first_name} {last_name} ({device_type_pl}: {device_name}) — {hours}h {minutes}min"
         )
 
+    # 🔹 email
     for department, employees in employees_devices.items():
 
         managers_stmt = select(DepartmentManagerDB.email).where(
