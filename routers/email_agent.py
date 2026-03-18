@@ -10,40 +10,12 @@ from models.db_employee import EmployeeDB
 from models.db_department_manager import DepartmentManagerDB
 from models.db_device import DeviceDB
 
-import smtplib
-from email.mime.text import MIMEText
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
 router = APIRouter(tags=["Email Agent"])
-
-SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_FROM = os.getenv("SMTP_FROM")
 
 DEVICE_TYPE_PL = {
     "scanner": "skaner",
     "printer": "drukarka"
 }
-
-
-def send_email_sync(to_email: str, subject: str, message: str):
-    msg = MIMEText(message)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_FROM
-    msg["To"] = to_email
-
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_FROM, to_email, msg.as_string())
-    except Exception as e:
-        print("EMAIL ERROR:", e)
 
 
 @router.post("/send-email")
@@ -102,8 +74,9 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
         )
 
     # 🔹 email
-    for department, employees in employees_devices.items():
+    notifications = []
 
+    for department, employees in employees_devices.items():
         managers_stmt = select(DepartmentManagerDB.email).where(
             DepartmentManagerDB.department == department
         )
@@ -121,10 +94,13 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
 
         subject = f"Alert zwrotu urządzenia - {department}"
 
-        for email in manager_emails:
-            await asyncio.to_thread(send_email_sync, email, subject, message)
+        notifications.append({
+            "emails": manager_emails,
+            "subject": subject,
+            "message": message
+        })
 
     return {
-        "status": "emails sent automatically",
-        "departments_notified": list(employees_devices.keys())
+        "status": "prepared",
+        "notifications": notifications
     }
