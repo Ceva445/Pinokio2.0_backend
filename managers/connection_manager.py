@@ -40,3 +40,22 @@ class ConnectionManager:
         for ws, subscribed in self.connections.items():
             if subscribed == device_id:
                 await ws.send_json(payload)
+
+    async def broadcast_to_all(self, message_type: str, data: Dict[str, Any]):
+        payload = {
+            "type": message_type,
+            "data": data
+        }
+
+        disconnected = []
+
+        for ws in list(self.connections.keys()):
+            try:
+                await ws.send_json(payload)
+            except Exception as exc:
+                logger.warning("WebSocket error, removing connection: %s", exc)
+                disconnected.append(ws)
+
+        # Очистка мертвих з'єднань
+        for ws in disconnected:
+            self.disconnect(ws)
