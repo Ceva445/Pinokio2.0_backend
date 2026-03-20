@@ -18,11 +18,19 @@ DEVICE_TYPE_PL = {
 }
 
 
+def get_time_threshold(now: datetime) -> datetime:
+    if now.weekday() == 5:  # Saturday
+        return now
+    return now - timedelta(hours=12)
+
+
 @router.post("/send-email")
 async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
 
     now = datetime.now(timezone.utc)
-    twelve_hours_ago = now - timedelta(hours=12)
+    time_threshold = get_time_threshold(now)
+
+    is_instant_check = time_threshold == now
 
     # 🔹 subquery: остання registered транзакція для кожного device
     last_registered_subq = (
@@ -49,7 +57,7 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
         .join(last_registered_subq, last_registered_subq.c.device_id == DeviceDB.id)
         .where(
             DeviceDB.employee_id.is_not(None),
-            last_registered_subq.c.last_ts < twelve_hours_ago
+            last_registered_subq.c.last_ts < time_threshold
         )
     )
 
@@ -76,6 +84,12 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
     # 🔹 email
     notifications = []
 
+    time_text = (
+        "nie zwrócili urządzenia (stan na teraz):"
+        if is_instant_check
+        else "nie zwrócili urządzenia przez ponad 12 godzin:"
+    )
+
     for department, employees in employees_devices.items():
         managers_stmt = select(DepartmentManagerDB.email).where(
             DepartmentManagerDB.department == department
@@ -88,7 +102,7 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
             continue
 
         message = (
-            f"Pracownicy w Twoim dziale '{department}' nie zwrócili urządzenia przez ponad 12 godzin:\n\n"
+            f"Pracownicy w Twoim dziale '{department}' {time_text}\n\n"
             + "\n".join(employees)
         )
 
