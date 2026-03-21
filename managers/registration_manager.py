@@ -20,7 +20,7 @@ class RegistrationManager:
         session = self.sessions.get(esp_id)
         if not session:
             return None
-        if datetime.now() - session.started_at > self.timeout:
+        if datetime.now(timezone.utc) - session.started_at > self.timeout:
             self.sessions.pop(esp_id, None)
             return None
         return session
@@ -34,7 +34,7 @@ class RegistrationManager:
         self.sessions.pop(esp_id, None)
 
     def cleanup_expired(self) -> int:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         expired_keys = [
             esp_id
             for esp_id, session in self.sessions.items()
