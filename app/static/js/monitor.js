@@ -36,7 +36,7 @@ ws.onmessage = (e) => {
     if (msg.type === "registration_status") {
         showStatus(msg.status, msg.message);
         if (msg.session) {
-            startCountdown(msg.session.expires_at);
+            startCountdown(msg.session.timeout_seconds);
         } else {
             stopCountdown();
         }
@@ -44,16 +44,19 @@ ws.onmessage = (e) => {
 };
 
 
-function startCountdown(expiresAt) {
+function startCountdown(timeoutSeconds) {
     stopCountdown();
 
-    const end = new Date(expiresAt).getTime();
+    let left = timeoutSeconds;
+    renderCountdown(left);
 
     countdownInterval = setInterval(() => {
-        const left = Math.max(0, (end - Date.now()) / 1000);
+        left -= 0.1;
+        if (left <= 0) {
+            stopCountdown();
+            left = 0;
+        }
         renderCountdown(left);
-
-        if (left <= 0) stopCountdown();
     }, 100);
 }
 
