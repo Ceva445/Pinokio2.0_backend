@@ -274,8 +274,7 @@ async def receive_esp32_data(
             "status": ui_status,
             "message": ui_message,
             "session": {
-                "started_at": session.started_at.isoformat() if session else None,
-                "timeout": registration_manager.timeout.total_seconds(),
+                "expires_at": (session.started_at + registration_manager.timeout).isoformat()
             } if session else None
         },
     )

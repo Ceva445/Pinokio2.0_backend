@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class RegistrationSession:
     def __init__(self, employee):
         self.employee = employee
-        self.started_at = datetime.now()
+        self.started_at = datetime.now(timezone.utc)
 
     def touch(self):
-        self.started_at = datetime.now()
+        self.started_at = datetime.now(timezone.utc)
 
 class RegistrationManager:
     def __init__(self, timeout_seconds: int = 7):
