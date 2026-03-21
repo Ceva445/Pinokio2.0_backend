@@ -272,7 +272,9 @@ async def receive_esp32_data(
     timeout_left = None
     if session:
         # обчислюємо скільки секунд залишилось до закінчення сесії
-        timeout_left = max(0, (session.started_at + registration_manager.timeout - datetime.now(timezone.utc)).total_seconds())
+        timeout_left = (datetime.now(timezone.utc) - session.started_at + registration_manager.timeout).total_seconds()
+        timeout_left = max(0, timeout_left)
+        print(f"Timeout left for device {device_id}: {timeout_left} seconds")
 
     await manager.broadcast_device_data(
         device_id,
