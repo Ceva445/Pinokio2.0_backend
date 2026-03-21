@@ -25,7 +25,9 @@ if "sslmode" in query_args and query_args["sslmode"][0] == "require":
 engine = create_async_engine(
     url_without_params.replace("postgresql://", "postgresql+asyncpg://"),
     echo=True,
-    connect_args=connect_args
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=1800
 )
 
 async_session = async_sessionmaker(engine, expire_on_commit=False)
