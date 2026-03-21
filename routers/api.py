@@ -77,7 +77,6 @@ async def receive_esp32_data(
     from app.main import registration_manager, esp_allowed_users
 
     device = devices.update_device_data(device_id, data)
-
     # 🔄 Broadcast ESP data
     if device.latest_data:
         await manager.broadcast_device_data(
@@ -266,13 +265,18 @@ async def receive_esp32_data(
                             )
                             db.add(transaction)
                             await db.commit()
-
+    
+    session = registration_manager.get(device_id)
     await manager.broadcast_device_data(
         device_id,
         {
             "type": "registration_status",
             "status": ui_status,
             "message": ui_message,
+            "session": {
+                "started_at": session.started_at.isoformat() if session else None,
+                "timeout": registration_manager.timeout.total_seconds(),
+            } if session else None
         },
     )
 

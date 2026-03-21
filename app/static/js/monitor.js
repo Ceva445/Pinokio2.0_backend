@@ -5,6 +5,8 @@ const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
 let devicesCache = {};
 let activeDevice = null;
 
+let countdownInterval = null;
+
 const endBtn = document.getElementById("endSessionBtn");
 
 /* === WebSocket events === */
@@ -33,8 +35,45 @@ ws.onmessage = (e) => {
 
     if (msg.type === "registration_status") {
         showStatus(msg.status, msg.message);
+        if (msg.session) {
+            startCountdown(msg.session.started_at, msg.session.timeout);
+        } else {
+            stopCountdown();
+        }
     }
 };
+
+
+function startCountdown(startedAt, timeoutSeconds) {
+    stopCountdown();
+
+    const start = new Date(startedAt).getTime();
+
+    countdownInterval = setInterval(() => {
+        const now = Date.now();
+        const elapsed = (now - start) / 1000;
+        const left = Math.max(0, timeoutSeconds - elapsed);
+
+        renderCountdown(left);
+
+        if (left <= 0) {
+            stopCountdown();
+        }
+    }, 100);
+}
+
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    renderCountdown(0);
+}
+
+function renderCountdown(seconds) {
+    const el = document.getElementById("countdownCircle");
+    el.textContent = seconds.toFixed(1);
+}
 
 /* ===== Status UI ===== */
 function showStatus(status, message) {

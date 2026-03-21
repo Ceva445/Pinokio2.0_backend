@@ -441,3 +441,16 @@ nav a.active {
     color: #60a5fa;
     border-left: 3px solid #3b82f6;
 }
+
+#countdownCircle {
+    width: 70px;
+    height: 70px;
+    border-radius: 30%;
+    background: #434040;
+    color: rgb(55, 128, 55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: bold;
+}
