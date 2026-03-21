@@ -367,7 +367,10 @@ async def create_device(
 
 
 @router.post("/end-session/{device_id}")
-async def end_session(device_id: str):
+async def end_session(
+        device_id: str,
+        manager: ConnectionManager = Depends(get_manager),
+    ):
     from app.main import registration_manager
 
     session = registration_manager.get(device_id)
@@ -375,6 +378,17 @@ async def end_session(device_id: str):
         return {"status": "error", "message": "Brak aktywnej sesji"}
 
     registration_manager.sessions.pop(device_id, None)
+
+    await manager.broadcast_device_data(
+            device_id,
+            {
+                "type": "registration_status",
+                "status": "info",
+                "message": f"Sesja dla {device_id} zakończona",
+                "session": None
+            },
+        )
+
     return {
         "status": "success",
         "message": f"Sesja dla {device_id} zakończona",
