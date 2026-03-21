@@ -10,6 +10,7 @@ class DeviceOut(BaseModel):
     rfid: str
     serial_number: str
     type: DeviceType
+    enabled: bool
 
     class Config:
         from_attributes = True

@@ -15,6 +15,7 @@ class DeviceDB(Base):
     rfid: Mapped[str] = mapped_column(String, unique=True, index=True)
     serial_number: Mapped[str] = mapped_column(String, unique=True)
     type: Mapped[DeviceType]
+    enabled: Mapped[bool] = mapped_column(default=True)
 
     employee_id: Mapped[int | None] = mapped_column(
         ForeignKey("employees.id"), nullable=True

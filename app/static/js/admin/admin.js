@@ -174,6 +174,7 @@ async function loadDevices() {
                 <td>${d.type}</td>
                 <td>${d.serial_number}</td>
                 <td>${d.rfid}</td>
+                <td>${d.enabled ? "✅" : "❌"}</td>
                 <td><a href="/admin/devices/${d.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
@@ -200,7 +201,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 name: form.name.value,
                 type: form.type.value,
                 serial_number: form.serial_number.value,
-                rfid: form.rfid.value
+                rfid: form.rfid.value,
+                enabled: form.enabled.checked
             })
         });
 
@@ -223,6 +225,7 @@ async function loadDeviceDetail(deviceId) {
     form.type.value = d.type;
     form.serial_number.value = d.serial_number;
     form.rfid.value = d.rfid;
+    form.enabled.checked = d.enabled;
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -233,7 +236,8 @@ async function loadDeviceDetail(deviceId) {
                 name: form.name.value,
                 type: form.type.value,
                 serial_number: form.serial_number.value,
-                rfid: form.rfid.value
+                rfid: form.rfid.value,
+                enabled: form.enabled.checked
             })
         });
 

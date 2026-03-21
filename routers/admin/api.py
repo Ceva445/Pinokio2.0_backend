@@ -196,7 +196,7 @@ async def update_device(
 
     changes = []
 
-    for field in ["name", "serial_number", "rfid", "type"]:
+    for field in ["name", "serial_number", "rfid", "type", "enabled"]:
         if field in payload:
             new_value = (
                 DeviceType(payload[field]) if field == "type" else payload[field]
