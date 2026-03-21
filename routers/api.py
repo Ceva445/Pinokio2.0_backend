@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status
 from typing import Dict, Any
@@ -267,6 +269,11 @@ async def receive_esp32_data(
                             await db.commit()
     
     session = registration_manager.get(device_id)
+    timeout_left = None
+    if session:
+        # обчислюємо скільки секунд залишилось до закінчення сесії
+        timeout_left = max(0, (session.started_at + registration_manager.timeout - datetime.now(timezone.utc)).total_seconds())
+
     await manager.broadcast_device_data(
         device_id,
         {
@@ -274,7 +281,7 @@ async def receive_esp32_data(
             "status": ui_status,
             "message": ui_message,
             "session": {
-                "timeout_seconds": registration_manager.timeout.total_seconds()
+                "timeout_seconds": timeout_left
             } if session else None
         },
     )
