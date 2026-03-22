@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from models.db_department_manager import DepartmentManagerDB
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import func, select, or_
 
 from db.session import get_db
 from app.dependencies.admin import require_admin
@@ -308,3 +308,85 @@ async def delete_department_manager(
     await db.delete(manager)
     await db.commit()
     return
+
+#================================
+# Dashboard report
+#================================
+@router.get("/dashboard")
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    # =========================
+    # GLOBAL COUNTS
+    # =========================
+    available_stmt = select(func.count()).select_from(DeviceDB).where(DeviceDB.enabled == True)
+    disabled_stmt = select(func.count()).select_from(DeviceDB).where(DeviceDB.enabled == False)
+
+    available = (await db.execute(available_stmt)).scalar() or 0
+    disabled = (await db.execute(disabled_stmt)).scalar() or 0
+
+    # =========================
+    # BY TYPE
+    # =========================
+    type_stmt = (
+        select(
+            DeviceDB.type,
+            func.count()
+        )
+        .where(DeviceDB.enabled == True)
+        .group_by(DeviceDB.type)
+    )
+
+    type_result = await db.execute(type_stmt)
+
+    types = {
+        "scanner": 0,
+        "printer": 0
+    }
+
+    for t, count in type_result:
+        types[t.value] = count
+
+    # =========================
+    # DEPARTMENTS (FULL DATA)
+    # =========================
+    dept_stmt = (
+        select(
+            EmployeeDB.department,
+
+            func.count(func.distinct(EmployeeDB.id)).label("employees"),
+            func.count(DeviceDB.id).label("devices"),
+
+            func.count().filter(DeviceDB.type == DeviceType.scanner).label("scanners"),
+            func.count().filter(DeviceDB.type == DeviceType.printer).label("printers"),
+        )
+        .join(DeviceDB, DeviceDB.employee_id == EmployeeDB.id)
+        .where(
+            DeviceDB.enabled == True,
+            DeviceDB.employee_id.is_not(None)
+        )
+        .group_by(EmployeeDB.department)
+    )
+
+    dept_result = await db.execute(dept_stmt)
+
+    departments = [
+        {
+            "department": row.department or "Brak",
+            "employees": row.employees or 0,
+            "devices": row.devices or 0,
+            "scanners": row.scanners or 0,
+            "printers": row.printers or 0,
+        }
+        for row in dept_result
+    ]
+
+    return {
+        "devices": {
+            "available": available,
+            "disabled": disabled,
+            "by_type": types
+        },
+        "departments": departments
+    }

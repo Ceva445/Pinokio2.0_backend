@@ -1,8 +1,41 @@
 {% extends "admin/base_admin.html" %}
 
-{% block title %}Admin Dashboard{% endblock %}
-
 {% block admin_content %}
-<h1>Cześć, {{ user.first_name }} 👋</h1>
-<p>Wybierz sekcję po lewej stronie</p>
-{% endblock %}
+<h2>📊 Dashboard</h2>
+<div class="dashboard-cards">
+    <div class="card">
+        <h3>✅ Dostępne urządzenia</h3>
+        <p id="availableDevices">0</p>
+    </div>
+
+    <div class="card">
+        <h3>❌ Niedostępne urządzenia</h3>
+        <p id="disabledDevices">0</p>
+    </div>
+
+    <div class="card">
+        <h3>📦 Skanery</h3>
+        <p id="scannerDevices">0</p>
+    </div>
+
+    <div class="card">
+        <h3>🖨 Drukarki</h3>
+        <p id="printerDevices">0</p>
+    </div>
+</div>
+
+<h3>👥 Użycie per dział</h3>
+<table id="deptTable">
+    <thead>
+        <tr>
+            <th>Dział</th>
+            <th>👥 Pracownicy</th>
+            <th>📦 Urządzenia</th>
+            <th>📦 Skanery</th>
+            <th>🖨 Drukarki</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>{% endblock %}

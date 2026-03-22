@@ -31,6 +31,89 @@ async function api(url, options = {}) {
     return res.status === 204 ? null : res.json();
 }
 
+
+/* ================================
+   DASHBOARD
+================================ */
+async function loadDashboard() {
+    console.log("🚀 Dashboard init");
+
+    const availableEl = document.getElementById("availableDevices");
+    const disabledEl = document.getElementById("disabledDevices");
+    const scannerEl = document.getElementById("scannerDevices");
+    const printerEl = document.getElementById("printerDevices");
+    const tbody = document.querySelector("#deptTable tbody");
+
+    if (!availableEl || !disabledEl || !scannerEl || !printerEl) {
+        console.warn("❌ Dashboard elements missing");
+        return;
+    }
+
+    try {
+        const data = await api("/admin/api/dashboard");
+        console.log("📊 DATA:", data);
+
+        // =========================
+        // GLOBAL
+        // =========================
+        availableEl.textContent = data.devices?.available ?? 0;
+        disabledEl.textContent = data.devices?.disabled ?? 0;
+
+        scannerEl.textContent = data.devices?.by_type?.scanner ?? 0;
+        printerEl.textContent = data.devices?.by_type?.printer ?? 0;
+
+        // =========================
+        // DEPARTMENTS
+        // =========================
+        if (!tbody) return;
+
+        tbody.innerHTML = "";
+
+        if (!data.departments || data.departments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5">Brak danych</td></tr>`;
+            return;
+        }
+
+        for (const d of data.departments) {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${d.department ?? "Brak"}</td>
+                <td>${d.employees ?? 0}</td>
+                <td>${d.devices ?? 0}</td>
+                <td>${d.scanners ?? 0}</td>
+                <td>${d.printers ?? 0}</td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+    } catch (err) {
+        console.error("❌ Dashboard error:", err);
+
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5">Błąd ładowania</td></tr>`;
+        }
+    }
+}
+
+/* AUTOSTART */
+document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("availableDevices")) {
+        loadDashboard();
+    }
+});
+
+/* ================================
+    DASHBOARD AUTOSTART
+================================ */
+document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("availableDevices")) {
+        loadDashboard();
+    }
+});
+
+
 /* ================================
    СПИСОК ПРАЦІВНИКІВ
 ================================ */
@@ -245,7 +328,7 @@ async function loadDeviceDetail(deviceId) {
     });
 }
 
-async function deleteDevice() {
+async function deleteDevice(deviceId) {
     if (!confirm("Czy usunąć urządzenie?")) return;
     await api(`/admin/api/devices/${deviceId}`, { method: "DELETE" });
     window.location.href = "/admin/devices";
@@ -353,7 +436,9 @@ document.addEventListener("DOMContentLoaded", () => {
 ================================ */
 
 document.addEventListener("DOMContentLoaded", () => {
-    loadEmployees();
+    if (document.querySelector("#employeesTable")) {
+        loadEmployees();
+    }
 
     if (document.querySelector("#devicesTable")) {
         loadDevices();
