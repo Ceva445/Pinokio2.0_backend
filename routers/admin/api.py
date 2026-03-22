@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
+from sqlalchemy.orm import selectinload
 from models.db_department_manager import DepartmentManagerDB
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -140,14 +141,18 @@ async def create_device(
     return device
 
 
+
 @router.get("/devices")
 async def get_devices(
     q: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    stmt = select(DeviceDB)
-    print(stmt)
+    stmt = (
+        select(DeviceDB)
+        .options(selectinload(DeviceDB.employee))
+    )
+
     if q:
         stmt = stmt.where(
             or_(
@@ -158,8 +163,20 @@ async def get_devices(
         )
 
     result = await db.execute(stmt)
-    print(result)
-    return result.scalars().all()
+    devices = result.scalars().all()
+
+    return [
+        {
+            "id": d.id,
+            "name": d.name,
+            "rfid": d.rfid,
+            "serial_number": d.serial_number,
+            "type": d.type.value,
+            "enabled": d.enabled,
+            "employee_wms_login": d.employee.wms_login if d.employee else None
+        }
+        for d in devices
+    ]
 
 
 @router.get("/devices/{device_id:int}")

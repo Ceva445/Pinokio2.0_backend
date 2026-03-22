@@ -258,6 +258,7 @@ async function loadDevices() {
                 <td>${d.serial_number}</td>
                 <td>${d.rfid}</td>
                 <td>${d.enabled ? "✅" : "❌"}</td>
+                <td>${d.employee_wms_login ?? "—"}</td> <!-- 👈 -->
                 <td><a href="/admin/devices/${d.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
