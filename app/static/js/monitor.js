@@ -22,9 +22,16 @@ ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
     if (msg.type === "device_list") {
-        devicesCache = msg.data.devices;
-        renderDevices();
+    devicesCache = msg.data.devices;
+
+    if (activeDevice && !devicesCache[activeDevice]) {
+        activeDevice = null;
+        document.getElementById("output").textContent = "Device disconnected";
+        endBtn.disabled = true;
     }
+
+    renderDevices();
+}
 
     if (msg.type === "esp32_data") {
         if (msg.device_id === activeDevice) {

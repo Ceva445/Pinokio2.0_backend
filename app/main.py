@@ -26,7 +26,7 @@ logging.basicConfig(**LOG_CONFIG)
 logger = logging.getLogger(__name__)
 
 # Глобальні менеджери
-device_manager = DeviceManager(timeout_minutes=10)
+device_manager = DeviceManager(timeout_minutes=5)
 manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=7)
 esp_allowed_users: dict[str, set[int]] = {}
@@ -61,14 +61,11 @@ async def cleanup_offline_devices():
     """Фонова задача для очищення офлайн пристроїв"""
     while True:
         try:
-            await asyncio.sleep(300)  # кожні 5 хвилин
+            await asyncio.sleep(5)  # кожні 5 хвилин
             offline_devices = device_manager.cleanup_offline_devices()
             if offline_devices:
                 # Сповістити клієнтів про зміни статусу
-                await manager.broadcast_to_all(
-                    message_type="device_status_update",
-                    data=device_manager.get_all_devices_status()
-                )
+                await manager.broadcast_device_list()
         except Exception as exc:
             logger.error("Error in cleanup task: %s", exc)
 

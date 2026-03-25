@@ -57,9 +57,8 @@ class DeviceManager:
         
         for device_id, device in list(self.devices.items()):
             if device.last_seen and device.last_seen < cutoff_time:
-                device.mark_offline()
-                offline_devices[device_id] = device
-                logger.info("Device marked as offline: %s", device_id)
+                offline_devices[device_id] = self.devices.pop(device_id)
+                logger.info("Device removed (offline): %s", device_id)
                 
         return offline_devices
     
