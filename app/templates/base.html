@@ -32,6 +32,9 @@ async function checkAuth() {
 
     if (!res.ok) {
         // ❌ не залогінений
+        document.body.classList.add("guest");
+        document.body.classList.remove("auth");
+
         loginBtn.style.display = "inline";
         logoutBtn.style.display = "none";
         adminBtn.style.display = "none";

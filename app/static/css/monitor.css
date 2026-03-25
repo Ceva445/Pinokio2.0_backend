@@ -454,3 +454,19 @@ nav a.active {
     font-size: 22px;
     font-weight: bold;
 }
+
+/* фон для НЕ залогінених */
+body.guest {
+    background: #1a0f0f;
+    background-image: 
+        radial-gradient(at 20% 30%, rgba(239, 68, 68, 0.25) 0px, transparent 50%),
+        radial-gradient(at 80% 20%, rgba(220, 38, 38, 0.2) 0px, transparent 50%),
+        radial-gradient(at 50% 80%, rgba(127, 29, 29, 0.25) 0px, transparent 50%);
+}
+/* фон для залогінених (можеш залишити як є або явно) */
+body.auth {
+    background: var(--background);
+    background-image: 
+        radial-gradient(at 40% 20%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+        radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+}
