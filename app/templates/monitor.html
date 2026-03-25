@@ -14,18 +14,18 @@
     <div class="container">
         <div>
             <div id="countdownCircle">0</div>
-            <h3>Devices</h3>
+            <h3>Czujniki:</h3>
             <div id="devices"></div>
         </div>
         {% if current_user.role == "admin" %}
         <div>
             <h3>Live Data</h3>
-            <pre id="output">No device subscribed</pre>
+            <pre id="output">Brak subskrypcji</pre>
         </div>
         {% endif %}
         <div>
-            <h3>Last 5 Device Actions</h3>
-            <pre id="lastActions">No actions yet</pre>
+            <h3>Ostatnie ruchy</h3>
+            <pre id="lastActions">Brak danych</pre>
         </div>
     </div>
     <button id="endSessionBtn" disabled>Zakończ sesję</button>
