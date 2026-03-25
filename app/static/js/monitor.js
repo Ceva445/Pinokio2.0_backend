@@ -9,6 +9,9 @@ let countdownInterval = null;
 
 const endBtn = document.getElementById("endSessionBtn");
 
+/* === Масив для останніх повідомлень === */
+const lastActions = [];
+
 /* === WebSocket events === */
 ws.onopen = () => {
     console.log("WebSocket connected");
@@ -18,20 +21,21 @@ ws.onclose = () => {
     console.warn("WebSocket disconnected");
 };
 
+/* === WebSocket onmessage === */
 ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
     if (msg.type === "device_list") {
-    devicesCache = msg.data.devices;
+        devicesCache = msg.data.devices;
 
-    if (activeDevice && !devicesCache[activeDevice]) {
-        activeDevice = null;
-        document.getElementById("output").textContent = "Device disconnected";
-        endBtn.disabled = true;
+        if (activeDevice && !devicesCache[activeDevice]) {
+            activeDevice = null;
+            document.getElementById("output").textContent = "Device disconnected";
+            endBtn.disabled = true;
+        }
+
+        renderDevices();
     }
-
-    renderDevices();
-}
 
     if (msg.type === "esp32_data") {
         if (msg.device_id === activeDevice) {
@@ -50,7 +54,6 @@ ws.onmessage = (e) => {
     }
 };
 
-
 function startCountdown(timeoutSeconds) {
     stopCountdown();
 
@@ -66,7 +69,6 @@ function startCountdown(timeoutSeconds) {
         renderCountdown(left);
     }, 100);
 }
-
 
 function stopCountdown() {
     if (countdownInterval) {
@@ -93,6 +95,17 @@ function showStatus(status, message) {
     else el.classList.add("status-info");
 
     el.style.display = "block";
+
+    // Додаємо в Last 5 Device Actions тільки якщо статус містить ключові слова
+    if (message && (
+        message.includes("Rejestracja zakończona") ||
+        message.includes("przypisano do") ||
+        message.includes("został odpięty")
+    )) {
+        lastActions.unshift(`${new Date().toLocaleTimeString()} - ${message}`);
+        if (lastActions.length > 5) lastActions.pop();
+        renderLastActions();
+    }
 
     // автоочистка через 15 сек
     setTimeout(() => {
@@ -162,3 +175,15 @@ endBtn.onclick = async () => {
     const data = await res.json();
     showStatus(data.status, data.message);
 };
+
+/* === Функція рендеру останніх 5 дій === */
+function renderLastActions() {
+    const el = document.getElementById("lastActions");
+    if (!el) return;
+
+    if (lastActions.length === 0) {
+        el.textContent = "No actions yet";
+    } else {
+        el.textContent = lastActions.join("\n");
+    }
+}
