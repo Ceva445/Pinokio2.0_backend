@@ -17,12 +17,14 @@
             <h3>Devices</h3>
             <div id="devices"></div>
         </div>
-        <div id="liveDataContainer" style="display:none;">
+        {% if current_user.role == "admin" %}
+        <div>
             <h3>Live Data</h3>
             <pre id="output">No device subscribed</pre>
         </div>
+        {% endif %}
         <div>
-            <h3>Last Device Actions</h3>
+            <h3>Last 5 Device Actions</h3>
             <pre id="lastActions">No actions yet</pre>
         </div>
     </div>
