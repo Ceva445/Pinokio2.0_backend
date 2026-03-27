@@ -241,7 +241,7 @@ async def receive_esp32_data(
                             scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
                             printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)                         
                             ui_message = (
-                                f"{employee.wms_login}"
+                                f"{employee.wms_login} "
                                 f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
                                 f"Rejestracja zakończona."
                             )
