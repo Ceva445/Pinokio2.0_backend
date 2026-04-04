@@ -347,7 +347,7 @@ async def get_dashboard(
     disabled = (await db.execute(disabled_stmt)).scalar() or 0
 
     # =========================
-    # BY TYPE
+    # BY TYPE (ENABLED)
     # =========================
     type_stmt = (
         select(
@@ -367,6 +367,28 @@ async def get_dashboard(
 
     for t, count in type_result:
         types[t.value] = count
+
+    # =========================
+    # BY TYPE (DISABLED)
+    # =========================
+    disabled_type_stmt = (
+        select(
+            DeviceDB.type,
+            func.count()
+        )
+        .where(DeviceDB.enabled == False)
+        .group_by(DeviceDB.type)
+    )
+
+    disabled_type_result = await db.execute(disabled_type_stmt)
+
+    disabled_types = {
+        "scanner": 0,
+        "printer": 0
+    }
+
+    for t, count in disabled_type_result:
+        disabled_types[t.value] = count
 
     # =========================
     # DEPARTMENTS (FULL DATA)
@@ -406,7 +428,8 @@ async def get_dashboard(
         "devices": {
             "available": available,
             "disabled": disabled,
-            "by_type": types
+            "by_type": types,
+            "disabled_by_type": disabled_types
         },
         "departments": departments
     }

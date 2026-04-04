@@ -39,12 +39,13 @@ async function loadDashboard() {
     console.log("🚀 Dashboard init");
 
     const availableEl = document.getElementById("availableDevices");
-    const disabledEl = document.getElementById("disabledDevices");
     const scannerEl = document.getElementById("scannerDevices");
     const printerEl = document.getElementById("printerDevices");
+    const disabledScannerEl = document.getElementById("disabledScannerDevices");
+    const disabledPrinterEl = document.getElementById("disabledPrinterDevices");
     const tbody = document.querySelector("#deptTable tbody");
 
-    if (!availableEl || !disabledEl || !scannerEl || !printerEl) {
+    if (!availableEl || !scannerEl || !printerEl || !disabledScannerEl || !disabledPrinterEl) {
         console.warn("❌ Dashboard elements missing");
         return;
     }
@@ -57,10 +58,12 @@ async function loadDashboard() {
         // GLOBAL
         // =========================
         availableEl.textContent = data.devices?.available ?? 0;
-        disabledEl.textContent = data.devices?.disabled ?? 0;
 
         scannerEl.textContent = data.devices?.by_type?.scanner ?? 0;
         printerEl.textContent = data.devices?.by_type?.printer ?? 0;
+        
+        disabledScannerEl.textContent = data.devices?.disabled_by_type?.scanner ?? 0;
+        disabledPrinterEl.textContent = data.devices?.disabled_by_type?.printer ?? 0;
 
         // =========================
         // DEPARTMENTS
