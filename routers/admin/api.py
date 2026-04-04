@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, or_
 
 from db.session import get_db
-from app.dependencies.admin import require_admin
+from app.dependencies.admin import require_admin, require_manager_or_admin
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 
@@ -543,7 +543,7 @@ async def delete_department_manager(
 @router.get("/dashboard")
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_admin)
+    user=Depends(require_manager_or_admin)
 ):
     # =========================
     # GLOBAL COUNTS
