@@ -62,7 +62,7 @@ async def get_employees(
                 EmployeeDB.wms_login.ilike(f"%{q}%")
             )
         )
-
+    stmt = stmt.order_by(EmployeeDB.last_name, EmployeeDB.first_name)
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -129,7 +129,7 @@ async def create_device(
     user=Depends(require_admin)
 ):
     device = DeviceDB(
-        name=payload["name"],
+        name=payload["name"].upper() if payload["name"] else payload["name"],
         type=DeviceType(payload["type"]),
         serial_number=payload["serial_number"],
         rfid=payload["rfid"]
@@ -161,7 +161,7 @@ async def get_devices(
                 DeviceDB.rfid.ilike(f"%{q}%")
             )
         )
-
+    stmt = stmt.order_by(DeviceDB.name)
     result = await db.execute(stmt)
     devices = result.scalars().all()
 
@@ -218,6 +218,9 @@ async def update_device(
             new_value = (
                 DeviceType(payload[field]) if field == "type" else payload[field]
             )
+            if field == "name" and new_value:
+                new_value = new_value.upper()
+                
             old_value = getattr(device, field)
             if old_value != new_value:
                 changes.append(f"{field}: '{old_value}' → '{new_value}'")
