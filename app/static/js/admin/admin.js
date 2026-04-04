@@ -14,6 +14,98 @@
    УТИЛІТИ
 ================================ */
 
+// Parse API error response and extract readable message
+function getErrorMessage(response) {
+    try {
+        const data = JSON.parse(response);
+        if (data.detail) {
+            return typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
+        }
+        return response;
+    } catch (e) {
+        return response || "Nieznany błąd";
+    }
+}
+
+// Show error message to user
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-alert';
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 15px 20px;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        max-width: 400px;
+        z-index: 9999;
+        clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+        animation: slideIn 0.3s ease-out;
+    `;
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
+    
+    setTimeout(() => {
+        errorDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => errorDiv.remove(), 300);
+    }, 5000);
+}
+
+// Show success message to user
+function showSuccess(message) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-alert';
+    successDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #d4edda;
+        color: #155724;
+        padding: 15px 20px;
+        border: 1px solid #c3e6cb;
+        border-radius: 4px;
+        max-width: 400px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+    `;
+    successDiv.textContent = message;
+    document.body.appendChild(successDiv);
+    
+    setTimeout(() => {
+        successDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => successDiv.remove(), 300);
+    }, 3000);
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(420px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(420px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
 async function api(url, options = {}) {
     const res = await fetch(url, {
         credentials: "include",
@@ -25,7 +117,8 @@ async function api(url, options = {}) {
 
     if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || "API error");
+        const errorMessage = getErrorMessage(text);
+        throw new Error(errorMessage);
     }
 
     return res.status === 204 ? null : res.json();
@@ -185,33 +278,44 @@ async function loadEmployeeDetail(employeeId) {
         form.rfid.value = employee.rfid ?? "";
         form.department.value = employee.department ?? "";
     } catch (err) {
-        alert("Nie udało się załadować pracownika ❌");
-        console.error(err);
+        showError("Nie udało się załadować pracownika: " + err.message);
     }
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        await api(`/admin/api/employees/${employeeId}`, {
-            method: "PUT",
-            body: JSON.stringify({
-                wms_login: form.wms_login.value,
-                first_name: form.first_name.value,
-                last_name: form.last_name.value,
-                company: form.company.value,
-                rfid: form.rfid.value,
-                department: form.department.value || null
-            })
-        });
+        try {
+            await api(`/admin/api/employees/${employeeId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    wms_login: form.wms_login.value,
+                    first_name: form.first_name.value,
+                    last_name: form.last_name.value,
+                    company: form.company.value,
+                    rfid: form.rfid.value,
+                    department: form.department.value || null
+                })
+            });
 
-        alert("Zapisano ✅");
+            showSuccess("Pracownik został zaktualizowany ✅");
+        } catch (err) {
+            showError(err.message);
+        }
     });
 }
 
 async function deleteEmployee(employeeId) {
-    if (!confirm("Czy jesteś pewien?")) return;
-    await api(`/admin/api/employees/${employeeId}`, { method: "DELETE" });
-    window.location.href = "/admin/employees";
+    if (!confirm("Czy na pewno chcesz usunąć tego pracownika?")) return;
+    
+    try {
+        await api(`/admin/api/employees/${employeeId}`, { method: "DELETE" });
+        showSuccess("Pracownik został usunięty ✅");
+        setTimeout(() => {
+            window.location.href = "/admin/employees";
+        }, 1000);
+    } catch (err) {
+        showError(err.message);
+    }
 }
 
 /* ================================
@@ -238,10 +342,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
-            alert("Pracownika stworzono ✅");
-            window.location.href = "/admin/employees";
+            showSuccess("Pracownik został utworzony ✅");
+            setTimeout(() => {
+                window.location.href = "/admin/employees";
+            }, 1000);
         } catch (err) {
-            alert("Błąd tworzenia ❌\n" + err.message);
+            showError(err.message);
         }
     });
 });
@@ -293,19 +399,25 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        await api("/admin/api/devices", {
-            method: "POST",
-            body: JSON.stringify({
-                name: form.name.value,
-                type: form.type.value,
-                serial_number: form.serial_number.value,
-                rfid: form.rfid.value,
-                enabled: form.enabled.checked
-            })
-        });
+        try {
+            await api("/admin/api/devices", {
+                method: "POST",
+                body: JSON.stringify({
+                    name: form.name.value,
+                    type: form.type.value,
+                    serial_number: form.serial_number.value,
+                    rfid: form.rfid.value,
+                    enabled: form.enabled.checked
+                })
+            });
 
-        alert("Przyrząd stworzono ✅");
-        window.location.href = "/admin/devices";
+            showSuccess("Urządzenie zostało utworzone ✅");
+            setTimeout(() => {
+                window.location.href = "/admin/devices";
+            }, 1000);
+        } catch (err) {
+            showError(err.message);
+        }
     });
 });
 
@@ -317,36 +429,52 @@ async function loadDeviceDetail(deviceId) {
     const form = document.getElementById("deviceForm");
     if (!form) return;
 
-    const d = await api(`/admin/api/devices/${deviceId}`);
+    try {
+        const d = await api(`/admin/api/devices/${deviceId}`);
 
-    form.name.value = d.name;
-    form.type.value = d.type;
-    form.serial_number.value = d.serial_number;
-    form.rfid.value = d.rfid;
-    form.enabled.checked = d.enabled;
+        form.name.value = d.name;
+        form.type.value = d.type;
+        form.serial_number.value = d.serial_number;
+        form.rfid.value = d.rfid;
+        form.enabled.checked = d.enabled;
+    } catch (err) {
+        showError("Nie udało się załadować urządzenia: " + err.message);
+    }
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        await api(`/admin/api/devices/${deviceId}`, {
-            method: "PUT",
-            body: JSON.stringify({
-                name: form.name.value,
-                type: form.type.value,
-                serial_number: form.serial_number.value,
-                rfid: form.rfid.value,
-                enabled: form.enabled.checked
-            })
-        });
+        try {
+            await api(`/admin/api/devices/${deviceId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    name: form.name.value,
+                    type: form.type.value,
+                    serial_number: form.serial_number.value,
+                    rfid: form.rfid.value,
+                    enabled: form.enabled.checked
+                })
+            });
 
-        alert("Zapisano ✅");
+            showSuccess("Urządzenie zostało zaktualizowane ✅");
+        } catch (err) {
+            showError(err.message);
+        }
     });
 }
 
 async function deleteDevice(deviceId) {
-    if (!confirm("Czy usunąć urządzenie?")) return;
-    await api(`/admin/api/devices/${deviceId}`, { method: "DELETE" });
-    window.location.href = "/admin/devices";
+    if (!confirm("Czy na pewno chcesz usunąć urządzenie?")) return;
+    
+    try {
+        await api(`/admin/api/devices/${deviceId}`, { method: "DELETE" });
+        showSuccess("Urządzenie zostało usunięte ✅");
+        setTimeout(() => {
+            window.location.href = "/admin/devices";
+        }, 1000);
+    } catch (err) {
+        showError(err.message);
+    }
 }
 
 /* ================================
@@ -388,35 +516,51 @@ async function loadUserDetail(userId) {
     const form = document.getElementById("userForm");
     if (!form) return;
 
-    const u = await api(`/admin/api/users/${userId}`);
+    try {
+        const u = await api(`/admin/api/users/${userId}`);
 
-    form.first_name.value = u.first_name;
-    form.last_name.value = u.last_name;
-    form.role.value = u.role;
-    form.is_active.checked = u.is_active;
+        form.first_name.value = u.first_name;
+        form.last_name.value = u.last_name;
+        form.role.value = u.role;
+        form.is_active.checked = u.is_active;
+    } catch (err) {
+        showError("Nie udało się załadować użytkownika: " + err.message);
+    }
 
     form.addEventListener("submit", async e => {
         e.preventDefault();
 
-        await api(`/admin/api/users/${userId}`, {
-            method: "PUT",
-            body: JSON.stringify({
-                first_name: form.first_name.value,
-                last_name: form.last_name.value,
-                password: form.password.value || null,
-                role: form.role.value,
-                is_active: form.is_active.checked
-            })
-        });
+        try {
+            await api(`/admin/api/users/${userId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    first_name: form.first_name.value,
+                    last_name: form.last_name.value,
+                    password: form.password.value || null,
+                    role: form.role.value,
+                    is_active: form.is_active.checked
+                })
+            });
 
-        alert("Zapisano ✅");
+            showSuccess("Użytkownik został zaktualizowany ✅");
+        } catch (err) {
+            showError(err.message);
+        }
     });
 }
 
 async function deleteUser() {
-    if (!confirm("Czy usunąć użytkownika?")) return;
-    await api(`/admin/api/users/${userId}`, { method: "DELETE" });
-    window.location.href = "/admin/users";
+    if (!confirm("Czy na pewno chcesz usunąć użytkownika?")) return;
+    
+    try {
+        await api(`/admin/api/users/${userId}`, { method: "DELETE" });
+        showSuccess("Użytkownik został usunięty ✅");
+        setTimeout(() => {
+            window.location.href = "/admin/users";
+        }, 1000);
+    } catch (err) {
+        showError(err.message);
+    }
 }
 
 /* ================================
@@ -430,19 +574,25 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async e => {
         e.preventDefault();
 
-        await api("/admin/api/users", {
-            method: "POST",
-            body: JSON.stringify({
-                username: form.username.value,
-                first_name: form.first_name.value,
-                last_name: form.last_name.value,
-                password: form.password.value,
-                role: form.role.value
-            })
-        });
+        try {
+            await api("/admin/api/users", {
+                method: "POST",
+                body: JSON.stringify({
+                    username: form.username.value,
+                    first_name: form.first_name.value,
+                    last_name: form.last_name.value,
+                    password: form.password.value,
+                    role: form.role.value
+                })
+            });
 
-        alert("Korzystnik stworzono ✅");
-        window.location.href = "/admin/users";
+            showSuccess("Użytkownik został utworzony ✅");
+            setTimeout(() => {
+                window.location.href = "/admin/users";
+            }, 1000);
+        } catch (err) {
+            showError(err.message);
+        }
     });
 });
 

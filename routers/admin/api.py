@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from models.db_department_manager import DepartmentManagerDB
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,20 +27,53 @@ async def create_employee(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    employee = EmployeeDB(
-        first_name=payload["first_name"],
-        last_name=payload["last_name"],
-        company=payload["company"],
-        rfid=payload["rfid"],
-        wms_login=payload.get("wms_login"),
-        department=payload.get("department")
-    )
+    try:
+        # Validate required fields
+        required_fields = ["first_name", "last_name", "company", "rfid"]
+        for field in required_fields:
+            if field not in payload or not payload[field]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pole '{field}' jest wymagane"
+                )
+        
+        employee = EmployeeDB(
+            first_name=payload["first_name"].strip(),
+            last_name=payload["last_name"].strip(),
+            company=payload["company"].strip(),
+            rfid=payload["rfid"].strip(),
+            wms_login=payload.get("wms_login", "").strip(),
+            department=payload.get("department", "").strip()
+        )
 
-    db.add(employee)
-    await db.commit()
-    await db.refresh(employee)
-
-    return employee
+        db.add(employee)
+        await db.commit()
+        await db.refresh(employee)
+        return employee
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Pracownik z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Błąd walidacji: {str(e)}"
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 
 # ===============================
@@ -100,22 +134,46 @@ async def update_employee(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    result = await db.execute(
-        select(EmployeeDB).where(EmployeeDB.id == employee_id)
-    )
-    employee = result.scalar_one_or_none()
+    try:
+        result = await db.execute(
+            select(EmployeeDB).where(EmployeeDB.id == employee_id)
+        )
+        employee = result.scalar_one_or_none()
 
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
+        if not employee:
+            raise HTTPException(status_code=404, detail="Pracownik nie znaleziony")
 
-    for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department"]:
-        if field in payload:
-            setattr(employee, field, payload[field])
+        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department"]:
+            if field in payload:
+                value = payload[field]
+                if isinstance(value, str):
+                    value = value.strip()
+                setattr(employee, field, value)
 
-    await db.commit()
-    await db.refresh(employee)
-
-    return employee
+        await db.commit()
+        await db.refresh(employee)
+        return employee
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Pracownik z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 
 # ===============================
@@ -128,17 +186,68 @@ async def create_device(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    device = DeviceDB(
-        name=payload["name"].upper() if payload["name"] else payload["name"],
-        type=DeviceType(payload["type"]),
-        serial_number=payload["serial_number"],
-        rfid=payload["rfid"]
-    )
+    try:
+        # Validate required fields
+        required_fields = ["name", "type", "serial_number", "rfid"]
+        for field in required_fields:
+            if field not in payload or not payload[field]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pole '{field}' jest wymagane"
+                )
+        
+        # Validate device type
+        try:
+            device_type = DeviceType(payload["type"])
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Typ urządzenia musi być 'scanner' lub 'printer'"
+            )
+        
+        device = DeviceDB(
+            name=payload["name"].upper().strip(),
+            type=device_type,
+            serial_number=payload["serial_number"].strip(),
+            rfid=payload["rfid"].strip()
+        )
 
-    db.add(device)
-    await db.commit()
-    await db.refresh(device)
-    return device
+        db.add(device)
+        await db.commit()
+        await db.refresh(device)
+        return device
+        
+    except IntegrityError as e:
+        await db.rollback()
+        error_str = str(e).lower()
+        if "devices_name_key" in error_str or "unique constraint" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Urządzenie o nazwie '{payload.get('name', '').upper()}' już istnieje"
+            )
+        elif "devices_serial_number_key" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail="Urządzenie z tym numerem seryjnym już istnieje"
+            )
+        elif "devices_rfid_key" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail="Urządzenie z tym RFID już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 
 
@@ -203,41 +312,82 @@ async def update_device(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    result = await db.execute(
-        select(DeviceDB).where(DeviceDB.id == device_id)
-    )
-    device = result.scalar_one_or_none()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-    changes = []
-
-    for field in ["name", "serial_number", "rfid", "type", "enabled"]:
-        if field in payload:
-            new_value = (
-                DeviceType(payload[field]) if field == "type" else payload[field]
-            )
-            if field == "name" and new_value:
-                new_value = new_value.upper()
-                
-            old_value = getattr(device, field)
-            if old_value != new_value:
-                changes.append(f"{field}: '{old_value}' → '{new_value}'")
-                setattr(device, field, new_value)
-
-    if changes:
-        description = "; ".join(changes)
-        tx = DeviceChangeTransaction(
-            user_id=user["id"],  # id адміністратора, який робить зміну
-            device_id=device.id,
-            description=description
+    try:
+        result = await db.execute(
+            select(DeviceDB).where(DeviceDB.id == device_id)
         )
-        db.add(tx)
+        device = result.scalar_one_or_none()
 
-    await db.commit()
-    await db.refresh(device)
-    return device
+        if not device:
+            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+
+        changes = []
+
+        for field in ["name", "serial_number", "rfid", "type", "enabled"]:
+            if field in payload:
+                try:
+                    new_value = (
+                        DeviceType(payload[field]) if field == "type" else payload[field]
+                    )
+                    if field == "name" and new_value:
+                        new_value = new_value.upper().strip()
+                    elif field in ["serial_number", "rfid"] and new_value:
+                        new_value = str(new_value).strip()
+                        
+                    old_value = getattr(device, field)
+                    if old_value != new_value:
+                        changes.append(f"{field}: '{old_value}' → '{new_value}'")
+                        setattr(device, field, new_value)
+                except ValueError as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Błąd walidacji dla pola '{field}': {str(e)}"
+                    )
+
+        if changes:
+            description = "; ".join(changes)
+            tx = DeviceChangeTransaction(
+                user_id=user["id"],
+                device_id=device.id,
+                description=description
+            )
+            db.add(tx)
+
+        await db.commit()
+        await db.refresh(device)
+        return device
+        
+    except IntegrityError as e:
+        await db.rollback()
+        error_str = str(e).lower()
+        if "devices_name_key" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Urządzenie o nazwie '{payload.get('name', 'UNKNOWN').upper()}' już istnieje"
+            )
+        elif "devices_serial_number_key" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail="Urządzenie z tym numerem seryjnym już istnieje"
+            )
+        elif "devices_rfid_key" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail="Urządzenie z tym RFID już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 
 @router.delete("/devices/{device_id:int}")
@@ -267,14 +417,45 @@ async def create_department_manager(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    manager = DepartmentManagerDB(
-        department=payload["department"],
-        email=payload["email"]
-    )
-    db.add(manager)
-    await db.commit()
-    await db.refresh(manager)
-    return manager
+    try:
+        # Validate required fields
+        required_fields = ["department", "email"]
+        for field in required_fields:
+            if field not in payload or not payload[field]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pole '{field}' jest wymagane"
+                )
+        
+        manager = DepartmentManagerDB(
+            department=payload["department"].strip(),
+            email=payload["email"].strip()
+        )
+        db.add(manager)
+        await db.commit()
+        await db.refresh(manager)
+        return manager
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Kierownik departamentu z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 @router.get("/department-managers")
 async def get_department_managers(
@@ -306,15 +487,42 @@ async def update_department_manager(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    manager = await db.get(DepartmentManagerDB, manager_id)
-    if not manager:
-        raise HTTPException(status_code=404, detail="Manager not found")
-    for field in ["department", "email"]:
-        if field in payload:
-            setattr(manager, field, payload[field])
-    await db.commit()
-    await db.refresh(manager)
-    return manager
+    try:
+        manager = await db.get(DepartmentManagerDB, manager_id)
+        if not manager:
+            raise HTTPException(status_code=404, detail="Kierownik departamentu nie znaleziony")
+        
+        for field in ["department", "email"]:
+            if field in payload:
+                value = payload[field]
+                if isinstance(value, str):
+                    value = value.strip()
+                setattr(manager, field, value)
+        
+        await db.commit()
+        await db.refresh(manager)
+        return manager
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Kierownik departamentu z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 @router.delete("/department-managers/{manager_id:int}")
 async def delete_department_manager(
