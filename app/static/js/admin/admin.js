@@ -38,14 +38,17 @@ async function api(url, options = {}) {
 async function loadDashboard() {
     console.log("🚀 Dashboard init");
 
-    //const availableEl = document.getElementById("availableDevices");
     const scannerEl = document.getElementById("scannerDevices");
     const printerEl = document.getElementById("printerDevices");
     const disabledScannerEl = document.getElementById("disabledScannerDevices");
     const disabledPrinterEl = document.getElementById("disabledPrinterDevices");
+    const totalScannersEl = document.getElementById("totalScanners");
+    const totalPrintersEl = document.getElementById("totalPrinters");
+    const totalAvailableEl = document.getElementById("totalAvailable");
+    const totalDisabledEl = document.getElementById("totalDisabled");
+    const grandTotalEl = document.getElementById("grandTotal");
     const tbody = document.querySelector("#deptTable tbody");
 
-    //!availableEl || 
     if (!scannerEl || !printerEl || !disabledScannerEl || !disabledPrinterEl) {
         console.warn("❌ Dashboard elements missing");
         return;
@@ -56,15 +59,29 @@ async function loadDashboard() {
         console.log("📊 DATA:", data);
 
         // =========================
-        // GLOBAL
+        // DEVICE COUNTS
         // =========================
-        //availableEl.textContent = data.devices?.available ?? 0;
+        const enabledScanners = data.devices?.by_type?.scanner ?? 0;
+        const enabledPrinters = data.devices?.by_type?.printer ?? 0;
+        const disabledScanners = data.devices?.disabled_by_type?.scanner ?? 0;
+        const disabledPrinters = data.devices?.disabled_by_type?.printer ?? 0;
 
-        scannerEl.textContent = data.devices?.by_type?.scanner ?? 0;
-        printerEl.textContent = data.devices?.by_type?.printer ?? 0;
-        
-        disabledScannerEl.textContent = data.devices?.disabled_by_type?.scanner ?? 0;
-        disabledPrinterEl.textContent = data.devices?.disabled_by_type?.printer ?? 0;
+        // Populate cells
+        scannerEl.textContent = enabledScanners;
+        printerEl.textContent = enabledPrinters;
+        disabledScannerEl.textContent = disabledScanners;
+        disabledPrinterEl.textContent = disabledPrinters;
+
+        // Calculate totals
+        const totalAvailable = enabledScanners + enabledPrinters;
+        const totalDisabled = disabledScanners + disabledPrinters;
+        const grandTotal = totalAvailable + totalDisabled;
+
+        if (totalScannersEl) totalScannersEl.textContent = enabledScanners + disabledScanners;
+        if (totalPrintersEl) totalPrintersEl.textContent = enabledPrinters + disabledPrinters;
+        if (totalAvailableEl) totalAvailableEl.textContent = totalAvailable;
+        if (totalDisabledEl) totalDisabledEl.textContent = totalDisabled;
+        if (grandTotalEl) grandTotalEl.textContent = grandTotal;
 
         // =========================
         // DEPARTMENTS

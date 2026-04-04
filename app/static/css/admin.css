@@ -182,6 +182,63 @@
     background: rgba(59, 130, 246, 0.08);
 }
 
+/* ---------- Dashboard Table ---------- */
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow);
+}
+
+.dashboard-table thead tr {
+    background: linear-gradient(135deg, rgba(22, 20, 110, 0.9), rgba(59, 130, 246, 0.25));
+    border-bottom: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-table th {
+    padding: 14px 16px;
+    text-align: left;
+    color: #e0e7ff;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.dashboard-table th.text-center {
+    text-align: center;
+}
+
+.dashboard-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.2s ease;
+}
+
+.dashboard-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.12);
+}
+
+.dashboard-table tbody tr.total-row {
+    background: linear-gradient(135deg, rgba(22, 20, 110, 0.6), rgba(59, 130, 246, 0.15));
+    font-weight: 600;
+    border-top: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-table td {
+    padding: 14px 16px;
+    color: var(--text-primary);
+}
+
+.dashboard-table td.text-center {
+    text-align: center;
+}
+
+.dashboard-table td.text-bold {
+    font-weight: 600;
+}
+
 /* ---------- Forms ---------- */
 .admin-content input,
 .admin-content select {

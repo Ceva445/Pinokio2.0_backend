@@ -3,31 +3,36 @@
 {% block admin_content %}
 <h2>📊 Dashboard</h2>
 <div class="dashboard-cards" id="dashboard-cards">
-    <!-- <div class="card">
-        <h3>✅ Dostępne urządzenia</h3>
-        <p id="availableDevices">0</p>
-    </div>
-     -->
-
-    <div class="card">
-        <h3>📦 Skanery</h3>
-        <p id="scannerDevices">0</p>
-    </div>
-
-    <div class="card">
-        <h3>🖨 Drukarki</h3>
-        <p id="printerDevices">0</p>
-    </div>
-
-    <div class="card">
-        <h3>❌ Niedostępne Skanery</h3>
-        <p id="disabledScannerDevices">0</p>
-    </div>
-
-    <div class="card">
-        <h3>❌ Niedostępne Drukarki</h3>
-        <p id="disabledPrinterDevices">0</p>
-    </div>
+    <table class="dashboard-table">
+        <thead>
+            <tr>
+                <th>Typ Urządzenia</th>
+                <th class="text-center">📦 Dostępne</th>
+                <th class="text-center">❌ Niedostępne</th>
+                <th class="text-center">📊 Razem</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>📦 Skanery</td>
+                <td class="text-center" id="scannerDevices">0</td>
+                <td class="text-center" id="disabledScannerDevices">0</td>
+                <td class="text-center text-bold" id="totalScanners">0</td>
+            </tr>
+            <tr>
+                <td>🖨 Drukarki</td>
+                <td class="text-center" id="printerDevices">0</td>
+                <td class="text-center" id="disabledPrinterDevices">0</td>
+                <td class="text-center text-bold" id="totalPrinters">0</td>
+            </tr>
+            <tr class="total-row">
+                <td>RAZEM</td>
+                <td class="text-center" id="totalAvailable">0</td>
+                <td class="text-center" id="totalDisabled">0</td>
+                <td class="text-center" id="grandTotal">0</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
 <h3>👥 Użycie per dział</h3>
