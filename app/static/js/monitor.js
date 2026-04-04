@@ -30,7 +30,8 @@ ws.onmessage = (e) => {
 
         if (activeDevice && !devicesCache[activeDevice]) {
             activeDevice = null;
-            document.getElementById("output").textContent = "Device disconnected";
+            const outputEl = document.getElementById("output");
+            if (outputEl) outputEl.textContent = "Device disconnected";
             endBtn.disabled = true;
         }
 
@@ -39,8 +40,10 @@ ws.onmessage = (e) => {
 
     if (msg.type === "esp32_data") {
         if (msg.device_id === activeDevice) {
-            document.getElementById("output").textContent =
-                JSON.stringify(msg.data, null, 2);
+            const outputEl = document.getElementById("output");
+            if (outputEl) {
+                outputEl.textContent = JSON.stringify(msg.data, null, 2);
+            }
         }
     }
 
@@ -145,7 +148,8 @@ function toggleSubscribe(deviceId) {
         fetch(`/api/unsubscribe-esp/${deviceId}`, { method: "POST" });
 
         activeDevice = null;
-        document.getElementById("output").textContent = "No device subscribed";
+        const outputEl = document.getElementById("output");
+        if (outputEl) outputEl.textContent = "No device subscribed";
     } else {
         if (activeDevice) {
             ws.send(JSON.stringify({
