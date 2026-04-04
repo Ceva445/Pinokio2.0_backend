@@ -12,8 +12,8 @@ from datetime import datetime, time
 from models.db_transaction import TransactionType
 
 router = APIRouter(
-    prefix="/admin/api/transactions",
-    tags=["Admin Transactions"]
+    prefix="/manager/api/transactions",
+    tags=["Manager Transactions"]
 )
 
 PAGE_SIZE = 10
@@ -40,7 +40,7 @@ async def get_transactions(
         .order_by(TransactionDB.timestamp.desc())
     )
 
-    # 🔍 працівник
+    # 🔍 pracownik
     if employee_q:
         stmt = stmt.where(
             or_(
@@ -50,17 +50,17 @@ async def get_transactions(
             )
         )
 
-    # 🔍 пристрій
+    # 🔍 urzadzenie
     if device_q:
         stmt = stmt.where(
             DeviceDB.name.ilike(f"%{device_q}%")
         )
 
-    # 📅 дата ВІД
+    # 📅 data OD
     if date_from:
         stmt = stmt.where(TransactionDB.timestamp >= date_from)
 
-    # 📅 дата ДО (включно весь день)
+    # 📅 data DO
     if date_to:
         stmt = stmt.where(
             TransactionDB.timestamp <= datetime.combine(
@@ -68,7 +68,7 @@ async def get_transactions(
             )
         )
 
-    # 🔄 тип транзакції
+    # 🔄 typ transakcji
     if tx_type:
         stmt = stmt.where(TransactionDB.type == tx_type)
 
@@ -77,7 +77,7 @@ async def get_transactions(
     total = (await db.execute(count_stmt)).scalar_one()
     pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
-    # 📄 пагінація
+    # 📄 paginacja
     stmt = stmt.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
     result = await db.execute(stmt)
 

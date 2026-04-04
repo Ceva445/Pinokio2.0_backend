@@ -1,0 +1,166 @@
+{% extends "manager/base_manager.html" %}
+
+{% block manager_content %}
+<h2>📝 Historia Rejestracji</h2>
+
+<div style="margin-bottom:10px">
+    <input
+        id="transactionEmployeeSearch"
+        placeholder="Pracownik"
+        style="width:220px"
+    >
+
+    <input
+        id="transactionDeviceSearch"
+        placeholder="Urządzenie"
+        style="width:220px"
+    >
+
+    <input
+        id="transactionDateFrom"
+        type="date"
+        style="width:160px"
+    >
+
+    <input
+        id="transactionDateTo"
+        type="date"
+        style="width:160px"
+    >
+    <select id="transactionType" style="width:180px">
+        <option value="">Wszystkie typy</option>
+        <option value="registered">registered</option>
+        <option value="unregistered">unregistered</option>
+    </select>
+</div>
+
+<table id="transactionsTable">
+    <thead>
+        <tr>
+            <th>Data / czas</th>
+            <th>Typ</th>
+            <th>Pracownik</th>
+            <th>Urządzenie</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div
+    id="transactionsPagination"
+    style="margin-top:10px"
+></div>
+
+<script>
+let transactionsPage = 1;
+const TRANSACTIONS_PER_PAGE = 10;
+
+async function api(url, options = {}) {
+    const res = await fetch(url, {
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        ...options
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.detail || "API Error");
+    }
+
+    return res.status === 204 ? null : res.json();
+}
+
+async function loadTransactions(page = 1) {
+    const tbody = document.querySelector("#transactionsTable tbody");
+    if (!tbody) return;
+
+    const employeeInput = document.getElementById("transactionEmployeeSearch");
+    const deviceInput = document.getElementById("transactionDeviceSearch");
+    const dateFromInput = document.getElementById("transactionDateFrom");
+    const dateToInput = document.getElementById("transactionDateTo");
+    const typeInput = document.getElementById("transactionType");
+
+    const employee_q = employeeInput?.value ?? "";
+    const device_q = deviceInput?.value ?? "";
+    const date_from = dateFromInput?.value ?? "";
+    const date_to = dateToInput?.value ?? "";
+    const tx_type = typeInput?.value ?? "";
+
+    const params = new URLSearchParams({
+        page: page,
+        limit: TRANSACTIONS_PER_PAGE
+    });
+
+    if (employee_q) params.append("employee_q", employee_q);
+    if (device_q) params.append("device_q", device_q);
+    if (date_from) params.append("date_from", date_from);
+    if (date_to) params.append("date_to", date_to);
+    if (tx_type) params.append("tx_type", tx_type);
+
+    tbody.innerHTML = `<tr><td colspan="4">Ładowanie danych...</td></tr>`;
+
+    try {
+        const data = await api(`/manager/api/transactions?${params.toString()}`);
+
+        tbody.innerHTML = "";
+
+        if (data.items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">Nic nie znaleziono</td></tr>`;
+        }
+
+        for (const t of data.items) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${new Date(t.timestamp).toLocaleString()}</td>
+                <td>${t.type}</td>
+                <td>
+                    ${t.employee
+                        ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
+                        : "—"}
+                </td>
+                <td>${t.device?.name ?? "—"}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        renderTransactionsPagination(data.page, data.pages);
+
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4">Błąd: ${err.message}</td></tr>`;
+    }
+}
+
+function renderTransactionsPagination(page, pages) {
+    const container = document.getElementById("transactionsPagination");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    for (let p = 1; p <= pages; p++) {
+        const btn = document.createElement("button");
+        btn.textContent = p;
+        btn.disabled = p === page;
+        btn.addEventListener("click", () => loadTransactions(p));
+        container.appendChild(btn);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (!document.querySelector("#transactionsTable")) return;
+
+    loadTransactions();
+
+    const employeeInput = document.getElementById("transactionEmployeeSearch");
+    const deviceInput = document.getElementById("transactionDeviceSearch");
+    const dateFromInput = document.getElementById("transactionDateFrom");
+    const dateToInput = document.getElementById("transactionDateTo");
+    const typeInput = document.getElementById("transactionType");
+
+    [employeeInput, deviceInput, dateFromInput, dateToInput, typeInput].forEach(el => {
+        if (el) el.addEventListener("change", () => loadTransactions(1));
+    });
+});
+</script>
+{% endblock %}

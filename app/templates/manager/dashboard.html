@@ -1,0 +1,52 @@
+{% extends "manager/base_manager.html" %}
+
+{% block manager_content %}
+<h2>📊 Dashboard</h2>
+<div class="dashboard-cards" id="dashboard-cards">
+    <table class="dashboard-table">
+        <thead>
+            <tr>
+                <th>Typ Urządzenia</th>
+                <th class="text-center">📦 Dostępne</th>
+                <th class="text-center">❌ Niedostępne</th>
+                <th class="text-center">📊 Razem</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>📦 Skanery</td>
+                <td class="text-center" id="scannerDevices">0</td>
+                <td class="text-center" id="disabledScannerDevices">0</td>
+                <td class="text-center text-bold" id="totalScanners">0</td>
+            </tr>
+            <tr>
+                <td>🖨 Drukarki</td>
+                <td class="text-center" id="printerDevices">0</td>
+                <td class="text-center" id="disabledPrinterDevices">0</td>
+                <td class="text-center text-bold" id="totalPrinters">0</td>
+            </tr>
+            <tr class="total-row">
+                <td>RAZEM</td>
+                <td class="text-center" id="totalAvailable">0</td>
+                <td class="text-center" id="totalDisabled">0</td>
+                <td class="text-center" id="grandTotal">0</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<h3>👥 Użycie per dział</h3>
+<table id="deptTable">
+    <thead>
+        <tr>
+            <th>Dział</th>
+            <th>👥 Pracownicy</th>
+            <th>📦 Urządzenia</th>
+            <th>📦 Skanery</th>
+            <th>🖨 Drukarki</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>{% endblock %}

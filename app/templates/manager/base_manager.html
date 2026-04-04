@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+    <aside class="admin-sidebar">
+        <h3>Panel Kierownika</h3>
+        <ul>
+            <li><a href="/manager">📊 Dashboard</a></li>
+            <li><a href="/manager/transactions">📝 Historia Rejestracji</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-content">
+        {% block manager_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

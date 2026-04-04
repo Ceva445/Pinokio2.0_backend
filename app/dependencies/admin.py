@@ -11,3 +11,13 @@ def require_admin(
             detail="Admins only"
         )
     return current_user
+
+def require_manager_or_admin(
+    current_user: dict = Depends(get_current_user())
+):
+    if current_user["role"] not in [UserRole.manager.value, UserRole.admin.value]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managers or Admins only"
+        )
+    return current_user

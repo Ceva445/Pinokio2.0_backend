@@ -9,8 +9,10 @@
 <body>
 
 <header style="display:flex; justify-content:flex-end; margin-bottom:20px; gap:10px;">
+    <a href="/monitor" id="monitorBtn" style="display:none;">📊 ESP32 Real-time Monitor</a>
     <a href="/" id="homeBtn" style="display:none;">Do strony głównej</a>
     <a href="/admin" id="adminBtn" style="display:none;">Panel administracyjny</a>
+    <a href="/manager" id="managerBtn" style="display:none;">Panel Administratora</a>
     <a href="/login" id="loginBtn">Zaloguj się</a>
     <a href="#" id="logoutBtn" class="button-link" style="display:none;">Wyloguj się</a>
 </header>
@@ -22,9 +24,12 @@ async function checkAuth() {
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const adminBtn = document.getElementById("adminBtn");
+    const managerBtn = document.getElementById("managerBtn");
     const homeBtn  = document.getElementById("homeBtn");
+    const monitorBtn = document.getElementById("monitorBtn");
 
     const isAdminPage = window.location.pathname.startsWith("/admin");
+    const isManagerPage = window.location.pathname.startsWith("/manager");
 
     const res = await fetch("/auth/me", {
         credentials: "include"
@@ -38,7 +43,9 @@ async function checkAuth() {
         loginBtn.style.display = "inline";
         logoutBtn.style.display = "none";
         adminBtn.style.display = "none";
+        managerBtn.style.display = "none";
         homeBtn.style.display = "none";
+        monitorBtn.style.display = "none";
         return;
     }
 
@@ -47,20 +54,36 @@ async function checkAuth() {
     // ✔ залогінений
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";
+    monitorBtn.style.display = "inline";
 
     if (user.role === "admin") {
         if (isAdminPage) {
-            // 🟢 в адмінці → показати "На головну"
+            // 🟢 адмін в адмінці → показати "На головну"
+            adminBtn.style.display = "none";
+            managerBtn.style.display = "none";
+            homeBtn.style.display = "inline";
+        } else {
+            // 🟢 адмін не в адмінці → показати "Адмінка"
+            adminBtn.style.display = "inline";
+            managerBtn.style.display = "none";
+            homeBtn.style.display = "none";
+        }
+    } else if (user.role === "manager") {
+        if (isManagerPage) {
+            // 🟢 керівник в панелі керівника → показати "На головну"
+            managerBtn.style.display = "none";
             adminBtn.style.display = "none";
             homeBtn.style.display = "inline";
         } else {
-            // 🟢 не в адмінці → показати "Адмінка"
-            adminBtn.style.display = "inline";
+            // 🟢 керівник не в панелі керівника → показати "Панель керівника"
+            managerBtn.style.display = "inline";
+            adminBtn.style.display = "none";
             homeBtn.style.display = "none";
         }
     } else {
-        // 👤 не адмін
+        // 👤 не адмін і не керівник
         adminBtn.style.display = "none";
+        managerBtn.style.display = "none";
         homeBtn.style.display = "none";
     }
 }
