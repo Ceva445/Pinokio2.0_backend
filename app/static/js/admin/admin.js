@@ -38,14 +38,15 @@ async function api(url, options = {}) {
 async function loadDashboard() {
     console.log("🚀 Dashboard init");
 
-    const availableEl = document.getElementById("availableDevices");
+    //const availableEl = document.getElementById("availableDevices");
     const scannerEl = document.getElementById("scannerDevices");
     const printerEl = document.getElementById("printerDevices");
     const disabledScannerEl = document.getElementById("disabledScannerDevices");
     const disabledPrinterEl = document.getElementById("disabledPrinterDevices");
     const tbody = document.querySelector("#deptTable tbody");
 
-    if (!availableEl || !scannerEl || !printerEl || !disabledScannerEl || !disabledPrinterEl) {
+    //!availableEl || 
+    if (!scannerEl || !printerEl || !disabledScannerEl || !disabledPrinterEl) {
         console.warn("❌ Dashboard elements missing");
         return;
     }
@@ -57,7 +58,7 @@ async function loadDashboard() {
         // =========================
         // GLOBAL
         // =========================
-        availableEl.textContent = data.devices?.available ?? 0;
+        //availableEl.textContent = data.devices?.available ?? 0;
 
         scannerEl.textContent = data.devices?.by_type?.scanner ?? 0;
         printerEl.textContent = data.devices?.by_type?.printer ?? 0;
@@ -100,18 +101,11 @@ async function loadDashboard() {
     }
 }
 
-/* AUTOSTART */
-document.addEventListener("DOMContentLoaded", () => {
-    if (document.getElementById("availableDevices")) {
-        loadDashboard();
-    }
-});
-
 /* ================================
     DASHBOARD AUTOSTART
 ================================ */
 document.addEventListener("DOMContentLoaded", () => {
-    if (document.getElementById("availableDevices")) {
+    if (document.getElementById("dashboard-cards")) {
         loadDashboard();
     }
 });
