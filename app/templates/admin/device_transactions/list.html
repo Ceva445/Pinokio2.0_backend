@@ -83,15 +83,197 @@ async function loadDeviceTransactions(page = 1) {
 
 function renderDeviceTransactionsPagination(page, pages) {
     const container = document.getElementById("deviceTransactionsPagination");
-    container.innerHTML = "";
+    if (!container) return;
 
-    for (let p = 1; p <= pages; p++) {
+    container.innerHTML = "";
+    container.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 20px 0;
+    `;
+
+    // Info text
+    const info = document.createElement("span");
+    info.style.cssText = `
+        font-size: 14px;
+        color: var(--text-secondary, #94a3b8);
+        margin-right: 16px;
+    `;
+    info.textContent = `Strona ${page} z ${pages}`;
+    container.appendChild(info);
+
+    // Previous button
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = "← Wstecz";
+    prevBtn.disabled = page === 1;
+    prevBtn.style.cssText = `
+        padding: 8px 14px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: 1px solid var(--text-secondary, #94a3b8);
+        background: transparent;
+        color: var(--text-primary, #f1f5f9);
+        cursor: ${page === 1 ? 'not-allowed' : 'pointer'};
+        opacity: ${page === 1 ? '0.5' : '1'};
+        transition: all 0.2s ease;
+    `;
+    if (page > 1) {
+        prevBtn.addEventListener("mouseover", () => {
+            prevBtn.style.background = "rgba(59, 130, 246, 0.15)";
+            prevBtn.style.borderColor = "var(--primary, #3b82f6)";
+        });
+        prevBtn.addEventListener("mouseout", () => {
+            prevBtn.style.background = "transparent";
+            prevBtn.style.borderColor = "var(--text-secondary, #94a3b8)";
+        });
+        prevBtn.addEventListener("click", () => loadDeviceTransactions(page - 1));
+    }
+    container.appendChild(prevBtn);
+
+    // Page range calculation
+    const maxVisible = 5;
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let end = Math.min(pages, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+    }
+
+    // Add ellipsis at the beginning
+    if (start > 1) {
+        const firstBtn = document.createElement("button");
+        firstBtn.textContent = "1";
+        firstBtn.style.cssText = `
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid var(--text-secondary, #94a3b8);
+            background: transparent;
+            color: var(--text-primary, #f1f5f9);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        `;
+        firstBtn.addEventListener("mouseover", () => {
+            firstBtn.style.background = "rgba(59, 130, 246, 0.15)";
+            firstBtn.style.borderColor = "var(--primary, #3b82f6)";
+        });
+        firstBtn.addEventListener("mouseout", () => {
+            firstBtn.style.background = "transparent";
+            firstBtn.style.borderColor = "var(--text-secondary, #94a3b8)";
+        });
+        firstBtn.addEventListener("click", () => loadDeviceTransactions(1));
+        container.appendChild(firstBtn);
+
+        if (start > 2) {
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.style.cssText = `
+                color: var(--text-secondary, #94a3b8);
+                padding: 0 4px;
+            `;
+            container.appendChild(ellipsis);
+        }
+    }
+
+    // Page buttons in the range
+    for (let p = start; p <= end; p++) {
         const btn = document.createElement("button");
         btn.textContent = p;
-        btn.disabled = p === page;
+        const isActive = p === page;
+        btn.style.cssText = `
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid ${isActive ? 'var(--primary, #3b82f6)' : 'var(--text-secondary, #94a3b8)'};
+            background: ${isActive ? 'var(--primary, #3b82f6)' : 'transparent'};
+            color: ${isActive ? 'white' : 'var(--text-primary, #f1f5f9)'};
+            cursor: ${isActive ? 'default' : 'pointer'};
+            font-weight: ${isActive ? '600' : '400'};
+            transition: all 0.2s ease;
+        `;
+        btn.disabled = isActive;
+        
+        if (!isActive) {
+            btn.addEventListener("mouseover", () => {
+                btn.style.background = "rgba(59, 130, 246, 0.15)";
+                btn.style.borderColor = "var(--primary, #3b82f6)";
+            });
+            btn.addEventListener("mouseout", () => {
+                btn.style.background = "transparent";
+                btn.style.borderColor = "var(--text-secondary, #94a3b8)";
+            });
+        }
         btn.addEventListener("click", () => loadDeviceTransactions(p));
         container.appendChild(btn);
     }
+
+    // Add ellipsis at the end
+    if (end < pages) {
+        if (end < pages - 1) {
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.style.cssText = `
+                color: var(--text-secondary, #94a3b8);
+                padding: 0 4px;
+            `;
+            container.appendChild(ellipsis);
+        }
+
+        const lastBtn = document.createElement("button");
+        lastBtn.textContent = pages;
+        lastBtn.style.cssText = `
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid var(--text-secondary, #94a3b8);
+            background: transparent;
+            color: var(--text-primary, #f1f5f9);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        `;
+        lastBtn.addEventListener("mouseover", () => {
+            lastBtn.style.background = "rgba(59, 130, 246, 0.15)";
+            lastBtn.style.borderColor = "var(--primary, #3b82f6)";
+        });
+        lastBtn.addEventListener("mouseout", () => {
+            lastBtn.style.background = "transparent";
+            lastBtn.style.borderColor = "var(--text-secondary, #94a3b8)";
+        });
+        lastBtn.addEventListener("click", () => loadDeviceTransactions(pages));
+        container.appendChild(lastBtn);
+    }
+
+    // Next button
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = "Naprzód →";
+    nextBtn.disabled = page === pages;
+    nextBtn.style.cssText = `
+        padding: 8px 14px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: 1px solid var(--text-secondary, #94a3b8);
+        background: transparent;
+        color: var(--text-primary, #f1f5f9);
+        cursor: ${page === pages ? 'not-allowed' : 'pointer'};
+        opacity: ${page === pages ? '0.5' : '1'};
+        transition: all 0.2s ease;
+        margin-left: 16px;
+    `;
+    if (page < pages) {
+        nextBtn.addEventListener("mouseover", () => {
+            nextBtn.style.background = "rgba(59, 130, 246, 0.15)";
+            nextBtn.style.borderColor = "var(--primary, #3b82f6)";
+        });
+        nextBtn.addEventListener("mouseout", () => {
+            nextBtn.style.background = "transparent";
+            nextBtn.style.borderColor = "var(--text-secondary, #94a3b8)";
+        });
+        nextBtn.addEventListener("click", () => loadDeviceTransactions(page + 1));
+    }
+    container.appendChild(nextBtn);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
