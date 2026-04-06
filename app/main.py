@@ -36,13 +36,6 @@ manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=7)
 esp_allowed_users: dict[str, set[int]] = {}
 
-# Глобальні конфіги (оновлюються динамічно при змінах)
-system_config = {
-    "device_cleanup_interval_seconds": 300,
-    "auth_cleanup_interval_seconds": 3600,
-    "device_not_returned_hours": 12,
-}
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -50,7 +43,6 @@ if str(ROOT) not in sys.path:
 
 async def load_config_on_startup():
     """Завантажити конфіги з БД при старті та оновити менеджери"""
-    global system_config
     try:
         from db.session import engine
         from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -68,14 +60,6 @@ async def load_config_on_startup():
             if "registration_timeout_seconds" in config:
                 registration_manager.update_timeout(config["registration_timeout_seconds"])
                 logger.info(f"Registration timeout set to {config['registration_timeout_seconds']} seconds")
-            
-            # Оновити глобальні конфіги
-            if "device_cleanup_interval_seconds" in config:
-                system_config["device_cleanup_interval_seconds"] = config["device_cleanup_interval_seconds"]
-            if "auth_cleanup_interval_seconds" in config:
-                system_config["auth_cleanup_interval_seconds"] = config["auth_cleanup_interval_seconds"]
-            if "device_not_returned_hours" in config:
-                system_config["device_not_returned_hours"] = config["device_not_returned_hours"]
             
             logger.info("Configuration loaded from database successfully")
     except Exception as e:
@@ -110,9 +94,18 @@ async def lifespan(app: FastAPI):
 
 async def cleanup_offline_devices():
     """Фонова задача для очищення офлайн пристроїв"""
+    from db.session import engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    
+    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
     while True:
         try:
-            interval = system_config.get("device_cleanup_interval_seconds", 300)
+            # Брати інтервал з БД через конфіг-менеджер (з кешуванням на 5 хвилин)
+            async with async_session_factory() as db:
+                config = await config_manager.get_config(db)
+                interval = config.get("device_cleanup_interval_seconds", 300)
+            
             await asyncio.sleep(interval)
             offline_devices = device_manager.cleanup_offline_devices()
             if offline_devices:
@@ -123,9 +116,18 @@ async def cleanup_offline_devices():
 
 
 async def cleanup_auth_sessions():
+    from db.session import engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    
+    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
     while True:
         try:
-            interval = system_config.get("auth_cleanup_interval_seconds", 3600)
+            # Брати інтервал з БД через конфіг-менеджер (з кешуванням на 5 хвилин)
+            async with async_session_factory() as db:
+                config = await config_manager.get_config(db)
+                interval = config.get("auth_cleanup_interval_seconds", 3600)
+            
             await asyncio.sleep(interval)
             auth_manager.cleanup_expired_sessions()
         except Exception as exc:

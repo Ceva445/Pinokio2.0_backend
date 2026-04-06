@@ -18,15 +18,10 @@ DEVICE_TYPE_PL = {
 }
 
 
-def get_time_threshold(now: datetime) -> datetime:
+def get_time_threshold(now: datetime, hours: int = 12) -> datetime:
     """
     Отримати часовий поріг для перевірки не повернених пристроїв.
-    Динамічно використовує конфіг з app.main.system_config
     """
-    from app.main import system_config
-    
-    hours = system_config.get("device_not_returned_hours", 12)
-    
     if now.weekday() == 5:  # Saturday
         return now
     return now - timedelta(hours=hours)
@@ -34,10 +29,15 @@ def get_time_threshold(now: datetime) -> datetime:
 
 @router.post("/send-email")
 async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
-
+    from managers.config_manager import config_manager
+    
     now = datetime.now(timezone.utc)
-    time_threshold = get_time_threshold(now)
-
+    
+    # Взяти кількість годин з конфіго
+    config = await config_manager.get_config(db)
+    hours = config.get("device_not_returned_hours", 12)
+    
+    time_threshold = get_time_threshold(now, hours)
     is_instant_check = time_threshold == now
 
     # 🔹 subquery: остання registered транзакція для кожного device

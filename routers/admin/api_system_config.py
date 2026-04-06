@@ -108,12 +108,14 @@ async def update_config(
 
 def _update_managers(config: Dict[str, Any]):
     """
-    Оновити глобальні менеджери та конфіги з новими значеннями.
-    Це забезпечує миттєве застосування змін.
+    Оновити менеджери з новими значеннями таймаутів.
+    Це забезпечує миттєве застосування змін для request-обробки.
+    
+    Фонові задачи (cleanup functions) беруть конфіги безпосередньо з config_manager.
     """
     try:
         # Імпортуємо тут, щоб уникнути циклічних імпортів
-        from app.main import device_manager, registration_manager, system_config
+        from app.main import device_manager, registration_manager
         
         if "device_timeout_minutes" in config:
             device_manager.update_timeout(config["device_timeout_minutes"])
@@ -121,19 +123,9 @@ def _update_managers(config: Dict[str, Any]):
         if "registration_timeout_seconds" in config:
             registration_manager.update_timeout(config["registration_timeout_seconds"])
         
-        # Оновити глобальні конфіги для фонових задач
-        if "device_cleanup_interval_seconds" in config:
-            system_config["device_cleanup_interval_seconds"] = config["device_cleanup_interval_seconds"]
-        
-        if "auth_cleanup_interval_seconds" in config:
-            system_config["auth_cleanup_interval_seconds"] = config["auth_cleanup_interval_seconds"]
-        
-        if "device_not_returned_hours" in config:
-            system_config["device_not_returned_hours"] = config["device_not_returned_hours"]
-        
-        logger.info("Managers and system config updated with new configuration")
+        logger.info("Device and registration managers updated with new timeouts")
     except Exception as e:
-        logger.error(f"Error updating managers and config: {e}")
+        logger.error(f"Error updating managers: {e}")
         # Не піднімаємо помилку, оскільки конфіг все одно зберігся в БД
 
 
