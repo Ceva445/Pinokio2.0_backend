@@ -19,9 +19,17 @@ DEVICE_TYPE_PL = {
 
 
 def get_time_threshold(now: datetime) -> datetime:
+    """
+    Отримати часовий поріг для перевірки не повернених пристроїв.
+    Динамічно використовує конфіг з app.main.system_config
+    """
+    from app.main import system_config
+    
+    hours = system_config.get("device_not_returned_hours", 12)
+    
     if now.weekday() == 5:  # Saturday
         return now
-    return now - timedelta(hours=12)
+    return now - timedelta(hours=hours)
 
 
 @router.post("/send-email")

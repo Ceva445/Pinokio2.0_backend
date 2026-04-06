@@ -181,3 +181,17 @@ async def department_manager_detail(manager_id: int, request: Request, current_u
         "admin/department_managers/detail.html",
         {"request": request, "manager_id": manager_id}
     )
+
+# ===============================
+# SYSTEM CONFIG PAGE
+# ===============================
+
+@router.get("/system-config", response_class=HTMLResponse)
+async def system_config_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/system_config.html",
+        {"request": request}
+    )

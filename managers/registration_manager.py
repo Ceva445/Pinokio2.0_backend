@@ -1,4 +1,7 @@
 from datetime import datetime, timedelta, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RegistrationSession:
     def __init__(self, employee):
@@ -12,6 +15,11 @@ class RegistrationManager:
     def __init__(self, timeout_seconds: int = 7):
         self.sessions: dict[str, RegistrationSession] = {}
         self.timeout = timedelta(seconds=timeout_seconds)
+
+    def update_timeout(self, timeout_seconds: int):
+        """Оновити таймаут для реєстрації"""
+        self.timeout = timedelta(seconds=timeout_seconds)
+        logger.info(f"Registration timeout updated to {timeout_seconds} seconds")
 
     def start_or_replace(self, esp_id: str, employee):
         self.sessions[esp_id] = RegistrationSession(employee)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
+from managers.config_manager import config_manager
 from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
@@ -16,7 +17,6 @@ from models.db_transaction import TransactionDB
 from models.db_transaction import TransactionType as DbTransactionType
 from schemas.transaction import TransactionType
 from routers.auth import get_current_user
-from config import ALLOW_REGISTRATION_WITHOUT_LOGIN
 
 router = APIRouter(prefix="/api", tags=["API"])
 
@@ -93,8 +93,12 @@ async def receive_esp32_data(
     await manager.broadcast_device_list()
     # print("Allwed devices:", esp_allowed_users)
     # print("Current user:", current_user)
-    # Czy rejestracja dozwolona
-    if ALLOW_REGISTRATION_WITHOUT_LOGIN:
+    
+    # Отримати конфіг динамічно з БД
+    config = await config_manager.get_config(db)
+    allow_registration_without_login = config.get("allow_registration_without_login", False)
+    
+    if allow_registration_without_login:
         can_register = True
     else:
         can_register = await can_register_on_device(device_id, manager)

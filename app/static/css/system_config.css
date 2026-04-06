@@ -1,0 +1,204 @@
+.config-container {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.config-form {
+    background: var(--card-bg, #1e293b);
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.config-fieldset {
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 25px;
+    background: var(--input-bg, #0f172a);
+}
+
+.config-fieldset legend {
+    padding: 0 10px;
+    color: var(--primary, #3b82f6);
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary, #f1f5f9);
+    font-weight: 500;
+}
+
+.config-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 4px;
+    background: var(--input-bg, #0f172a);
+    color: var(--text-primary, #f1f5f9);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.config-input:focus {
+    outline: none;
+    border-color: var(--primary, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.config-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary, #3b82f6);
+}
+
+.config-input::-webkit-outer-spin-button,
+.config-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.config-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+small {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 35px;
+    padding-top: 25px;
+    border-top: 1px solid var(--border-color, #334155);
+}
+
+.btn {
+    padding: 10px 20px;
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-primary, #f1f5f9);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    border-color: var(--primary, #3b82f6);
+    color: var(--primary, #3b82f6);
+}
+
+.btn-primary {
+    background: var(--primary, #3b82f6);
+    border-color: var(--primary, #3b82f6);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark, #1d4ed8);
+    border-color: var(--primary-dark, #1d4ed8);
+}
+
+.status-message {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: none;
+}
+
+.status-message.success {
+    display: block;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: #22c55e;
+}
+
+.status-message.error {
+    display: block;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+
+.config-info {
+    background: var(--card-bg, #1e293b);
+    padding: 25px;
+    border-radius: 8px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+}
+
+.config-info h3 {
+    margin-top: 0;
+    color: var(--primary, #3b82f6);
+}
+
+.info-box {
+    background: var(--input-bg, #0f172a);
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 3px solid var(--primary, #3b82f6);
+}
+
+.info-box h4 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 14px;
+}
+
+.info-box p,
+.info-box ul {
+    margin: 0;
+    padding: 0;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.info-box ul {
+    padding-left: 20px;
+}
+
+.info-box.warning {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.info-box.warning h4 {
+    color: #f59e0b;
+}
+
+@media (max-width: 1200px) {
+    .config-container {
+        grid-template-columns: 1fr;
+    }
+
+    .config-info {
+        position: static;
+    }
+}

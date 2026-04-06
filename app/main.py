@@ -12,10 +12,13 @@ from routers import api, email_agent, pages, websocket, auth
 from fastapi.middleware.cors import CORSMiddleware
 from managers.registration_manager import RegistrationManager
 from managers.auth_manager import auth_manager
+from managers.config_manager import config_manager
+from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 import sys
 from routers.admin.api import router as admin_api_router
 from routers.admin.api_users import router as admin_users_api_router
+from routers.admin.api_system_config import router as admin_system_config_router
 from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
 from routers.admin.admin_device_transactions import router as admin_device_transactions_router
@@ -33,13 +36,59 @@ manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=7)
 esp_allowed_users: dict[str, set[int]] = {}
 
+# Глобальні конфіги (оновлюються динамічно при змінах)
+system_config = {
+    "device_cleanup_interval_seconds": 300,
+    "auth_cleanup_interval_seconds": 3600,
+    "device_not_returned_hours": 12,
+}
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+
+async def load_config_on_startup():
+    """Завантажити конфіги з БД при старті та оновити менеджери"""
+    global system_config
+    try:
+        from db.session import engine
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+        
+        async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        
+        async with async_session_factory() as db:
+            config = await config_manager.get_config(db)
+            
+            # Оновити менеджери з конфігами з БД
+            if "device_timeout_minutes" in config:
+                device_manager.update_timeout(config["device_timeout_minutes"])
+                logger.info(f"Device timeout set to {config['device_timeout_minutes']} minutes")
+            
+            if "registration_timeout_seconds" in config:
+                registration_manager.update_timeout(config["registration_timeout_seconds"])
+                logger.info(f"Registration timeout set to {config['registration_timeout_seconds']} seconds")
+            
+            # Оновити глобальні конфіги
+            if "device_cleanup_interval_seconds" in config:
+                system_config["device_cleanup_interval_seconds"] = config["device_cleanup_interval_seconds"]
+            if "auth_cleanup_interval_seconds" in config:
+                system_config["auth_cleanup_interval_seconds"] = config["auth_cleanup_interval_seconds"]
+            if "device_not_returned_hours" in config:
+                system_config["device_not_returned_hours"] = config["device_not_returned_hours"]
+            
+            logger.info("Configuration loaded from database successfully")
+    except Exception as e:
+        logger.warning(f"Could not load config from database on startup: {e}")
+        logger.info("Using default configuration values")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ESP32 Multi-Device Monitor started")
+    
+    # Завантажити конфіги з БД при старті
+    await load_config_on_startup()
     
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
     auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
@@ -63,7 +112,8 @@ async def cleanup_offline_devices():
     """Фонова задача для очищення офлайн пристроїв"""
     while True:
         try:
-            await asyncio.sleep(5)  # кожні 5 хвилин
+            interval = system_config.get("device_cleanup_interval_seconds", 300)
+            await asyncio.sleep(interval)
             offline_devices = device_manager.cleanup_offline_devices()
             if offline_devices:
                 # Сповістити клієнтів про зміни статусу
@@ -75,7 +125,8 @@ async def cleanup_offline_devices():
 async def cleanup_auth_sessions():
     while True:
         try:
-            await asyncio.sleep(3600)  # кожну годину
+            interval = system_config.get("auth_cleanup_interval_seconds", 3600)
+            await asyncio.sleep(interval)
             auth_manager.cleanup_expired_sessions()
         except Exception as exc:
             logger.error("Error in auth cleanup task: %s", exc)
@@ -140,6 +191,7 @@ app.include_router(auth.router)
 app.include_router(api.router)
 app.include_router(admin_api_router)
 app.include_router(admin_users_api_router)
+app.include_router(admin_system_config_router)
 app.include_router(admin_pages_router)
 app.include_router(admin_transactions_router)
 app.include_router(admin_device_transactions_router)

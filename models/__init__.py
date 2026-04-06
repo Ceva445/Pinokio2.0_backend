@@ -6,3 +6,4 @@ from .db_transaction import TransactionDB
 from .db_user import UserDB
 from .db_transaction import TransactionType
 from .db_department_manager import DepartmentManagerDB
+from .db_system_config import SystemConfigDB

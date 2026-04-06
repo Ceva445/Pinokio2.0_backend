@@ -1,0 +1,158 @@
+{% extends "admin/base_admin.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/system_config.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+{% endblock %}
+
+{% block admin_content %}
+<h2>⚙️ Konfiguracja systemu</h2>
+
+<div class="config-container">
+    <div class="config-form">
+        <h3>Parametry czasu</h3>
+        
+        <form id="configForm" class="admin-form">
+            <!-- Taблиці таймаутів -->
+            <fieldset class="config-fieldset">
+                <legend>⏱️ Takmauty autentykacji</legend>
+                
+                <div class="form-group">
+                    <label for="accessTokenExpire">Czas wygaśnięcia tokenu dostępu (minuty)</label>
+                    <input 
+                        type="number" 
+                        id="accessTokenExpire"
+                        name="access_token_expire_minutes"
+                        min="1" 
+                        max="1440"
+                        class="config-input"
+                    >
+                    <small>Jak długo token JWT pozostaje ważny (domyślnie 30 minut)</small>
+                </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
+                <legend>📱 Takmauty urządzeń</legend>
+                
+                <div class="form-group">
+                    <label for="deviceTimeout">Timeout offline pola urządzenia (minuty)</label>
+                    <input 
+                        type="number" 
+                        id="deviceTimeout"
+                        name="device_timeout_minutes"
+                        min="1" 
+                        max="60"
+                        class="config-input"
+                    >
+                    <small>Jak długo urządzenie jest uważane za online bez aktualizacji (domyślnie 5 minut)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="registrationTimeout">Timeout rejestracji urządzenia (sekundy)</label>
+                    <input 
+                        type="number" 
+                        id="registrationTimeout"
+                        name="registration_timeout_seconds"
+                        min="1" 
+                        max="300"
+                        class="config-input"
+                    >
+                    <small>Jak długo czekać na potwierdzenie rejestracji (domyślnie 7 sekund)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="deviceNotReturnedHours">Alert nie oddania urządzenia (godziny)</label>
+                    <input 
+                        type="number" 
+                        id="deviceNotReturnedHours"
+                        name="device_not_returned_hours"
+                        min="1" 
+                        max="168"
+                        class="config-input"
+                    >
+                    <small>Po ilu godzinach wysłać alert o nie oddanym urządzeniu (domyślnie 12 godzin)</small>
+                </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
+                <legend>🔄 Interwały czyszczenia (sekundy)</legend>
+                
+                <div class="form-group">
+                    <label for="deviceCleanupInterval">Interwał czyszczenia offline urządzeń</label>
+                    <input 
+                        type="number" 
+                        id="deviceCleanupInterval"
+                        name="device_cleanup_interval_seconds"
+                        min="5" 
+                        max="3600"
+                        class="config-input"
+                    >
+                    <small>Jak często sprawdzać i usuwać offline urządzenia (domyślnie 300 sekund = 5 minut)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="authCleanupInterval">Interwał czyszczenia sesji autoryzacji</label>
+                    <input 
+                        type="number" 
+                        id="authCleanupInterval"
+                        name="auth_cleanup_interval_seconds"
+                        min="60" 
+                        max="86400"
+                        class="config-input"
+                    >
+                    <small>Jak często czyszczenie wygasłych sesji (domyślnie 3600 sekund = 1 godzina)</small>
+                </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
+                <legend>📝 Rejestracja</legend>
+                
+                <div class="form-group checkbox-group">
+                    <label for="allowRegistrationWithoutLogin">
+                        <input 
+                            type="checkbox" 
+                            id="allowRegistrationWithoutLogin"
+                            name="allow_registration_without_login"
+                            class="config-checkbox"
+                        >
+                        Zezwól na rejestrację nowych urządzenia bez logowania
+                    </label>
+                    <small>Jeśli włączone, nowi użytkownicy mogą się zarejestrować bez hasła</small>
+                </div>
+            </fieldset>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">💾 Zapisz zmiany</button>
+                <button type="button" id="resetBtn" class="btn">↺ Resetuj formę</button>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+        </form>
+    </div>
+
+    <div class="config-info">
+        <h3>ℹ️ Informacje</h3>
+        <div class="info-box">
+            <h4>Opis parametrów</h4>
+            <ul>
+                <li><strong>Takmauty:</strong> Kontrolują jak długo różne elementy systemu czekają lub działają</li>
+                <li><strong>Interwały czyszczenia:</strong> Wpływają na wydajność poprzez określenie, jak często system sprawdza zasoby</li>
+                <li><strong>Rejestracja:</strong> Wpływają na bezpieczeństwo i dostępność systemu</li>
+            </ul>
+        </div>
+        
+        <div class="info-box">
+            <h4>Ostatnia aktualizacja</h4>
+            <p id="lastUpdated">Ładowanie...</p>
+        </div>
+
+        <div class="info-box warning">
+            <h4>⚠️ Ostrzeżenie</h4>
+            <p>Zmiana tych parametrów wpłynie na zachowanie systemu. Krótsze takmauty mogą zwiększyć obciążenie procesora, a dłuższe mogą opóźnić reaktywność interfejsu.</p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', path='js/admin/system_config.js') }}"></script>
+{% endblock %}

@@ -13,6 +13,11 @@ class DeviceManager:
     def __init__(self, timeout_minutes: int = 5):
         self.devices: Dict[str, Device] = {}
         self.timeout_minutes = timeout_minutes
+    
+    def update_timeout(self, timeout_minutes: int):
+        """Оновити таймаут для пристроїв"""
+        self.timeout_minutes = timeout_minutes
+        logger.info(f"Device timeout updated to {timeout_minutes} minutes")
         
     def register_device(self, device_id: str, name: Optional[str] = None) -> Device:
         """Зареєструвати новий пристрій"""
