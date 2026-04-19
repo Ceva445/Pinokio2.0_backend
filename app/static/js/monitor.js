@@ -141,6 +141,7 @@ function renderDevices() {
 /* === Subscribe / Unsubscribe === */
 function toggleSubscribe(deviceId) {
     if (activeDevice === deviceId) {
+        // Unsubscribe from current device
         ws.send(JSON.stringify({
             command: "unsubscribe",
             device_id: deviceId
@@ -151,25 +152,103 @@ function toggleSubscribe(deviceId) {
         const outputEl = document.getElementById("output");
         if (outputEl) outputEl.textContent = "No device subscribed";
     } else {
+        // If already subscribed to a device, show confirmation dialog
         if (activeDevice) {
-            ws.send(JSON.stringify({
-                command: "unsubscribe",
-                device_id: activeDevice
-            }));
-            fetch(`/api/unsubscribe-esp/${activeDevice}`, { method: "POST" });
+            const currentDevice = devicesCache[activeDevice];
+            const newDevice = devicesCache[deviceId];
+            const currentName = currentDevice ? currentDevice.name : "Unknown";
+            const newName = newDevice ? newDevice.name : "Unknown";
+            
+            showDeviceSwitchAlert(currentName, newName, () => {
+                // Callback to execute switch
+                performDeviceSwitch(deviceId);
+            });
+        } else {
+            // No active device, can switch directly
+            performDeviceSwitch(deviceId);
         }
-
-        ws.send(JSON.stringify({
-            command: "subscribe",
-            device_id: deviceId
-        }));
-        fetch(`/api/subscribe-esp/${deviceId}`, { method: "POST" });
-
-        activeDevice = deviceId;
     }
 
     endBtn.disabled = !activeDevice;
     renderDevices();
+}
+
+/* === Perform device switch === */
+function performDeviceSwitch(deviceId) {
+    if (activeDevice) {
+        ws.send(JSON.stringify({
+            command: "unsubscribe",
+            device_id: activeDevice
+        }));
+        fetch(`/api/unsubscribe-esp/${activeDevice}`, { method: "POST" });
+    }
+
+    ws.send(JSON.stringify({
+        command: "subscribe",
+        device_id: deviceId
+    }));
+    fetch(`/api/subscribe-esp/${deviceId}`, { method: "POST" });
+
+    activeDevice = deviceId;
+    endBtn.disabled = !activeDevice;
+    renderDevices();
+}
+
+/* === Show device switch confirmation alert === */
+function showDeviceSwitchAlert(currentDeviceName, newDeviceName, onConfirm) {
+    // Remove existing modal if any
+    const existingModal = document.getElementById("deviceSwitchModal");
+    if (existingModal) existingModal.remove();
+
+    // Create modal overlay
+    const overlay = document.createElement("div");
+    overlay.id = "deviceSwitchModal";
+    overlay.className = "modal-overlay";
+
+    // Create modal content
+    const modal = document.createElement("div");
+    modal.className = "modal-content";
+    modal.innerHTML = `
+        <h2>Przełączanie urządzenia ?</h2>
+        <p>Aktualnie masz połączenie z <strong>${escapeHtml(currentDeviceName)}</strong></p>
+        <p>Czy chcesz przełączyć się na <strong>${escapeHtml(newDeviceName)}</strong>?</p>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel-btn">Anulować</button>
+            <button class="modal-btn submit-btn">Przełącz</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Get buttons
+    const cancelBtn = modal.querySelector(".cancel-btn");
+    const submitBtn = modal.querySelector(".submit-btn");
+
+    // Cancel handler
+    cancelBtn.onclick = () => {
+        overlay.remove();
+    };
+
+    // Submit handler
+    submitBtn.onclick = () => {
+        overlay.remove();
+        onConfirm();
+    };
+
+    // Close on overlay click
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    };
+}
+
+/* === Escape HTML to prevent XSS === */
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 endBtn.onclick = async () => {

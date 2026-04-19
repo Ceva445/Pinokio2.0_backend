@@ -298,6 +298,120 @@ pre .number { color: #fbbf24; }
 pre .boolean { color: #f87171; }
 pre .null { color: #c084fc; }
 
+/* === Device Switch Modal === */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-content {
+    background: var(--surface);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 32px 28px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-content h2 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.modal-content p {
+    margin: 12px 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+.modal-content strong {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.cancel-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    flex: 1;
+}
+
+.cancel-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: white;
+    flex: 1;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
 /* ===== Стилі для посилань ===== */
 a {
     color: #60a5fa;
