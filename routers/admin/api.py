@@ -10,6 +10,7 @@ from db.session import get_db
 from app.dependencies.admin import require_admin, require_manager_or_admin
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
+from models.db_port import DevicePortDB
 
 
 router = APIRouter(
@@ -209,7 +210,9 @@ async def create_device(
             name=payload["name"].upper().strip(),
             type=device_type,
             serial_number=payload["serial_number"].strip(),
-            rfid=payload["rfid"].strip()
+            rfid=payload["rfid"].strip(),
+            ip=payload.get("ip", "").strip() or None,
+            enabled=payload.get("enabled", True)
         )
 
         db.add(device)
@@ -259,7 +262,7 @@ async def get_devices(
 ):
     stmt = (
         select(DeviceDB)
-        .options(selectinload(DeviceDB.employee))
+        .options(selectinload(DeviceDB.employee), selectinload(DeviceDB.ports))
     )
 
     if q:
@@ -281,7 +284,9 @@ async def get_devices(
             "rfid": d.rfid,
             "serial_number": d.serial_number,
             "type": d.type.value,
+            "ip": d.ip,
             "enabled": d.enabled,
+            "ports": [{"id": p.id, "port_number": p.port_number} for p in d.ports],
             "employee_wms_login": d.employee.wms_login if d.employee else None
         }
         for d in devices
@@ -295,14 +300,25 @@ async def get_device(
     user=Depends(require_admin)
 ):
     result = await db.execute(
-        select(DeviceDB).where(DeviceDB.id == device_id)
+        select(DeviceDB)
+        .where(DeviceDB.id == device_id)
+        .options(selectinload(DeviceDB.ports))
     )
     device = result.scalar_one_or_none()
 
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    return device
+    return {
+        "id": device.id,
+        "name": device.name,
+        "rfid": device.rfid,
+        "serial_number": device.serial_number,
+        "type": device.type.value,
+        "ip": device.ip,
+        "enabled": device.enabled,
+        "ports": [{"id": p.id, "port_number": p.port_number} for p in device.ports]
+    }
 
 
 @router.put("/devices/{device_id:int}")
@@ -323,7 +339,7 @@ async def update_device(
 
         changes = []
 
-        for field in ["name", "serial_number", "rfid", "type", "enabled"]:
+        for field in ["name", "serial_number", "rfid", "type", "ip", "enabled"]:
             if field in payload:
                 try:
                     new_value = (
@@ -333,6 +349,8 @@ async def update_device(
                         new_value = new_value.upper().strip()
                     elif field in ["serial_number", "rfid"] and new_value:
                         new_value = str(new_value).strip()
+                    elif field == "ip":
+                        new_value = str(new_value).strip() if new_value else None
                         
                     old_value = getattr(device, field)
                     if old_value != new_value:
@@ -406,6 +424,100 @@ async def delete_device(
 
     await db.delete(device)
     await db.commit()
+
+
+# ===============================
+# DEVICE PORTS
+# ===============================
+
+@router.post("/devices/{device_id:int}/ports")
+async def create_device_port(
+    device_id: int,
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    try:
+        # Check if device exists
+        result = await db.execute(
+            select(DeviceDB).where(DeviceDB.id == device_id)
+        )
+        device = result.scalar_one_or_none()
+
+        if not device:
+            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+
+        # Validate port_number field
+        if "port_number" not in payload or not payload["port_number"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Pole 'port_number' jest wymagane"
+            )
+
+        port = DevicePortDB(
+            port_number=str(payload["port_number"]).strip(),
+            device_id=device_id
+        )
+
+        db.add(port)
+        await db.commit()
+        await db.refresh(port)
+        
+        return {"id": port.id, "port_number": port.port_number}
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
+
+
+@router.delete("/devices/{device_id:int}/ports/{port_id:int}")
+async def delete_device_port(
+    device_id: int,
+    port_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    try:
+        # Check if device exists
+        result = await db.execute(
+            select(DeviceDB).where(DeviceDB.id == device_id)
+        )
+        device = result.scalar_one_or_none()
+
+        if not device:
+            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+
+        # Check if port exists and belongs to this device
+        result = await db.execute(
+            select(DevicePortDB).where(
+                (DevicePortDB.id == port_id) & (DevicePortDB.device_id == device_id)
+            )
+        )
+        port = result.scalar_one_or_none()
+
+        if not port:
+            raise HTTPException(status_code=404, detail="Port nie znaleziony")
+
+        await db.delete(port)
+        await db.commit()
+        
+        return {"message": "Port został usunięty"}
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 
 # ===============================

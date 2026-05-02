@@ -372,19 +372,98 @@ async function loadDevices() {
 
         for (const d of devices) {
             const tr = document.createElement("tr");
+            const portsDisplay = d.ports && d.ports.length > 0 
+                ? d.ports.map(p => p.port_number).join(", ") 
+                : "—";
             tr.innerHTML = `
                 <td>${d.name}</td>
                 <td>${d.type}</td>
                 <td>${d.serial_number}</td>
                 <td>${d.rfid}</td>
+                <td>${d.ip ?? "—"}</td>
+                <td>${portsDisplay}</td>
                 <td>${d.enabled ? "✅" : "❌"}</td>
-                <td>${d.employee_wms_login ?? "—"}</td> <!-- 👈 -->
+                <td>${d.employee_wms_login ?? "—"}</td>
                 <td><a href="/admin/devices/${d.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5">Błąd: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9">Błąd: ${err.message}</td></tr>`;
+    }
+}
+
+/* ================================
+   DEVICE PORT MANAGEMENT
+================================ */
+
+function addPortField() {
+    const container = document.getElementById("portsContainer");
+    if (!container) return;
+
+    const portDiv = document.createElement("div");
+    portDiv.className = "port-field";
+    portDiv.style.display = "flex";
+    portDiv.style.gap = "10px";
+    portDiv.style.marginBottom = "10px";
+    portDiv.style.alignItems = "center";
+    
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "port-input";
+    input.placeholder = "np. 8080";
+    input.style.flex = "1";
+    
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn btn-danger";
+    removeBtn.textContent = "Usuń";
+    removeBtn.style.padding = "5px 10px";
+    removeBtn.style.fontSize = "0.9em";
+    removeBtn.onclick = () => portDiv.remove();
+    
+    portDiv.appendChild(input);
+    portDiv.appendChild(removeBtn);
+    container.appendChild(portDiv);
+}
+
+function getPortValues() {
+    const inputs = document.querySelectorAll(".port-input");
+    return Array.from(inputs)
+        .map(input => input.value.trim())
+        .filter(value => value !== "");
+}
+
+function setPortFields(ports) {
+    const container = document.getElementById("portsContainer");
+    if (!container || !ports || ports.length === 0) return;
+    
+    container.innerHTML = "";
+    for (const port of ports) {
+        const portDiv = document.createElement("div");
+        portDiv.className = "port-field";
+        portDiv.style.display = "flex";
+        portDiv.style.gap = "10px";
+        portDiv.style.marginBottom = "10px";
+        portDiv.style.alignItems = "center";
+        
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "port-input";
+        input.value = port.port_number;
+        input.style.flex = "1";
+        
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn btn-danger";
+        removeBtn.textContent = "Usuń";
+        removeBtn.style.padding = "5px 10px";
+        removeBtn.style.fontSize = "0.9em";
+        removeBtn.onclick = () => portDiv.remove();
+        
+        portDiv.appendChild(input);
+        portDiv.appendChild(removeBtn);
+        container.appendChild(portDiv);
     }
 }
 
@@ -400,16 +479,30 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
 
         try {
-            await api("/admin/api/devices", {
+            const portValues = getPortValues();
+            const deviceData = {
+                name: form.name.value,
+                type: form.type.value,
+                serial_number: form.serial_number.value,
+                rfid: form.rfid.value,
+                ip: form.ip.value || null,
+                enabled: form.enabled.checked
+            };
+
+            const deviceResponse = await api("/admin/api/devices", {
                 method: "POST",
-                body: JSON.stringify({
-                    name: form.name.value,
-                    type: form.type.value,
-                    serial_number: form.serial_number.value,
-                    rfid: form.rfid.value,
-                    enabled: form.enabled.checked
-                })
+                body: JSON.stringify(deviceData)
             });
+
+            // Create ports if any
+            if (portValues.length > 0) {
+                for (const portNumber of portValues) {
+                    await api(`/admin/api/devices/${deviceResponse.id}/ports`, {
+                        method: "POST",
+                        body: JSON.stringify({ port_number: portNumber })
+                    });
+                }
+            }
 
             showSuccess("Urządzenie zostało utworzone ✅");
             setTimeout(() => {
@@ -436,7 +529,11 @@ async function loadDeviceDetail(deviceId) {
         form.type.value = d.type;
         form.serial_number.value = d.serial_number;
         form.rfid.value = d.rfid;
+        form.ip.value = d.ip || "";
         form.enabled.checked = d.enabled;
+        
+        // Populate ports
+        setPortFields(d.ports || []);
     } catch (err) {
         showError("Nie udało się załadować urządzenia: " + err.message);
     }
@@ -445,6 +542,8 @@ async function loadDeviceDetail(deviceId) {
         e.preventDefault();
 
         try {
+            const portValues = getPortValues();
+            
             await api(`/admin/api/devices/${deviceId}`, {
                 method: "PUT",
                 body: JSON.stringify({
@@ -452,9 +551,30 @@ async function loadDeviceDetail(deviceId) {
                     type: form.type.value,
                     serial_number: form.serial_number.value,
                     rfid: form.rfid.value,
+                    ip: form.ip.value || null,
                     enabled: form.enabled.checked
                 })
             });
+
+            // Delete all existing ports first
+            const currentDevice = await api(`/admin/api/devices/${deviceId}`);
+            if (currentDevice.ports) {
+                for (const port of currentDevice.ports) {
+                    await api(`/admin/api/devices/${deviceId}/ports/${port.id}`, {
+                        method: "DELETE"
+                    });
+                }
+            }
+
+            // Create new ports
+            if (portValues.length > 0) {
+                for (const portNumber of portValues) {
+                    await api(`/admin/api/devices/${deviceId}/ports`, {
+                        method: "POST",
+                        body: JSON.stringify({ port_number: portNumber })
+                    });
+                }
+            }
 
             showSuccess("Urządzenie zostało zaktualizowane ✅");
         } catch (err) {

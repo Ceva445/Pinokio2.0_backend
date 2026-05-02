@@ -16,12 +16,18 @@ class DeviceDB(Base):
     serial_number: Mapped[str] = mapped_column(String, unique=True)
     type: Mapped[DeviceType]
     enabled: Mapped[bool] = mapped_column(default=True)
+    ip: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
 
     employee_id: Mapped[int | None] = mapped_column(
         ForeignKey("employees.id"), nullable=True
     )
 
     employee = relationship("EmployeeDB", back_populates="devices")
+    ports = relationship(
+        "DevicePortDB",
+        back_populates="device",
+        cascade="all, delete-orphan"
+    )
     transactions = relationship(
             "TransactionDB",
             back_populates="device"
