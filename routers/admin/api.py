@@ -461,10 +461,20 @@ async def create_device_port(
 
         db.add(port)
         await db.commit()
-        await db.refresh(port)
         
         return {"id": port.id, "port_number": port.port_number}
         
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower() or "port_number" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Port '{payload.get('port_number')}' jest już przypisany do innego urządzenia"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych"
+        )
     except HTTPException:
         await db.rollback()
         raise

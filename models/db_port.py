@@ -7,7 +7,7 @@ class DevicePortDB(Base):
     __tablename__ = "device_ports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    port_number: Mapped[str] = mapped_column(String, nullable=False)
+    port_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     device_id: Mapped[int] = mapped_column(
         ForeignKey("devices.id"), nullable=False
     )
