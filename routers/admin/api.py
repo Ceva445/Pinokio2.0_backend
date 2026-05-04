@@ -345,6 +345,7 @@ async def update_device(
                     new_value = (
                         DeviceType(payload[field]) if field == "type" else payload[field]
                     )
+                    print(f"Processing field '{field}' with new value: {new_value}")
                     if field == "name" and new_value:
                         new_value = new_value.upper().strip()
                     elif field in ["serial_number", "rfid"] and new_value:
@@ -461,6 +462,16 @@ async def create_device_port(
 
         db.add(port)
         await db.commit()
+        await db.refresh(port)
+        
+        # Create transaction record for port addition
+        tx = DeviceChangeTransaction(
+            user_id=user["id"],
+            device_id=device_id,
+            description=f"Port '{port.port_number}' dodany"
+        )
+        db.add(tx)
+        await db.commit()
         
         return {"id": port.id, "port_number": port.port_number}
         
@@ -514,6 +525,14 @@ async def delete_device_port(
         if not port:
             raise HTTPException(status_code=404, detail="Port nie znaleziony")
 
+        # Create transaction record for port deletion
+        tx = DeviceChangeTransaction(
+            user_id=user["id"],
+            device_id=device_id,
+            description=f"Port '{port.port_number}' usunięty"
+        )
+        db.add(tx)
+        
         await db.delete(port)
         await db.commit()
         
