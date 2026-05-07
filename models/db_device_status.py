@@ -8,7 +8,7 @@ class DeviceStatusDB(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     device_id: Mapped[int] = mapped_column(
-        ForeignKey("devices.id"), nullable=False
+        ForeignKey("devices.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(
         String, nullable=False
