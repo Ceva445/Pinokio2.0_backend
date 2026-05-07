@@ -1,15 +1,6 @@
-from sqlalchemy import String, ForeignKey, Enum
+from sqlalchemy import String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
-import enum
-
-
-class DeviceStatusType(enum.Enum):
-    work = "work"
-    service = "service"
-    wanted = "wanted"
-    old_wanted = "old_wanted"
-    kantor = "kantor"
 
 
 class DeviceStatusDB(Base):
@@ -19,10 +10,8 @@ class DeviceStatusDB(Base):
     device_id: Mapped[int] = mapped_column(
         ForeignKey("devices.id"), nullable=False
     )
-    status: Mapped[DeviceStatusType] = mapped_column(
-        Enum(DeviceStatusType, name="device_status_type"),
-        nullable=False,
-        default=DeviceStatusType.work
+    status: Mapped[str] = mapped_column(
+        String, nullable=False
     )
     description: Mapped[str | None] = mapped_column(String, nullable=True)
 
