@@ -4,14 +4,14 @@ from sqlalchemy.exc import IntegrityError
 from models.db_department_manager import DepartmentManagerDB
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, and_
 
 from db.session import get_db
 from app.dependencies.admin import require_admin, require_manager_or_admin
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 from models.db_port import DevicePortDB
-
+from models.db_device_status import DeviceStatusDB
 
 router = APIRouter(
     prefix="/admin/api",
@@ -212,7 +212,8 @@ async def create_device(
             serial_number=payload["serial_number"].strip(),
             rfid=payload["rfid"].strip(),
             ip=payload.get("ip", "").strip() or None,
-            enabled=payload.get("enabled", True)
+            enabled=payload.get("enabled", True),
+            status_id=payload.get("status_id")
         )
 
         db.add(device)
@@ -257,12 +258,17 @@ async def create_device(
 @router.get("/devices")
 async def get_devices(
     q: str | None = Query(default=None),
+    status_ids: list[int] | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
     stmt = (
         select(DeviceDB)
-        .options(selectinload(DeviceDB.employee), selectinload(DeviceDB.ports))
+        .options(
+            selectinload(DeviceDB.employee),
+            selectinload(DeviceDB.ports),
+            selectinload(DeviceDB.status)
+        )
     )
 
     if q:
@@ -273,7 +279,14 @@ async def get_devices(
                 DeviceDB.rfid.ilike(f"%{q}%")
             )
         )
+
+    if status_ids:
+        stmt = stmt.where(
+            DeviceDB.status_id.in_(status_ids)
+        )
+
     stmt = stmt.order_by(DeviceDB.name)
+
     result = await db.execute(stmt)
     devices = result.scalars().all()
 
@@ -286,8 +299,20 @@ async def get_devices(
             "type": d.type.value,
             "ip": d.ip,
             "enabled": d.enabled,
-            "ports": [{"id": p.id, "port_number": p.port_number} for p in d.ports],
-            "employee_wms_login": d.employee.wms_login if d.employee else None
+
+            "status_id": d.status_id,
+            "status_name": d.status.name if d.status else None,
+
+            "ports": [
+                {
+                    "id": p.id,
+                    "port_number": p.port_number
+                }
+                for p in d.ports
+            ],
+
+            "employee_wms_login":
+                d.employee.wms_login if d.employee else None
         }
         for d in devices
     ]
@@ -302,7 +327,10 @@ async def get_device(
     result = await db.execute(
         select(DeviceDB)
         .where(DeviceDB.id == device_id)
-        .options(selectinload(DeviceDB.ports))
+        .options(
+            selectinload(DeviceDB.ports),
+            selectinload(DeviceDB.status)
+        )
     )
     device = result.scalar_one_or_none()
 
@@ -317,6 +345,8 @@ async def get_device(
         "type": device.type.value,
         "ip": device.ip,
         "enabled": device.enabled,
+        "status_id": device.status_id,
+        "status_name": device.status.name if device.status else None,
         "ports": [{"id": p.id, "port_number": p.port_number} for p in device.ports]
     }
 
@@ -339,7 +369,15 @@ async def update_device(
 
         changes = []
 
-        for field in ["name", "serial_number", "rfid", "type", "ip", "enabled"]:
+        for field in [
+                "name",
+                "serial_number",
+                "rfid",
+                "type",
+                "ip",
+                "enabled",
+                "status_id"
+            ]:
             if field in payload:
                 try:
                     new_value = (

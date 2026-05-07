@@ -3,12 +3,12 @@
 {% block admin_content %}
 <h2>Urządzenia</h2>
 
-<input
-    type="text"
-    id="deviceSearch"
-    placeholder="Szukaj po nazwie / numerze seryjnym / RFID"
-    style="margin-bottom: 10px; width: 300px;"
->
+<input type="text" id="deviceSearch" placeholder="Szukaj po nazwie / numerze seryjnym / RFID"
+    style="margin-bottom: 10px; width: 300px;">
+
+<select id="deviceStatusFilter" style="min-width:250px;">
+    <option value="">Brak statusu</option>
+</select>
 
 <div style="margin-bottom: 10px;">
     <a href="/admin/devices/create" class="btn btn-primary">
@@ -26,6 +26,7 @@
             <th>IP</th>
             <th>Porty</th>
             <th>Status</th>
+            <th>Aktywne</th>
             <th>Przypisany do</th>
             <th></th>
         </tr>

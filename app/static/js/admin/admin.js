@@ -362,9 +362,22 @@ async function loadDevices() {
     if (!tbody) return;
 
     const q = search?.value ?? "";
-    const url = q
-        ? `/admin/api/devices?q=${encodeURIComponent(q)}`
-        : "/admin/api/devices";
+
+    const statusSelect = document.getElementById("deviceStatusFilter");
+
+    const selectedStatus = statusSelect?.value || "";
+
+    const params = new URLSearchParams();
+
+    if (q) {
+        params.append("q", q);
+    }
+
+        if (selectedStatus) {
+        params.append("status_ids", selectedStatus);
+    }
+
+    const url = `/admin/api/devices?${params.toString()}`;
 
     try {
         const devices = await api(url);
@@ -382,6 +395,7 @@ async function loadDevices() {
                 <td>${d.rfid}</td>
                 <td>${d.ip ?? "—"}</td>
                 <td>${portsDisplay}</td>
+                <td>${d.status_name ?? "—"}</td>
                 <td>${d.enabled ? "✅" : "❌"}</td>
                 <td>${d.employee_wms_login ?? "—"}</td>
                 <td><a href="/admin/devices/${d.id}">✏️</a></td>
@@ -474,6 +488,7 @@ function setPortFields(ports) {
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("deviceCreateForm");
     if (!form) return;
+    loadDeviceStatuses("deviceStatusSelect", d.status_id);
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -486,7 +501,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 serial_number: form.serial_number.value,
                 rfid: form.rfid.value,
                 ip: form.ip.value || null,
-                enabled: form.enabled.checked
+                enabled: form.enabled.checked,
+                status_id: form.status_id.value
+                    ? parseInt(form.status_id.value)
+                    : null
             };
 
             const deviceResponse = await api("/admin/api/devices", {
@@ -531,6 +549,7 @@ async function loadDeviceDetail(deviceId) {
         form.rfid.value = d.rfid;
         form.ip.value = d.ip || "";
         form.enabled.checked = d.enabled;
+        await loadDeviceStatuses("deviceStatusSelect", d.status_id);
         
         // Populate ports
         setPortFields(d.ports || []);
@@ -552,7 +571,10 @@ async function loadDeviceDetail(deviceId) {
                     serial_number: form.serial_number.value,
                     rfid: form.rfid.value,
                     ip: form.ip.value || null,
-                    enabled: form.enabled.checked
+                    enabled: form.enabled.checked,
+                    status_id: form.status_id.value
+                        ? parseInt(form.status_id.value)
+                        : null
                 })
             });
 
@@ -1066,4 +1088,67 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!input) return;
         input.addEventListener("change", () => loadTransactions(1));
     });
+});
+
+
+async function loadDeviceStatuses(selectId, selectedId = null) {
+    const select = document.getElementById(selectId);
+
+    if (!select) return;
+
+    try {
+        const statuses = await api("/admin/api/device-statuses");
+
+        select.innerHTML = '<option value="">Brak statusu</option>';
+
+        for (const s of statuses) {
+            const option = document.createElement("option");
+
+            option.value = s.id;
+            option.textContent = s.name;
+
+            if (selectedId !== null && Number(selectedId) === Number(s.id)) {
+                option.selected = true;
+            }
+
+            select.appendChild(option);
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function loadStatusFilter() {
+    const select = document.getElementById("deviceStatusFilter");
+
+    if (!select) return;
+
+    try {
+        const statuses = await api("/admin/api/device-statuses");
+
+        for (const s of statuses) {
+            const option = document.createElement("option");
+
+            option.value = s.id;
+            option.textContent = s.name;
+
+            select.appendChild(option);
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const deviceStatusFilter = document.getElementById("deviceStatusFilter");
+
+    if (deviceStatusFilter) {
+        loadStatusFilter();
+
+        deviceStatusFilter.addEventListener("change", () => {
+            loadDevices();
+        });
+    }
 });

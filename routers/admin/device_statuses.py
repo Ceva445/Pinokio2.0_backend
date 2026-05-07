@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_device_status import DeviceStatusDB
 
@@ -107,3 +108,22 @@ async def delete_status(
     await db.commit()
 
     return {"ok": True}
+
+@router.get("/device-statuses")
+async def get_device_statuses(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    result = await db.execute(
+        select(DeviceStatusDB).order_by(DeviceStatusDB.name)
+    )
+
+    statuses = result.scalars().all()
+
+    return [
+        {
+            "id": s.id,
+            "name": s.name
+        }
+        for s in statuses
+    ]
