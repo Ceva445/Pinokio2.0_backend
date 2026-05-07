@@ -38,9 +38,9 @@ class DeviceDB(Base):
         back_populates="device",
         cascade="all, delete-orphan"
     )
-    statuses = relationship(
-        "DeviceStatusDB",
-        back_populates="device",
-        cascade="all, delete-orphan",
-        foreign_keys="DeviceStatusDB.device_id"
+    status_id: Mapped[int | None] = mapped_column(
+        ForeignKey("device_statuses.id"),
+        nullable=True
     )
+
+    status = relationship("DeviceStatusDB")

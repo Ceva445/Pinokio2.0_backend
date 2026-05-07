@@ -195,3 +195,14 @@ async def system_config_page(
         "admin/system_config.html",
         {"request": request}
     )
+
+
+@router.get("/device-statuses", response_class=HTMLResponse)
+async def device_statuses_page(
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/device_statuses/list.html",
+        {"request": request}
+    )

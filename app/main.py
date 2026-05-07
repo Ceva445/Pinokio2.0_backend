@@ -18,12 +18,14 @@ from pathlib import Path
 import sys
 from routers.admin.api import router as admin_api_router
 from routers.admin.api_users import router as admin_users_api_router
+from routers.admin.device_statuses import router as admin_device_statuses_router
 from routers.admin.api_system_config import router as admin_system_config_router
 from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
 from routers.admin.admin_device_transactions import router as admin_device_transactions_router
 from routers.manager.pages import router as manager_pages_router
 from routers.manager.api_transactions import router as manager_transactions_router
+
 
 
 # Налаштування логування
@@ -192,6 +194,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(auth.router)
 app.include_router(api.router)
 app.include_router(admin_api_router)
+app.include_router(admin_device_statuses_router)
 app.include_router(admin_users_api_router)
 app.include_router(admin_system_config_router)
 app.include_router(admin_pages_router)
