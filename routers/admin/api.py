@@ -12,6 +12,7 @@ from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 from models.db_port import DevicePortDB
 from models.db_device_status import DeviceStatusDB
+from services.device_transactions import build_change_descriptions, create_device_transaction
 
 router = APIRouter(
     prefix="/admin/api",
@@ -350,7 +351,6 @@ async def get_device(
         "ports": [{"id": p.id, "port_number": p.port_number} for p in device.ports]
     }
 
-
 @router.put("/devices/{device_id:int}")
 async def update_device(
     device_id: int,
@@ -358,92 +358,120 @@ async def update_device(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
+
     try:
+
         result = await db.execute(
-            select(DeviceDB).where(DeviceDB.id == device_id)
+            select(DeviceDB)
+            .options(
+                selectinload(DeviceDB.status),
+                selectinload(DeviceDB.ports)
+            )
+            .where(DeviceDB.id == device_id)
         )
+
         device = result.scalar_one_or_none()
 
         if not device:
-            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+            raise HTTPException(
+                status_code=404,
+                detail="Urządzenie nie znalezione"
+            )
 
-        changes = []
+        changes = {}
 
-        for field in [
-                "name",
-                "serial_number",
-                "rfid",
-                "type",
-                "ip",
-                "enabled",
-                "status_id"
-            ]:
-            if field in payload:
-                try:
-                    new_value = (
-                        DeviceType(payload[field]) if field == "type" else payload[field]
-                    )
-                    print(f"Processing field '{field}' with new value: {new_value}")
-                    if field == "name" and new_value:
-                        new_value = new_value.upper().strip()
-                    elif field in ["serial_number", "rfid"] and new_value:
-                        new_value = str(new_value).strip()
-                    elif field == "ip":
-                        new_value = str(new_value).strip() if new_value else None
-                        
-                    old_value = getattr(device, field)
-                    if old_value != new_value:
-                        changes.append(f"{field}: '{old_value}' → '{new_value}'")
-                        setattr(device, field, new_value)
-                except ValueError as e:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Błąd walidacji dla pola '{field}': {str(e)}"
-                    )
+        editable_fields = [
+            "name",
+            "serial_number",
+            "rfid",
+            "type",
+            "ip",
+            "enabled",
+            "status_id"
+        ]
+
+        for field in editable_fields:
+
+            if field not in payload:
+                continue
+
+            new_value = payload[field]
+
+            if field == "type":
+                new_value = DeviceType(new_value)
+
+            if field == "name" and new_value:
+                new_value = new_value.upper().strip()
+
+            if field in ["serial_number", "rfid"] and new_value:
+                new_value = str(new_value).strip()
+
+            if field == "ip":
+                new_value = (
+                    str(new_value).strip()
+                    if new_value
+                    else None
+                )
+
+            old_value = getattr(device, field)
+
+            if old_value != new_value:
+
+                changes[field] = {
+                    "old": old_value,
+                    "new": new_value
+                }
+
+                setattr(device, field, new_value)
 
         if changes:
-            description = "; ".join(changes)
-            tx = DeviceChangeTransaction(
-                user_id=user["id"],
-                device_id=device.id,
-                description=description
+
+            descriptions = await build_change_descriptions(
+                db=db,
+                device=device,
+                changes=changes
             )
-            db.add(tx)
+
+            await create_device_transaction(
+                db=db,
+                user_id=user["id"],
+                device=device,
+                descriptions=descriptions
+            )
 
         await db.commit()
+
         await db.refresh(device)
+
         return device
-        
+
     except IntegrityError as e:
+
         await db.rollback()
+
         error_str = str(e).lower()
+
         if "devices_name_key" in error_str:
             raise HTTPException(
                 status_code=400,
-                detail=f"Urządzenie o nazwie '{payload.get('name', 'UNKNOWN').upper()}' już istnieje"
+                detail="Urządzenie z tą nazwą już istnieje"
             )
-        elif "devices_serial_number_key" in error_str:
+
+        if "devices_serial_number_key" in error_str:
             raise HTTPException(
                 status_code=400,
-                detail="Urządzenie z tym numerem seryjnym już istnieje"
+                detail="Numer seryjny już istnieje"
             )
-        elif "devices_rfid_key" in error_str:
+
+        if "devices_rfid_key" in error_str:
             raise HTTPException(
                 status_code=400,
-                detail="Urządzenie z tym RFID już istnieje"
+                detail="RFID już istnieje"
             )
+
         raise HTTPException(
             status_code=400,
-            detail="Błąd bazy danych: dane są nieprawidłowe"
-        )
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Wewnętrzny błąd serwera"
+            detail="Błąd bazy danych"
         )
 
 
@@ -476,63 +504,50 @@ async def create_device_port(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    try:
-        # Check if device exists
-        result = await db.execute(
-            select(DeviceDB).where(DeviceDB.id == device_id)
-        )
-        device = result.scalar_one_or_none()
 
-        if not device:
-            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+    result = await db.execute(
+        select(DeviceDB)
+        .options(selectinload(DeviceDB.ports))
+        .where(DeviceDB.id == device_id)
+    )
 
-        # Validate port_number field
-        if "port_number" not in payload or not payload["port_number"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Pole 'port_number' jest wymagane"
-            )
+    device = result.scalar_one_or_none()
 
-        port = DevicePortDB(
-            port_number=str(payload["port_number"]).strip(),
-            device_id=device_id
+    if not device:
+        raise HTTPException(
+            status_code=404,
+            detail="Urządzenie nie znalezione"
         )
 
-        db.add(port)
-        await db.commit()
-        await db.refresh(port)
-        
-        # Create transaction record for port addition
-        tx = DeviceChangeTransaction(
-            user_id=user["id"],
-            device_id=device_id,
-            description=f"Port '{port.port_number}' dodany"
-        )
-        db.add(tx)
-        await db.commit()
-        
-        return {"id": port.id, "port_number": port.port_number}
-        
-    except IntegrityError as e:
-        await db.rollback()
-        if "unique constraint" in str(e).lower() or "port_number" in str(e).lower():
-            raise HTTPException(
-                status_code=400,
-                detail=f"Port '{payload.get('port_number')}' jest już przypisany do innego urządzenia"
-            )
+    if not payload.get("port_number"):
         raise HTTPException(
             status_code=400,
-            detail="Błąd bazy danych"
+            detail="port_number required"
         )
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Wewnętrzny błąd serwera"
-        )
+
+    port = DevicePortDB(
+        port_number=str(payload["port_number"]).strip(),
+        device_id=device.id
+    )
+
+    db.add(port)
+
+    await db.flush()
+
+    descriptions = [
+        f"changed device ports added {port.port_number}"
+    ]
+
+    await create_device_transaction(
+        db=db,
+        user_id=user["id"],
+        device=device,
+        descriptions=descriptions
+    )
+
+    await db.commit()
+
+    return port
 
 
 @router.delete("/devices/{device_id:int}/ports/{port_id:int}")
@@ -542,49 +557,54 @@ async def delete_device_port(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    try:
-        # Check if device exists
-        result = await db.execute(
-            select(DeviceDB).where(DeviceDB.id == device_id)
-        )
-        device = result.scalar_one_or_none()
 
-        if not device:
-            raise HTTPException(status_code=404, detail="Urządzenie nie znalezione")
+    result = await db.execute(
+        select(DeviceDB)
+        .options(selectinload(DeviceDB.ports))
+        .where(DeviceDB.id == device_id)
+    )
 
-        # Check if port exists and belongs to this device
-        result = await db.execute(
-            select(DevicePortDB).where(
-                (DevicePortDB.id == port_id) & (DevicePortDB.device_id == device_id)
-            )
-        )
-        port = result.scalar_one_or_none()
+    device = result.scalar_one_or_none()
 
-        if not port:
-            raise HTTPException(status_code=404, detail="Port nie znaleziony")
-
-        # Create transaction record for port deletion
-        tx = DeviceChangeTransaction(
-            user_id=user["id"],
-            device_id=device_id,
-            description=f"Port '{port.port_number}' usunięty"
-        )
-        db.add(tx)
-        
-        await db.delete(port)
-        await db.commit()
-        
-        return {"message": "Port został usunięty"}
-        
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
+    if not device:
         raise HTTPException(
-            status_code=500,
-            detail="Wewnętrzny błąd serwera"
+            status_code=404,
+            detail="Urządzenie nie znalezione"
         )
+
+    result = await db.execute(
+        select(DevicePortDB).where(
+            DevicePortDB.id == port_id,
+            DevicePortDB.device_id == device_id
+        )
+    )
+
+    port = result.scalar_one_or_none()
+
+    if not port:
+        raise HTTPException(
+            status_code=404,
+            detail="Port nie znaleziony"
+        )
+
+    descriptions = [
+        f"changed device ports removed {port.port_number}"
+    ]
+
+    await create_device_transaction(
+        db=db,
+        user_id=user["id"],
+        device=device,
+        descriptions=descriptions
+    )
+
+    await db.delete(port)
+
+    await db.commit()
+
+    return {
+        "message": "Port deleted"
+    }
 
 
 # ===============================
