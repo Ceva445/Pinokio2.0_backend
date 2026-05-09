@@ -23,7 +23,7 @@ site_enum = sa.Enum(
     "XD",
     "STOCK",
     "KONTROLA",
-    "445 (przyjecia)",
+    "PRZYJECIA_445",
     name="sitetype",
 )
 

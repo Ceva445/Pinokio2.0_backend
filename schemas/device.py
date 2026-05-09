@@ -11,7 +11,7 @@ class SiteType(str, Enum):
     XD = "XD"
     STOCK = "STOCK"
     KONTROLA = "KONTROLA"
-    PRZYJECIA_445 = "445 (przyjecia)"
+    PRZYJECIA_445 = "PRZYJECIA_445"
 
 class DeviceOut(BaseModel):
     name: str

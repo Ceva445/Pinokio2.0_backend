@@ -213,7 +213,7 @@ async def create_device(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail="Site musi być jeden z: EMAG, 445 XD, KONTROLA, 445 (przyjecia)"
+                detail="Site musi być jeden z: EMAG, STOCK, XD, KONTROLA, PRZYJECIA_445"
             )
         
         device = DeviceDB(
