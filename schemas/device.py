@@ -6,11 +6,19 @@ class DeviceType(str, Enum):
     scanner = "scanner"
     printer = "printer"
 
+class SiteType(str, Enum):
+    EMAG = "EMAG"
+    XD = "XD"
+    STOCK = "STOCK"
+    KONTROLA = "KONTROLA"
+    PRZYJECIA_445 = "445 (przyjecia)"
+
 class DeviceOut(BaseModel):
     name: str
     rfid: str
     serial_number: str
     type: DeviceType
+    site: SiteType
     enabled: bool
     employee_wms_login: Optional[str] = None
 

@@ -391,6 +391,7 @@ async function loadDevices() {
             tr.innerHTML = `
                 <td>${d.name}</td>
                 <td>${d.type}</td>
+                <td>${d.site}</td>
                 <td>${d.serial_number}</td>
                 <td>${d.rfid}</td>
                 <td>${d.ip ?? "—"}</td>
@@ -403,7 +404,7 @@ async function loadDevices() {
             tbody.appendChild(tr);
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="9">Błąd: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11">Błąd: ${err.message}</td></tr>`;
     }
 }
 
@@ -488,7 +489,7 @@ function setPortFields(ports) {
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("deviceCreateForm");
     if (!form) return;
-    loadDeviceStatuses("deviceStatusSelect", d.status_id);
+    loadDeviceStatuses("deviceStatusSelect");
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -500,6 +501,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 type: form.type.value,
                 serial_number: form.serial_number.value,
                 rfid: form.rfid.value,
+                site: form.site.value,
                 ip: form.ip.value || null,
                 enabled: form.enabled.checked,
                 status_id: form.status_id.value
@@ -545,6 +547,7 @@ async function loadDeviceDetail(deviceId) {
 
         form.name.value = d.name;
         form.type.value = d.type;
+        form.site.value = d.site;
         form.serial_number.value = d.serial_number;
         form.rfid.value = d.rfid;
         form.ip.value = d.ip || "";
@@ -570,6 +573,7 @@ async function loadDeviceDetail(deviceId) {
                     type: form.type.value,
                     serial_number: form.serial_number.value,
                     rfid: form.rfid.value,
+                    site: form.site.value,
                     ip: form.ip.value || null,
                     enabled: form.enabled.checked,
                     status_id: form.status_id.value

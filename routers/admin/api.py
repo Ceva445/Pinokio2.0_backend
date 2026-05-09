@@ -9,7 +9,7 @@ from sqlalchemy import func, select, or_, and_
 from db.session import get_db
 from app.dependencies.admin import require_admin, require_manager_or_admin
 from models.db_employee import EmployeeDB
-from models.db_device import DeviceDB, DeviceType
+from models.db_device import DeviceDB, DeviceType, SiteType
 from models.db_port import DevicePortDB
 from models.db_device_status import DeviceStatusDB
 from services.device_transactions import build_change_descriptions, create_device_transaction
@@ -190,7 +190,7 @@ async def create_device(
 ):
     try:
         # Validate required fields
-        required_fields = ["name", "type", "serial_number", "rfid"]
+        required_fields = ["name", "type", "serial_number", "rfid", "site"]
         for field in required_fields:
             if field not in payload or not payload[field]:
                 raise HTTPException(
@@ -207,11 +207,21 @@ async def create_device(
                 detail="Typ urządzenia musi być 'scanner' lub 'printer'"
             )
         
+        # Validate site type
+        try:
+            site_type = SiteType(payload["site"])
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Site musi być jeden z: EMAG, 445 XD, KONTROLA, 445 (przyjecia)"
+            )
+        
         device = DeviceDB(
             name=payload["name"].upper().strip(),
             type=device_type,
             serial_number=payload["serial_number"].strip(),
             rfid=payload["rfid"].strip(),
+            site=site_type,
             ip=payload.get("ip", "").strip() or None,
             enabled=payload.get("enabled", True),
             status_id=payload.get("status_id")
@@ -298,6 +308,7 @@ async def get_devices(
             "rfid": d.rfid,
             "serial_number": d.serial_number,
             "type": d.type.value,
+            "site": d.site.value,
             "ip": d.ip,
             "enabled": d.enabled,
 
@@ -344,6 +355,7 @@ async def get_device(
         "rfid": device.rfid,
         "serial_number": device.serial_number,
         "type": device.type.value,
+        "site": device.site.value,
         "ip": device.ip,
         "enabled": device.enabled,
         "status_id": device.status_id,
@@ -385,6 +397,7 @@ async def update_device(
             "serial_number",
             "rfid",
             "type",
+            "site",
             "ip",
             "enabled",
             "status_id"
@@ -399,6 +412,9 @@ async def update_device(
 
             if field == "type":
                 new_value = DeviceType(new_value)
+            
+            if field == "site":
+                new_value = SiteType(new_value)
 
             if field == "name" and new_value:
                 new_value = new_value.upper().strip()
