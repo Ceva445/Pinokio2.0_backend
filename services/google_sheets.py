@@ -67,7 +67,7 @@ def generate_line_to_write(
             result_line.append("")
 
         elif field == "SITE":
-            result_line.append("")
+            result_line.append(device.site.value if device.site else "")
 
         elif field == "Inventaryzoano":
             result_line.append(str(date.today()))
