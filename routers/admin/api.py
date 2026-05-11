@@ -440,13 +440,39 @@ async def update_device(
 
                 setattr(device, field, new_value)
 
-        if changes:
+        # Handle ports separately
+        port_changes = []
+        if "ports" in payload:
+            new_port_numbers = set(str(p).strip() for p in payload["ports"] if str(p).strip())
+            existing_port_numbers = set(p.port_number for p in device.ports)
+            
+            # Find ports to remove
+            ports_to_remove = existing_port_numbers - new_port_numbers
+            # Find ports to add
+            ports_to_add = new_port_numbers - existing_port_numbers
+            
+            # Remove ports
+            for port in list(device.ports):
+                if port.port_number in ports_to_remove:
+                    await db.delete(port)
+                    port_changes.append(f"removed {port.port_number}")
+            
+            # Add ports
+            for port_number in ports_to_add:
+                new_port = DevicePortDB(port_number=port_number, device_id=device.id)
+                db.add(new_port)
+                port_changes.append(f"added {port_number}")
+
+        if changes or port_changes:
 
             descriptions = await build_change_descriptions(
                 db=db,
                 device=device,
                 changes=changes
             )
+            
+            if port_changes:
+                descriptions.append(f"changed device ports {' and '.join(port_changes)}")
 
             await create_device_transaction(
                 db=db,
@@ -547,7 +573,6 @@ async def create_device_port(
     )
 
     db.add(port)
-
     await db.flush()
 
     descriptions = [
@@ -562,6 +587,7 @@ async def create_device_port(
     )
 
     await db.commit()
+    await db.refresh(port)
 
     return port
 
@@ -615,7 +641,6 @@ async def delete_device_port(
     )
 
     await db.delete(port)
-
     await db.commit()
 
     return {

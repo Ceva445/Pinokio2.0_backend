@@ -20,6 +20,8 @@ FIELD_LABELS = {
     "type": "device type",
     "status_id": "device status",
     "enabled": "device enabled",
+    "site": "device site",
+    "ports": "device ports"
 }
 
 

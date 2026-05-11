@@ -578,29 +578,10 @@ async function loadDeviceDetail(deviceId) {
                     enabled: form.enabled.checked,
                     status_id: form.status_id.value
                         ? parseInt(form.status_id.value)
-                        : null
+                        : null,
+                    ports: portValues
                 })
             });
-
-            // Delete all existing ports first
-            const currentDevice = await api(`/admin/api/devices/${deviceId}`);
-            if (currentDevice.ports) {
-                for (const port of currentDevice.ports) {
-                    await api(`/admin/api/devices/${deviceId}/ports/${port.id}`, {
-                        method: "DELETE"
-                    });
-                }
-            }
-
-            // Create new ports
-            if (portValues.length > 0) {
-                for (const portNumber of portValues) {
-                    await api(`/admin/api/devices/${deviceId}/ports`, {
-                        method: "POST",
-                        body: JSON.stringify({ port_number: portNumber })
-                    });
-                }
-            }
 
             showSuccess("Urządzenie zostało zaktualizowane ✅");
         } catch (err) {
