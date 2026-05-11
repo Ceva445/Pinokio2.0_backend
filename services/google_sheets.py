@@ -75,20 +75,12 @@ def generate_line_to_write(
         elif field == "Notatka":
             result_line.append(notes)
 
-        elif "PORT" in field:
+        elif field == "PORT EMAG":
 
-            port_name = field.replace("PORT", "").strip()
-
-            port = next(
-                (
-                    p for p in device.ports
-                    if port_name in p.port_number
-                ),
-                None
-            )
-
+            port_name = field.replace("PORT EMAG", "").strip()
+            ports = [p for p in device.ports if port_name in p.port_number]
             result_line.append(
-                port.port_number if port else ""
+                "\n".join(str(p.port_number) for p in ports) if ports else ""
             )
 
         else:

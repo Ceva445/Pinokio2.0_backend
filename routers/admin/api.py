@@ -457,11 +457,22 @@ async def update_device(
                     await db.delete(port)
                     port_changes.append(f"removed {port.port_number}")
             
-            # Add ports
-            for port_number in ports_to_add:
-                new_port = DevicePortDB(port_number=port_number, device_id=device.id)
-                db.add(new_port)
-                port_changes.append(f"added {port_number}")
+            # Add ports with error handling
+            try:
+                for port_number in ports_to_add:
+                    new_port = DevicePortDB(port_number=port_number, device_id=device.id)
+                    db.add(new_port)
+                    port_changes.append(f"added {port_number}")
+                # Try to flush to catch unique constraint errors early
+                await db.flush()
+            except IntegrityError as e:
+                await db.rollback()
+                if "unique constraint" in str(e).lower():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Port {port_number} jest już używany w innym urządzeniu"
+                    )
+                raise
 
         if changes or port_changes:
 
@@ -567,29 +578,42 @@ async def create_device_port(
             detail="port_number required"
         )
 
-    port = DevicePortDB(
-        port_number=str(payload["port_number"]).strip(),
-        device_id=device.id
-    )
+    try:
+        port = DevicePortDB(
+            port_number=str(payload["port_number"]).strip(),
+            device_id=device.id
+        )
 
-    db.add(port)
-    await db.flush()
+        db.add(port)
+        await db.flush()
 
-    descriptions = [
-        f"changed device ports added {port.port_number}"
-    ]
+        descriptions = [
+            f"changed device ports added {port.port_number}"
+        ]
 
-    await create_device_transaction(
-        db=db,
-        user_id=user["id"],
-        device=device,
-        descriptions=descriptions
-    )
+        await create_device_transaction(
+            db=db,
+            user_id=user["id"],
+            device=device,
+            descriptions=descriptions
+        )
 
-    await db.commit()
-    await db.refresh(port)
+        await db.commit()
+        await db.refresh(port)
 
-    return port
+        return port
+    
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Port {payload['port_number']} jest już używany w innym urządzeniu"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych"
+        )
 
 
 @router.delete("/devices/{device_id:int}/ports/{port_id:int}")
