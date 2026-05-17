@@ -52,6 +52,9 @@ def generate_line_to_write(
         if field == "S/N":
             result_line.append(device.serial_number)
 
+        elif field == "RFID":
+            result_line.append(device.rfid)
+
         elif field == "Nazwa":
             result_line.append(device.name)
 
@@ -75,9 +78,9 @@ def generate_line_to_write(
         elif field == "Notatka":
             result_line.append(notes)
 
-        elif field == "PORT EMAG":
+        elif field == "PORTS":
 
-            port_name = field.replace("PORT EMAG", "").strip()
+            port_name = field.replace("PORTS", "").strip()
             ports = [p for p in device.ports if port_name in p.port_number]
             result_line.append(
                 "\n".join(str(p.port_number) for p in ports) if ports else ""
