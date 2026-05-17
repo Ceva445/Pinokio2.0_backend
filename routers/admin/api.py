@@ -474,6 +474,9 @@ async def update_device(
                     )
                 raise
 
+        await db.commit()
+        await db.refresh(device)
+        
         if changes or port_changes:
 
             descriptions = await build_change_descriptions(
@@ -491,10 +494,6 @@ async def update_device(
                 device=device,
                 descriptions=descriptions
             )
-
-        await db.commit()
-
-        await db.refresh(device)
 
         return device
 
