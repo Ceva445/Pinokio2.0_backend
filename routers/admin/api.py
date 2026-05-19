@@ -151,7 +151,6 @@ async def update_employee(
                 value = payload[field]
 
                 if field == "rfid":
-                    print(f"Checking guest with RFID {employee.rfid}")
                     guests_result = await db.execute(
                         select(DBGuest)
                         .where(DBGuest.rfid == employee.rfid)
