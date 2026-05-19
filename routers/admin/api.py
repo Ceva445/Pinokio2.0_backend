@@ -149,9 +149,22 @@ async def update_employee(
         for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department"]:
             if field in payload:
                 value = payload[field]
+
+                if field == "rfid":
+                    print(f"Checking guest with RFID {employee.rfid}")
+                    guests_result = await db.execute(
+                        select(DBGuest)
+                        .where(DBGuest.rfid == employee.rfid)
+                    )
+                    guest = guests_result.scalar_one_or_none()
+                    if guest and guest.used:
+                        guest.used = False
+                        await db.commit()
+                        await db.refresh(guest)
+                
                 if isinstance(value, str):
                     value = value.strip()
-                setattr(employee, field, value)
+                setattr(employee, field, value)             
 
         await db.commit()
         await db.refresh(employee)
