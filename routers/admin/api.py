@@ -177,6 +177,32 @@ async def update_employee(
             detail="Wewnętrzny błąd serwera"
         )
 
+@router.delete("/employees/{employee_id:int}")
+async def delete_employee(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    try:
+        result = await db.execute(
+            select(EmployeeDB).where(EmployeeDB.id == employee_id)
+        )
+        employee = result.scalar_one_or_none()
+
+        if not employee:
+            raise HTTPException(status_code=404, detail="Pracownik nie znaleziony")
+
+        await db.delete(employee)
+        await db.commit()
+        return {"message": "Pracownik został usunięty ✅"}
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
+
 
 # ===============================
 # DEVICES
