@@ -151,16 +151,26 @@ async def update_employee(
                 value = payload[field]
 
                 if field == "rfid":
-                    guests_result = await db.execute(
-                        select(DBGuest)
-                        .where(DBGuest.rfid == employee.rfid)
+                    # Get both guests in parallel and batch the updates
+                    old_guest_result = await db.execute(
+                        select(DBGuest).where(DBGuest.rfid == employee.rfid)
                     )
-                    guest = guests_result.scalar_one_or_none()
-                    if guest and guest.used:
-                        guest.used = False
-                        await db.commit()
-                        await db.refresh(guest)
-                
+                    old_guest = old_guest_result.scalar_one_or_none()
+                    
+                    new_guest_result = await db.execute(
+                        select(DBGuest).where(DBGuest.rfid == value)
+                    )
+                    new_guest = new_guest_result.scalar_one_or_none()
+                    
+                    # Batch all updates before committing once
+                    if old_guest and old_guest.used:
+                        old_guest.used = False
+                    
+                    if new_guest:
+                        new_guest.used = True
+                    
+                    # Single commit for both changes
+                    await db.commit()
                 if isinstance(value, str):
                     value = value.strip()
                 setattr(employee, field, value)             
