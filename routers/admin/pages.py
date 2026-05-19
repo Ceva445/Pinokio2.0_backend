@@ -58,6 +58,21 @@ async def employee_detail(
 
 
 # ===============================
+# TEMPORARY EMPLOYEES PAGES
+# ===============================
+
+@router.get("/temporary-employees/create", response_class=HTMLResponse)
+async def temporary_employee_create_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/temporary_employees/create.html",
+        {"request": request}
+    )
+
+
+# ===============================
 # DEVICES PAGES
 # ===============================
 

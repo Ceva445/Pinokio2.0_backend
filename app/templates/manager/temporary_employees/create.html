@@ -1,0 +1,51 @@
+{% extends "manager/base_manager.html" %}
+
+{% block manager_content %}
+<h2>👤 Utwórz pracownika tymczasowego</h2>
+
+<form id="temporaryEmployeeCreateForm" class="admin-form">
+    <div class="form-group">
+        <label>Gość *</label>
+        <select name="guest_id" id="guestSelect" required>
+            <option value="">-- Wybierz gościa --</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>WMS login</label>
+        <input type="text" name="wms_login" required>
+    </div>
+
+    <div class="form-group">
+        <label>Imię *</label>
+        <input type="text" name="first_name" required>
+    </div>
+
+    <div class="form-group">
+        <label>Nazwisko *</label>
+        <input type="text" name="last_name" required>
+    </div>
+
+    <div class="form-group">
+        <label>Firma *</label>
+        <input type="text" name="company" required>
+    </div>
+
+    <div class="form-group">
+        <label>RFID (automatycznie z gościa)</label>
+        <input type="text" name="rfid_display" disabled>
+    </div>
+
+    <div class="form-group">
+        <label>Departament</label>
+        <input type="text" name="department">
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">💾 Stwórz</button>
+        <a href="/manager" class="btn">Anuluj</a>
+    </div>
+</form>
+
+<script src="{{ url_for('static', path='js/admin/temporary_employees.js') }}"></script>
+{% endblock %}

@@ -48,3 +48,18 @@ async def manager_transactions(
             "user": current_user
         }
     )
+
+
+# ===============================
+# TEMPORARY EMPLOYEES PAGES
+# ===============================
+
+@router.get("/temporary-employees/create", response_class=HTMLResponse)
+async def temporary_employee_create_page(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    return templates.TemplateResponse(
+        "manager/temporary_employees/create.html",
+        {"request": request}
+    )

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from models.db_department_manager import DepartmentManagerDB
+from models.db_guest import DBGuest
 from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, or_, and_
@@ -196,6 +197,110 @@ async def delete_employee(
         await db.commit()
         return {"message": "Pracownik został usunięty ✅"}
 
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
+
+# ===============================
+# TEMPORARY EMPLOYEES
+# ===============================
+
+@router.get("/guests")
+async def get_unused_guests(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Get all unused guests for temporary employee creation"""     
+    result = await db.execute(
+        select(DBGuest).where(DBGuest.used == False).order_by(DBGuest.name)
+    )
+    guests = result.scalars().all()
+    return guests
+
+
+@router.post("/temporary-employees")
+async def create_temporary_employee(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Create a temporary employee from a guest"""
+    from models.db_guest import DBGuest
+    
+    try:
+        # Validate required fields
+        required_fields = ["guest_id", "first_name", "last_name", "company"]
+        for field in required_fields:
+            if field not in payload or not payload[field]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pole '{field}' jest wymagane"
+                )
+        
+        # Get the guest
+        result = await db.execute(
+            select(DBGuest).where(DBGuest.id == payload["guest_id"])
+        )
+        guest = result.scalar_one_or_none()
+        
+        if not guest:
+            raise HTTPException(
+                status_code=404,
+                detail="Gość nie znaleziony"
+            )
+        
+        if guest.used:
+            raise HTTPException(
+                status_code=400,
+                detail="Gość został już użyty"
+            )
+        
+        # Create employee with RFID from guest
+        employee = EmployeeDB(
+            first_name=payload["first_name"].strip(),
+            last_name=payload["last_name"].strip(),
+            company=payload["company"].strip(),
+            rfid=guest.rfid,
+            wms_login=payload.get("wms_login", "").strip(),
+            department=payload.get("department", "").strip()
+        )
+        
+        # Mark guest as used
+        guest.used = True
+        
+        db.add(employee)
+        db.add(guest)
+        await db.commit()
+        await db.refresh(employee)
+        
+        return {
+            "employee": employee,
+            "message": "Pracownik tymczasowy został utworzony ✅"
+        }
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Pracownik z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Błąd walidacji: {str(e)}"
+        )
     except Exception as e:
         await db.rollback()
         raise HTTPException(

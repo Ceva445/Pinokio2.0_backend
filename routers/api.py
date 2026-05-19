@@ -79,7 +79,7 @@ async def receive_esp32_data(
     from app.main import registration_manager, esp_allowed_users
 
     device = devices.update_device_data(device_id, data)
-    # 🔄 Broadcast ESP data
+    # Broadcast ESP data
     if device.latest_data:
         await manager.broadcast_device_data(
             device_id,
@@ -177,7 +177,7 @@ async def receive_esp32_data(
             else:
                 session = registration_manager.get(device_id)
 
-                # ❌ brak sesji pracownika
+                # brak sesji pracownika
                 if not session:
                     if device_db.employee_id is not None:
                         device_db.employee_id = None
