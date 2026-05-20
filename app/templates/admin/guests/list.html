@@ -1,0 +1,32 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Goście</h2>
+
+<input
+    type="text"
+    id="search"
+    placeholder="Szukaj po nazwie"
+    style="margin-bottom: 10px; width: 300px;"
+>
+
+<div style="margin-bottom: 10px;">
+    <a href="/admin/guests/create" class="btn btn-primary">
+        ➕ Dodaj gościa
+    </a>
+</div>
+
+<table id="guestsTable">
+    <thead>
+        <tr>
+            <th>Nazwa</th>
+            <th>RFID</th>
+            <th>Użyty</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/guests.js') }}"></script>
+{% endblock %}

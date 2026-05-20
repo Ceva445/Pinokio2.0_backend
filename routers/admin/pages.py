@@ -198,6 +198,31 @@ async def department_manager_detail(manager_id: int, request: Request, current_u
     )
 
 # ===============================
+# GUESTS PAGES
+# ===============================
+
+@router.get("/guests", response_class=HTMLResponse)
+async def guests_list(request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/guests/list.html",
+        {"request": request}
+    )
+
+@router.get("/guests/create", response_class=HTMLResponse)
+async def guest_create(request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/guests/create.html",
+        {"request": request}
+    )
+
+@router.get("/guests/{guest_id}", response_class=HTMLResponse)
+async def guest_detail(guest_id: int, request: Request, current_user=Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/guests/detail.html",
+        {"request": request, "guest_id": guest_id}
+    )
+
+# ===============================
 # SYSTEM CONFIG PAGE
 # ===============================
 

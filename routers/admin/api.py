@@ -231,17 +231,185 @@ async def delete_employee(
 # ===============================
 
 @router.get("/guests")
-async def get_unused_guests(
+async def get_guests(
+    q: str | None = Query(default=None),
+    unused_only: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_manager_or_admin)
 ):
-    """Get all unused guests for temporary employee creation"""     
-    result = await db.execute(
-        select(DBGuest).where(DBGuest.used == False).order_by(DBGuest.name)
-    )
+    """Get guests for temporary employee creation or admin management"""     
+    stmt = select(DBGuest)
+    
+    # Filter by used status if requested
+    if unused_only:
+        stmt = stmt.where(DBGuest.used == False)
+    
+    # Filter by search query if provided
+    if q:
+        stmt = stmt.where(DBGuest.name.ilike(f"%{q}%"))
+    
+    stmt = stmt.order_by(DBGuest.name)
+    result = await db.execute(stmt)
     guests = result.scalars().all()
     return guests
 
+
+@router.post("/guests")
+async def create_guest(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Create a new guest for temporary employee creation"""
+    try:
+        if "name" not in payload or not payload["name"].strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Pole 'name' jest wymagane"
+            )
+        
+        guest = DBGuest(
+            name=payload["name"].strip(),
+            rfid=payload.get("rfid", "").strip() or None
+        )
+        db.add(guest)
+        await db.commit()
+        await db.refresh(guest)
+        return guest
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Gość z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
+
+@router.put("/guests/{guest_id:int}")
+async def update_guest(
+    guest_id: int,
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Update a guest's name or RFID"""
+    try:
+        result = await db.execute(
+            select(DBGuest).where(DBGuest.id == guest_id)
+        )
+        guest = result.scalar_one_or_none()
+
+        if not guest:
+            raise HTTPException(status_code=404, detail="Gość nie znaleziony")
+
+        if "name" in payload and payload["name"].strip():
+            guest.name = payload["name"].strip()
+
+        if "rfid" in payload:
+            new_rfid = payload["rfid"].strip() or None
+            if new_rfid != guest.rfid:
+                # Check if new RFID is already used by another guest
+                rfid_result = await db.execute(
+                    select(DBGuest).where(
+                        DBGuest.rfid == new_rfid,
+                        DBGuest.id != guest_id
+                    )
+                )
+                existing_guest = rfid_result.scalar_one_or_none()
+                if existing_guest:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Inny gość z tym RFID już istnieje"
+                    )
+                guest.rfid = new_rfid
+
+        await db.commit()
+        await db.refresh(guest)
+        return guest
+        
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Gość z tymi danymi już istnieje"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Błąd bazy danych: dane są nieprawidłowe"
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
+
+@router.get("/guests/{guest_id:int}")
+async def get_guest(
+    guest_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Get a guest by ID"""
+    result = await db.execute(
+        select(DBGuest).where(DBGuest.id == guest_id)
+    )
+    guest = result.scalar_one_or_none()
+
+    if not guest:
+        raise HTTPException(status_code=404, detail="Gość nie znaleziony")
+
+    return guest
+
+@router.delete("/guests/{guest_id:int}")
+async def delete_guest(
+    guest_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Delete a guest"""
+    try:
+        result = await db.execute(
+            select(DBGuest).where(DBGuest.id == guest_id)
+        )
+        guest = result.scalar_one_or_none()
+
+        if not guest:
+            raise HTTPException(status_code=404, detail="Gość nie znaleziony")
+
+        if guest.used:
+            raise HTTPException(status_code=400, detail="Nie można usunąć gościa, który został już użyty")
+
+        await db.delete(guest)
+        await db.commit()
+        return {"message": "Gość został usunięty"}
+
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Wewnętrzny błąd serwera"
+        )
 
 @router.post("/temporary-employees")
 async def create_temporary_employee(
