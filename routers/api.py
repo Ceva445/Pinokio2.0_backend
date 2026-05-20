@@ -14,6 +14,7 @@ from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 from models.db_transaction import TransactionDB
+from models.db_guest import DBGuest
 from models.db_transaction import TransactionType as DbTransactionType
 from schemas.transaction import TransactionType
 from routers.auth import get_current_user
@@ -155,6 +156,13 @@ async def receive_esp32_data(
         if not device_db:
             ui_message = "Nieznany RFID"
             ui_status = "error"
+            guest = await db.execute(
+                select(DBGuest).where(DBGuest.rfid == rfid and DBGuest.used == False)
+            )
+            guest = guest.scalar_one_or_none()
+            if guest:
+                ui_message = f"To jest: {guest.name}"
+                ui_status = "success"
 
         else:
             if not can_register:
