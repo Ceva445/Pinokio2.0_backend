@@ -1,6 +1,4 @@
 import os
-import ssl
-import urllib.parse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -9,21 +7,21 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set.")
+# Get database configuration from environment variables
+db_user = os.getenv("POSTGRES_USER", "pinokio_user")
+db_password = os.getenv("POSTGRES_PASSWORD", "pinokio_pass")
+db_host = os.getenv("POSTGRES_HOST", "localhost")
+db_port = os.getenv("POSTGRES_PORT", "5432")
+db_name = os.getenv("POSTGRES_DB", "neondb")
 
-url_without_params, params = DATABASE_URL.split("?", 1) if "?" in DATABASE_URL else (DATABASE_URL, "")
-query_args = urllib.parse.parse_qs(params)
+# Construct DATABASE_URL from components
+DATABASE_URL = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 connect_args = {}
-if "sslmode" in query_args and query_args["sslmode"][0] == "require":
-    ssl_context = ssl.create_default_context()
-    connect_args["ssl"] = ssl_context
 
 
 engine = create_async_engine(
-    url_without_params.replace("postgresql://", "postgresql+asyncpg://"),
+    DATABASE_URL,
     echo=True,
     connect_args=connect_args,
     pool_pre_ping=True,
