@@ -79,19 +79,78 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(cleanup_offline_devices())
     auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
     registration_cleanup_task = asyncio.create_task(cleanup_registration_sessions())
+    employee_expiration_task = asyncio.create_task(do_employee_expired_if_needed())
     
     yield
     
-    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task]:
+    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task]:
         task.cancel()
     
-    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task]:
+    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task]:
         try:
             await task
         except asyncio.CancelledError:
             pass
 
     logger.info("ESP32 Multi-Device Monitor stopped")
+
+
+async def do_employee_expired_if_needed():
+    """Фонова задача для перевірки та помічення розенаділених карток як експірованих"""
+    from db.session import engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy import select
+    from datetime import datetime, timezone, timedelta
+    from models.db_guest import DBGuest
+    from models.db_employee import EmployeeDB
+    
+    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    while True:
+        try:
+            # Брати інтервал з БД через конфіг-менеджер (з кешуванням)
+            async with async_session_factory() as db:
+                config = await config_manager.get_config(db)
+                temporary_card_duration_hours = config.get("temporary_card_duration_hours", 72)
+                
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                cutoff_time = now - timedelta(hours=temporary_card_duration_hours)
+                
+                # Отримати тільки експірованих гостей з БД (last_used_at < cutoff)
+                expired_guests = await db.execute(
+                    select(DBGuest).where(
+                        DBGuest.last_used_at.isnot(None),
+                        DBGuest.last_used_at < cutoff_time
+                    )
+                )
+                expired_guests_list = expired_guests.scalars().all()
+                
+                # Зібрати RFIDs експірованих гостей
+                expired_rfids = [guest.rfid for guest in expired_guests_list]
+                
+                # Якщо є експіровані, оновити всіх працівників одним запитом (уникнути N+1)
+                if expired_rfids:
+                    employees_result = await db.execute(
+                        select(EmployeeDB).where(
+                            EmployeeDB.rfid.in_(expired_rfids),
+                            EmployeeDB.expired == False
+                        )
+                    )
+                    employees = employees_result.scalars().all()
+                    
+                    for employee in employees:
+                        employee.expired = True
+                        logger.info(f"Employee {employee.first_name} {employee.last_name} marked as expired (temporary card duration exceeded)")
+                    
+                    await db.commit()
+            
+            # Перевіряти кожні 30 хвилин
+            await asyncio.sleep(30 * 60)
+            
+        except Exception as exc:
+            logger.error("Error in employee expiration check task: %s", exc)
+            # Не дозволити crash, спробувати знову через деякий час
+            await asyncio.sleep(60)
 
 
 async def cleanup_offline_devices():

@@ -146,7 +146,8 @@ async def update_employee(
         if not employee:
             raise HTTPException(status_code=404, detail="Pracownik nie znaleziony")
 
-        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department"]:
+        do_unexpire = False
+        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department", "expired"]:
             if field in payload:
                 value = payload[field]
 
@@ -165,16 +166,22 @@ async def update_employee(
                     # Batch all updates before committing once
                     if old_guest and old_guest.used:
                         old_guest.used = False
+                        old_guest.last_used_at = None
+                        do_unexpire = True  # Unexpire employee if RFID is changing from an expired one
                     
                     if new_guest:
                         new_guest.used = True
+                        new_guest.last_used_at = func.now()
                     
                     # Single commit for both changes
                     await db.commit()
                 if isinstance(value, str):
                     value = value.strip()
                 setattr(employee, field, value)             
-
+        
+        if do_unexpire:
+            employee.expired = False
+            
         await db.commit()
         await db.refresh(employee)
         return employee

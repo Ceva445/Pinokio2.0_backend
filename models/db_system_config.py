@@ -2,7 +2,7 @@
 from sqlalchemy import String, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from db.base import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SystemConfigDB(Base):
@@ -24,7 +24,10 @@ class SystemConfigDB(Base):
     allow_registration_without_login: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Метаінформація
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    # Настройка довжини часу дозволу працювати працівнику на тимчасовій карті в шодинах
+    temporary_card_duration_hours: Mapped[int] = mapped_column(Integer, default=72)
     
     def to_dict(self):
         """Конвертувати в словник"""
@@ -38,4 +41,5 @@ class SystemConfigDB(Base):
             "device_not_returned_hours": self.device_not_returned_hours,
             "allow_registration_without_login": self.allow_registration_without_login,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "temporary_card_duration_hours": self.temporary_card_duration_hours,
         }

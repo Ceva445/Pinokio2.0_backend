@@ -23,6 +23,7 @@ class ConfigUpdateRequest(BaseModel):
     auth_cleanup_interval_seconds: Optional[int] = None
     device_not_returned_hours: Optional[int] = None
     allow_registration_without_login: Optional[bool] = None
+    temporary_card_duration_hours: Optional[int] = None
     
     class Config:
         json_schema_extra = {
@@ -31,6 +32,7 @@ class ConfigUpdateRequest(BaseModel):
                 "device_timeout_minutes": 5,
                 "registration_timeout_seconds": 7,
                 "allow_registration_without_login": False,
+                "temporary_card_duration_hours": 72
             }
         }
 
@@ -80,6 +82,14 @@ async def update_config(
             raise ValueError("device_timeout_minutes must be > 0")
         if "registration_timeout_seconds" in updates and updates["registration_timeout_seconds"] <= 0:
             raise ValueError("registration_timeout_seconds must be > 0")
+        if "device_cleanup_interval_seconds" in updates and updates["device_cleanup_interval_seconds"] <= 0:
+            raise ValueError("device_cleanup_interval_seconds must be > 0")
+        if "auth_cleanup_interval_seconds" in updates and updates["auth_cleanup_interval_seconds"] <= 0:
+            raise ValueError("auth_cleanup_interval_seconds must be > 0")
+        if "device_not_returned_hours" in updates and updates["device_not_returned_hours"] <= 0:
+            raise ValueError("device_not_returned_hours must be > 0")
+        if "temporary_card_duration_hours" in updates and updates["temporary_card_duration_hours"] <= 0:
+            raise ValueError("temporary_card_duration_hours must be > 0")
         
         updated_config = await config_manager.update_config(db, updates)
         

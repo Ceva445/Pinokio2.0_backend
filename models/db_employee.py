@@ -11,6 +11,7 @@ class EmployeeDB(Base):
     company: Mapped[str]
     wms_login: Mapped[str] = mapped_column(unique=True, index=True, nullable=True)
     department: Mapped[str] = mapped_column(nullable=True, index=True)
+    expired: Mapped[bool] = mapped_column(default=False)
 
     devices = relationship(
         "DeviceDB",

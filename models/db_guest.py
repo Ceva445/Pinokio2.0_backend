@@ -1,6 +1,6 @@
 from sqlalchemy.orm import mapped_column, Mapped
 from db.base import Base
-from sqlalchemy import String
+from sqlalchemy import DateTime, String
 
 class DBGuest(Base):
     __tablename__ = 'guests'
@@ -9,3 +9,4 @@ class DBGuest(Base):
     rfid: Mapped[str] = mapped_column(unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     used: Mapped[bool] = mapped_column(default=False, nullable=False)
+    last_used_at: Mapped[str] = mapped_column(DateTime, nullable=True)
