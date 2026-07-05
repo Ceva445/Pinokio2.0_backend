@@ -16,3 +16,5 @@ Dockerfile
 test/
 scripts/
 config.txt
+.env
+creds.json

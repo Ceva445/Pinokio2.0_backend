@@ -22,7 +22,7 @@ connect_args = {}
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,
     connect_args=connect_args,
     pool_pre_ping=True,
     pool_recycle=1800

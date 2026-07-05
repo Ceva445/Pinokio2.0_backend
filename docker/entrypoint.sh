@@ -2,11 +2,6 @@
 
 set -e
 
-echo "Waiting for database..."
-
-# optional wait (simple version)
-sleep 3
-
 echo "Running migrations..."
 
 alembic upgrade head
