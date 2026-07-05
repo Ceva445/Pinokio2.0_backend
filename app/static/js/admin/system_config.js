@@ -28,13 +28,29 @@ async function loadConfig() {
 
 // Заповнити форму значеннями
 function fillForm(config) {
-    document.getElementById('accessTokenExpire').value = config.access_token_expire_minutes;
-    document.getElementById('deviceTimeout').value = config.device_timeout_minutes;
-    document.getElementById('registrationTimeout').value = config.registration_timeout_seconds;
-    document.getElementById('deviceCleanupInterval').value = config.device_cleanup_interval_seconds;
-    document.getElementById('authCleanupInterval').value = config.auth_cleanup_interval_seconds;
-    document.getElementById('deviceNotReturnedHours').value = config.device_not_returned_hours;
-    document.getElementById('allowRegistrationWithoutLogin').checked = config.allow_registration_without_login;
+    const fields = {
+        'accessTokenExpire': config.access_token_expire_minutes,
+        'deviceTimeout': config.device_timeout_minutes,
+        'registrationTimeout': config.registration_timeout_seconds,
+        'deviceCleanupInterval': config.device_cleanup_interval_seconds,
+        'authCleanupInterval': config.auth_cleanup_interval_seconds,
+        'deviceNotReturnedHours': config.device_not_returned_hours,
+        'temporaryCardDurationHours': config.temporary_card_duration_hours
+    };
+    
+    // Set text/number inputs
+    for (const [id, value] of Object.entries(fields)) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.value = value;
+        }
+    }
+    
+    // Set checkbox
+    const checkbox = document.getElementById('allowRegistrationWithoutLogin');
+    if (checkbox) {
+        checkbox.checked = config.allow_registration_without_login;
+    }
 }
 
 // Оновити час останньої оновації

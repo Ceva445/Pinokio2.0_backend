@@ -121,6 +121,22 @@
                     <small>Jeśli włączone, nowi użytkownicy mogą się zarejestrować bez hasła</small>
                 </div>
             </fieldset>
+            
+             <fieldset class="config-fieldset">
+                <legend>⏳ Czas pracy na tymczasowej karcie</legend>
+                
+                <div class="form-group">
+                    <label for="temporaryCardDurationHours">Czas pracy na tymczasowej karcie (godziny)</label>
+                    <input 
+                        type="number" 
+                        id="temporaryCardDurationHours"
+                        name="temporary_card_duration_hours"
+                        min="1" 
+                        max="240"
+                        class="config-input"
+                    >
+                    <small>Jak długo pracownik może korzystać z tymczasowej karty (domyślnie 72 godziny)</small>
+                </div>
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">💾 Zapisz zmiany</button>

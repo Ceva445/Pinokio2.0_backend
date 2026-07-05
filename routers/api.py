@@ -132,6 +132,9 @@ async def receive_esp32_data(
             )
             print("ui message:", ui_message)
             ui_status = "success"
+            if employee.expired:
+                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_status = "warning"
         else:
             result = await db.execute(
                     select(DeviceDB).where(DeviceDB.employee_id == employee.id)
@@ -140,11 +143,14 @@ async def receive_esp32_data(
             user_devices = result.scalars().all()
             
             ui_message = (
-                f"Pracownik {employee.first_name} {employee.last_name} posiada. "
+                f"Pracownik {employee.wms_login} posiada. "
                 f"{', '.join([f'{d.type.value}: {d.name}' for d in user_devices])}. "
             )
             print("ui message:", ui_message)
             ui_status = "info"
+            if employee.expired:
+                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_status = "warning"
 
     else:
         # ---------- DEVICE ----------
@@ -214,24 +220,7 @@ async def receive_esp32_data(
                     user_devices = result.scalars().all()
                     owned_types = {d.type for d in user_devices}
 
-                    if device_db.type in owned_types:
-                        # TODO - add logic to chek if owner of device is not curent employee finish curent session and unregister device from second one employee
-                        # if device_db.employee_id != employee.id:
-                        #     device_db.employee_id = None
-                        #     await db.commit()
-                        #     ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
-                        #     ui_status = "success"
-
-                        #     transaction = TransactionDB(
-                        #         type=TransactionType.unregistered,
-                        #         device_id=device_db.id,
-                        #         employee_id=None
-                        #     )
-                        #     db.add(transaction)
-                        #     await db.commit()
-
-                        #     session.end()
-                    
+                    if device_db.type in owned_types:               
                         ui_message = (
                             f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         )

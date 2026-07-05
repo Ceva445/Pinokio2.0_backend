@@ -25,7 +25,15 @@ sys.path.append(str(BASE_DIR))
 # Alembic config
 config = context.config
 
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+# Construct DATABASE_URL from environment variables (same as in db/session.py)
+db_user = os.getenv("POSTGRES_USER", "pinokio_user")
+db_password = os.getenv("POSTGRES_PASSWORD", "pinokio_pass")
+db_host = os.getenv("POSTGRES_HOST", "localhost")
+db_port = os.getenv("POSTGRES_PORT", "5432")
+db_name = os.getenv("POSTGRES_DB", "neondb")
+
+database_url = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

@@ -251,6 +251,7 @@ async function loadEmployees() {
                 <td>${e.company}</td>
                 <td>${e.rfid}</td>
                 <td>${e.department ?? ""}</td>
+                <td>${e.expired ? "✅" : ""}</td>
                 <td><a href="/admin/employees/${e.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
@@ -277,6 +278,7 @@ async function loadEmployeeDetail(employeeId) {
         form.company.value = employee.company ?? "";
         form.rfid.value = employee.rfid ?? "";
         form.department.value = employee.department ?? "";
+        form.expired.checked = employee.expired ?? false;
     } catch (err) {
         showError("Nie udało się załadować pracownika: " + err.message);
     }
@@ -293,11 +295,15 @@ async function loadEmployeeDetail(employeeId) {
                     last_name: form.last_name.value,
                     company: form.company.value,
                     rfid: form.rfid.value,
-                    department: form.department.value || null
+                    department: form.department.value || null,
+                    expired: form.expired.checked
                 })
             });
 
             showSuccess("Pracownik został zaktualizowany ✅");
+            setTimeout(() => {
+                window.location.href = "/admin/employees";
+            }, 1500);
         } catch (err) {
             showError(err.message);
         }
