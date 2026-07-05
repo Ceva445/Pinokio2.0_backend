@@ -11,8 +11,8 @@
 #include <SD.h>
 
 // ===== WiFi =====
-const char* WIFI_SSID = "AP_PiatekCeva";
-const char* WIFI_PASS = "Orange3546";
+const char* WIFI_SSID = "Pinokio2";
+const char* WIFI_PASS = "13243546";
 const char* DEVICE_ID = "E-2";
 
 // ===== Server =====
@@ -34,6 +34,7 @@ Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
 
 // ===== Buzzer =====
 #define BUZZER_PIN 25
+#define BUZZER_INVERTED true
 
 // Анти-дубль
 String lastUID = "";
@@ -103,19 +104,19 @@ void checkWiFi() {
 
 // ===== Buzzer =====
 void beep(int duration = 100) {
-  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, BUZZER_INVERTED ? LOW : HIGH);
   delay(duration);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_INVERTED ? HIGH : LOW);
 }
 
 // ===== Setup =====
 void setup() {
   Serial.begin(115200);
 
-  loadConfigFromSD();   // ← ДОДАНО
+  loadConfigFromSD();
 
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_INVERTED ? HIGH : LOW);
 
   // WiFi
   const char* ssid = (configLoaded && sd_WIFI_SSID.length()) ? sd_WIFI_SSID.c_str() : WIFI_SSID;
@@ -133,13 +134,13 @@ void setup() {
   // RFID (PN532)
   Wire.begin(SDA_PIN, SCL_PIN);
   nfc.begin();
-  
+
   uint32_t version = nfc.getFirmwareVersion();
   if (!version) {
     Serial.println("PN532 not found!");
     while (1);
   }
-  
+
   nfc.SAMConfig();
   Serial.println("PN532 ready");
 
@@ -155,7 +156,7 @@ void loop() {
 
   uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
   uint8_t uidLength;
-  
+
   if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100)) {
     return;
   }
