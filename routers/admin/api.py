@@ -14,6 +14,9 @@ from models.db_device import DeviceDB, DeviceType, SiteType
 from models.db_port import DevicePortDB
 from models.db_device_status import DeviceStatusDB
 from services.device_transactions import build_change_descriptions, create_device_transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin/api",
@@ -544,15 +547,28 @@ async def create_device(
                 detail="Site musi być jeden z: EMAG, STOCK, XD, KONTROLA, PRZYJECIA_445"
             )
         
+        # Coerce status_id: empty string / null -> None; non-numeric -> clear 400
+        raw_status = payload.get("status_id")
+        if raw_status in (None, "", "null"):
+            status_id = None
+        else:
+            try:
+                status_id = int(raw_status)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Nieprawidłowy status urządzenia"
+                )
+
         device = DeviceDB(
             name=payload["name"].upper().strip(),
             type=device_type,
             serial_number=payload["serial_number"].strip(),
             rfid=payload["rfid"].strip(),
             site=site_type,
-            ip=payload.get("ip", "").strip() or None,
-            enabled=payload.get("enabled", True),
-            status_id=payload.get("status_id")
+            ip=(payload.get("ip") or "").strip() or None,
+            enabled=bool(payload.get("enabled", True)),
+            status_id=status_id
         )
 
         db.add(device)
@@ -563,7 +579,9 @@ async def create_device(
     except IntegrityError as e:
         await db.rollback()
         error_str = str(e).lower()
-        if "devices_name_key" in error_str or "unique constraint" in error_str:
+        # check the specific constraints first — every unique violation contains
+        # the text "unique constraint", so it must NOT be used as a catch-all
+        if "devices_name_key" in error_str:
             raise HTTPException(
                 status_code=400,
                 detail=f"Urządzenie o nazwie '{payload.get('name', '').upper()}' już istnieje"
@@ -573,10 +591,15 @@ async def create_device(
                 status_code=400,
                 detail="Urządzenie z tym numerem seryjnym już istnieje"
             )
-        elif "devices_rfid_key" in error_str:
+        elif "ix_devices_rfid" in error_str or "devices_rfid_key" in error_str:
             raise HTTPException(
                 status_code=400,
                 detail="Urządzenie z tym RFID już istnieje"
+            )
+        elif "uq_devices_ip" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Urządzenie z adresem IP '{payload.get('ip', '')}' już istnieje"
             )
         raise HTTPException(
             status_code=400,
@@ -585,8 +608,9 @@ async def create_device(
     except HTTPException:
         await db.rollback()
         raise
-    except Exception as e:
+    except Exception:
         await db.rollback()
+        logger.exception("Device creation failed for payload: %s", payload)
         raise HTTPException(
             status_code=500,
             detail="Wewnętrzny błąd serwera"
