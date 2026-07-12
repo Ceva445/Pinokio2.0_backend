@@ -22,7 +22,8 @@ connect_args = {}
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=False,
+    # SQL logging toggled via .env: SQL_ECHO=true to see every query in the logs
+    echo=os.getenv("SQL_ECHO", "false").lower() in ("1", "true", "yes"),
     connect_args=connect_args,
     pool_pre_ping=True,
     pool_recycle=1800
