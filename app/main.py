@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from config import STATIC_DIR, LOG_CONFIG
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
-from routers import api, email_agent, pages, websocket, auth
+from routers import api, email_agent, pages, websocket, auth, firmware
 from fastapi.middleware.cors import CORSMiddleware
 from managers.registration_manager import RegistrationManager
 from managers.auth_manager import auth_manager
@@ -20,6 +20,7 @@ from routers.admin.api import router as admin_api_router
 from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.device_statuses import router as admin_device_statuses_router
 from routers.admin.api_system_config import router as admin_system_config_router
+from routers.admin.api_firmware import router as admin_firmware_router
 from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
 from routers.admin.admin_device_transactions import router as admin_device_transactions_router
@@ -252,7 +253,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Підключення маршрутів
 app.include_router(auth.router)
 app.include_router(api.router)
+app.include_router(firmware.router)
 app.include_router(admin_api_router)
+app.include_router(admin_firmware_router)
 app.include_router(admin_device_statuses_router)
 app.include_router(admin_users_api_router)
 app.include_router(admin_system_config_router)

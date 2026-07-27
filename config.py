@@ -11,6 +11,12 @@ APP_DIR = BASE_DIR / "app"
 
 STATIC_DIR = APP_DIR / "static"
 
+# Директорія для зберігання бінарників прошивок (OTA).
+# Файли лежать на диску, у БД — лише метадані (шлях, версія, sha256).
+# На власному сервері з постійним диском це ефективніше за bytea в БД.
+FIRMWARE_DIR = BASE_DIR / "firmware_store"
+FIRMWARE_DIR.mkdir(parents=True, exist_ok=True)
+
 TEMPLATES_DIR = BASE_DIR / "app" / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 

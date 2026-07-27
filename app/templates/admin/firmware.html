@@ -1,0 +1,83 @@
+{% extends "admin/base_admin.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+{% endblock %}
+
+{% block admin_content %}
+<h2>📡 Firmware (OTA)</h2>
+
+<div class="config-container">
+    <div class="config-form">
+        <h3>Wgraj nową wersję firmware</h3>
+
+        <form id="firmwareForm" class="admin-form">
+            <fieldset class="config-fieldset">
+                <legend>⬆️ Nowa wersja</legend>
+
+                <div class="form-group">
+                    <label for="fwVersion">Wersja (np. 1.0.1)</label>
+                    <input type="text" id="fwVersion" name="version"
+                           placeholder="1.0.1" required class="config-input">
+                    <small>Musi być zgodna z <code>FIRMWARE_VERSION</code> w skecze .ino</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="fwFile">Plik .bin</label>
+                    <input type="file" id="fwFile" name="file" accept=".bin" required
+                           class="config-input">
+                    <small>Sketch → Export Compiled Binary → plik <code>*.ino.bin</code></small>
+                </div>
+            </fieldset>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">⬆️ Wgraj i aktywuj</button>
+            </div>
+
+            <div id="fwStatusMessage" class="status-message"></div>
+        </form>
+
+        <h3 style="margin-top:2rem;">Historia wersji</h3>
+        <table id="fwHistoryTable">
+            <thead>
+                <tr>
+                    <th>Wersja</th>
+                    <th>Plik</th>
+                    <th>Rozmiar</th>
+                    <th>Wgrał</th>
+                    <th>Data</th>
+                    <th>Status</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="config-info">
+        <h3>ℹ️ Aktywna wersja</h3>
+        <div class="info-box">
+            <h4>Obecnie aktywna</h4>
+            <p id="activeVersion" style="font-size:1.4rem;font-weight:bold;">—</p>
+            <p id="activeMeta" style="opacity:.7;"></p>
+        </div>
+
+        <div class="info-box">
+            <h4>Jak to działa</h4>
+            <ul>
+                <li>ESP przy każdym <code>/api/data</code> dostaje nagłówek <code>X-Firmware-Version</code>.</li>
+                <li>Jeśli różni się od wersji na urządzeniu → ESP pobiera <code>/api/firmware/download</code> i przeprowadza OTA.</li>
+                <li>Wgranie tutaj natychmiast aktualizuje cache i nagłówek.</li>
+            </ul>
+        </div>
+
+        <div class="info-box warning">
+            <h4>⚠️ Uwaga</h4>
+            <p>Wgraj wyłącznie plik <code>.ino.bin</code> zbudowany z partycją OTA. Zła prószywka może wymagać ręcznego wgrania przez kabel.</p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', path='js/admin/firmware.js') }}"></script>
+{% endblock %}

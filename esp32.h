@@ -5,6 +5,8 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <Adafruit_PN532.h>
 #include <SPI.h>
@@ -17,6 +19,19 @@ const char* DEVICE_ID = "E-2";
 
 // ===== Server =====
 const char* API_URL = "https://pinokio2-0.onrender.com/api/data/";
+
+// ===== OTA =====
+// Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
+// Піднімай її при кожній новій прошивці перед Export Compiled Binary.
+#define FIRMWARE_VERSION "1.0.0"
+// Ендпоінт віддачі .bin (той самий хост, що й API). За замовчуванням будуємо
+// його з API_URL, замінивши "/api/data/" на "/api/firmware/download".
+const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
+
+// Періодична перевірка оновлень. checkForOTA() ходить на /api/firmware/download
+// з хедером x-ESP32-version — сервер віддає 304 (актуально) або .bin (нова версія).
+unsigned long lastOtaCheck = 0;
+const unsigned long OTA_CHECK_INTERVAL = 30UL * 60UL * 1000UL; // 30 хв
 
 // ===== SD =====
 #define SD_CS 5
@@ -148,11 +163,19 @@ void setup() {
   beep(100);
   delay(150);
   beep(100);
+
+  // Перевірка OTA при старті
+  checkForOTA();
 }
 
 // ===== Loop =====
 void loop() {
   checkWiFi();
+
+  // OTA: періодична перевірка оновлень (сервер сам вирішує 304 / .bin)
+  if (millis() - lastOtaCheck > OTA_CHECK_INTERVAL) {
+    checkForOTA();
+  }
 
   uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
   uint8_t uidLength;
@@ -184,6 +207,15 @@ void loop() {
   sendToServer(uidStr);
 }
 
+// ===== Побудувати базовий URL сервера (без "/api/data/...") =====
+String serverOrigin() {
+  String urlBase = (configLoaded && sd_API_URL.length()) ? sd_API_URL : String(API_URL);
+  // urlBase виглядає як "https://host/api/data/" → відрізаємо "/api/data/"
+  int idx = urlBase.indexOf("/api/");
+  if (idx > 0) return urlBase.substring(0, idx);
+  return urlBase;
+}
+
 // ===== HTTP POST (short timeout) =====
 void sendToServer(const String& uid) {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -203,4 +235,42 @@ void sendToServer(const String& uid) {
   http.POST(body);
 
   http.end();
+}
+
+// ===== OTA: завантажити й прошити активну версію з сервера =====
+void checkForOTA() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  lastOtaCheck = millis();
+
+  String url = serverOrigin() + String(OTA_DOWNLOAD_PATH);
+  Serial.println("OTA: перевірка " + url + " (поточна " FIRMWARE_VERSION ")");
+
+  // Обираємо клієнт залежно від протоколу
+  t_httpUpdate_return ret;
+  if (url.startsWith("https")) {
+    WiFiClientSecure client;
+    client.setInsecure();               // без перевірки CA (простіше)
+    httpUpdate.rebootOnUpdate(true);
+    // 3-й аргумент → піде хедером x-ESP32-version; сервер поверне 304, якщо збіг
+    ret = httpUpdate.update(client, url, FIRMWARE_VERSION);
+  } else {
+    WiFiClient client;
+    httpUpdate.rebootOnUpdate(true);
+    ret = httpUpdate.update(client, url, FIRMWARE_VERSION);
+  }
+
+  switch (ret) {
+    case HTTP_UPDATE_NO_UPDATES:        // 304 — вже актуальна
+      Serial.println("OTA: вже актуальна");
+      break;
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("OTA FAILED (%d): %s\n",
+        httpUpdate.getLastError(),
+        httpUpdate.getLastErrorString().c_str());
+      break;
+    case HTTP_UPDATE_OK:
+      Serial.println("OTA OK");         // зазвичай сюди не дійде — буде reboot
+      break;
+  }
 }

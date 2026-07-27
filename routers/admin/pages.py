@@ -246,3 +246,18 @@ async def device_statuses_page(
         "admin/device_statuses/list.html",
         {"request": request}
     )
+
+
+# ===============================
+# FIRMWARE (OTA) PAGE
+# ===============================
+
+@router.get("/firmware", response_class=HTMLResponse)
+async def firmware_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/firmware.html",
+        {"request": request}
+    )

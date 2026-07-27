@@ -45,3 +45,5 @@ Thumbs.db
 scripts/
 config.txt
 creds.json
+# OTA firmware binaries (stored on disk)
+firmware_store/
