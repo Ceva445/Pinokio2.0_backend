@@ -1,6 +1,7 @@
 {% extends "admin/base_admin.html" %}
 
 {% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/system_config.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
 {% endblock %}
@@ -20,7 +21,7 @@
                     <label for="fwVersion">Wersja (np. 1.0.1)</label>
                     <input type="text" id="fwVersion" name="version"
                            placeholder="1.0.1" required class="config-input">
-                    <small>Musi być zgodna z <code>FIRMWARE_VERSION</code> w skecze .ino</small>
+                    <small>Musi być zgodna z <code>FIRMWARE_VERSION</code> w szkicu .ino</small>
                 </div>
 
                 <div class="form-group">
@@ -74,7 +75,7 @@
 
         <div class="info-box warning">
             <h4>⚠️ Uwaga</h4>
-            <p>Wgraj wyłącznie plik <code>.ino.bin</code> zbudowany z partycją OTA. Zła prószywka może wymagać ręcznego wgrania przez kabel.</p>
+            <p>Wgraj wyłącznie plik <code>.ino.bin</code> zbudowany z partycją OTA. Zły firmware może wymagać ręcznego wgrania przez kabel.</p>
         </div>
     </div>
 </div>
