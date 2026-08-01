@@ -39,7 +39,10 @@ async def firmware_download(
 
     meta = await firmware_manager.get_active_meta(db)
     if not meta:
-        return Response(status_code=status.HTTP_404_NOT_FOUND)
+        # Активної прошивки немає → оновлювати нема на що.
+        # Віддаємо 304, а не 404, щоб ESP трактував це як "оновлень нема"
+        # і не логував OTA FAILED при кожній перевірці.
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED)
 
     # Порівняння версії — по кешу, без диску/БД
     if current and current == meta["version"]:

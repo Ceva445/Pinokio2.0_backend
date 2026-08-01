@@ -11,6 +11,8 @@ services:
 
     volumes:
       - ./creds.json:/app/creds.json:ro
+      # Бінарники прошивок (OTA) — щоб переживали ребілд/перестворення контейнера
+      - firmware_data:/app/firmware_store
 
     ports:
       - "8000:8000"
@@ -50,3 +52,4 @@ services:
 
 volumes:
   postgres_data:
+  firmware_data:
