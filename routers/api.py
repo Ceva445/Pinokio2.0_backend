@@ -170,7 +170,7 @@ async def process_rfid(
             ui_message = "Nieznany RFID"
             ui_status = "error"
             guest = await db.execute(
-                select(DBGuest).where(DBGuest.rfid == rfid and DBGuest.used == False)
+                select(DBGuest).where(DBGuest.rfid == rfid, DBGuest.used == False)
             )
             guest = guest.scalar_one_or_none()
             if guest:
