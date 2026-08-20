@@ -56,3 +56,59 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+# ==========================================================================
+# WEBSOCKET ДЛЯ ESP32 (постійне зʼєднання замість HTTP POST /api/data/{id})
+# --------------------------------------------------------------------------
+# ESP тримає один відкритий сокет і шле на кожен скан {"rfid": "..."}.
+# Сервер проганяє через ту саму process_rfid() (спільна з HTTP) і відсилає
+# назад ack {"type":"ack","status":...,"message":...} для beep-фідбека.
+# ==========================================================================
+
+@router.websocket("/ws/device/{device_id}")
+async def esp_device_websocket(
+    websocket: WebSocket,
+    device_id: str,
+    manager: ConnectionManager = Depends(get_manager),
+    devices: DeviceManager = Depends(get_devices),
+):
+    from routers.api import process_rfid
+    from db.session import async_session
+
+    await websocket.accept()
+
+    # Позначаємо пристрій онлайн і оновлюємо список у браузерних моніторах
+    devices.register_device(device_id)
+    await manager.broadcast_device_list()
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                await websocket.send_json(
+                    {"type": "ack", "status": "error", "message": "invalid json"}
+                )
+                continue
+
+            # Кожне повідомлення — своя короткоживуча DB-сесія
+            async with async_session() as db:
+                result = await process_rfid(device_id, data, devices, manager, db)
+
+            # Відповідь назад на ESP (для beep success/error)
+            await websocket.send_json(
+                {
+                    "type": "ack",
+                    "status": result.get("status"),
+                    "message": result.get("message"),
+                }
+            )
+
+    except WebSocketDisconnect:
+        device = devices.get_device(device_id)
+        if device:
+            device.mark_offline()
+        await manager.broadcast_device_list()

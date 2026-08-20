@@ -1,12 +1,25 @@
 /*
   ESP32 RFID → FastAPI (Pinokio 2.0)
-  POST без очікування response (короткий таймаут)
+  ТРАНСПОРТ: WebSocket (постійне зʼєднання) замість HTTP POST.
+
+  Чому швидше:
+    - TLS/TCP-хендшейк відбувається ОДИН раз при конекті, а не на кожен скан;
+    - кожен RFID — це маленький текстовий фрейм у вже відкритому сокеті → затримка ~RTT;
+    - сервер сам тримає інстанс "теплим" (немає cold start).
+
+  Протокол:
+    ESP → сервер:  {"rfid":"AA:BB:CC:DD"}
+    сервер → ESP:  {"type":"ack","status":"success|error|info|warning","message":"..."}
+                   → ESP пікає відповідним тоном (фідбек користувачу).
+
+  Потрібна бібліотека: "WebSockets" by Markus Sattler (Links2004/arduinoWebSockets).
 */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
+#include <WebSocketsClient.h>
 #include <Wire.h>
 #include <Adafruit_PN532.h>
 #include <SPI.h>
@@ -17,19 +30,23 @@ const char* WIFI_SSID = "Pinokio2";
 const char* WIFI_PASS = "13243546";
 const char* DEVICE_ID = "E-2";
 
-// ===== Server =====
-const char* API_URL = "https://pinokio2-0.onrender.com/api/data/";
+// ===== Server (WebSocket) =====
+// Підключення через публічний домен по wss:// (TLS). Один TLS-хендшейк на конект,
+// далі кожен скан — маленький фрейм у відкритому сокеті.
+//
+// БЕЗПЕКА: адресу сервера НЕ хардкодимо у вихідник (він лежить у git-репо).
+// Реальний домен задається у /config.txt на SD-карті:
+//     SERVER_HOST=twoj-domen.example.com
+//     SERVER_PORT=443
+const char*   SERVER_HOST = "https://pinokio2-0.onrender.com/api/data/";    // порожньо → береться з SD config.txt (SERVER_HOST=)
+const uint16_t SERVER_PORT = 443;  // wss:// за замовчуванням; SD може перекрити (SERVER_PORT=)
+const bool    WS_USE_TLS   = true;  // true → beginSSL (wss://)
 
-// ===== OTA =====
+// ===== OTA (лишається по HTTP — не критично до затримки) =====
 // Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
-// Піднімай її при кожній новій прошивці перед Export Compiled Binary.
 #define FIRMWARE_VERSION "1.0.0"
-// Ендпоінт віддачі .bin (той самий хост, що й API). За замовчуванням будуємо
-// його з API_URL, замінивши "/api/data/" на "/api/firmware/download".
 const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
 
-// Періодична перевірка оновлень. checkForOTA() ходить на /api/firmware/download
-// з хедером x-ESP32-version — сервер віддає 304 (актуально) або .bin (нова версія).
 unsigned long lastOtaCheck = 0;
 const unsigned long OTA_CHECK_INTERVAL = 30UL * 60UL * 1000UL; // 30 хв
 
@@ -39,7 +56,8 @@ const unsigned long OTA_CHECK_INTERVAL = 30UL * 60UL * 1000UL; // 30 хв
 String sd_WIFI_SSID;
 String sd_WIFI_PASS;
 String sd_DEVICE_ID;
-String sd_API_URL;
+String sd_SERVER_HOST;
+String sd_SERVER_PORT;
 bool configLoaded = false;
 
 // ===== RFID (PN532) =====
@@ -51,6 +69,10 @@ Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
 #define BUZZER_PIN 25
 #define BUZZER_INVERTED true
 
+// ===== WebSocket =====
+WebSocketsClient webSocket;
+bool wsConnected = false;
+
 // Анти-дубль
 String lastUID = "";
 unsigned long lastSend = 0;
@@ -60,6 +82,19 @@ const unsigned long SEND_DELAY = 1000;
 unsigned long lastWifiCheck = 0;
 const unsigned long WIFI_RECONNECT_INTERVAL = 5000;
 
+
+// =======================
+// CONFIG HELPERS (SD override або дефолти)
+// =======================
+String cfgDeviceId() {
+  return (configLoaded && sd_DEVICE_ID.length()) ? sd_DEVICE_ID : String(DEVICE_ID);
+}
+String cfgHost() {
+  return (configLoaded && sd_SERVER_HOST.length()) ? sd_SERVER_HOST : String(SERVER_HOST);
+}
+uint16_t cfgPort() {
+  return (configLoaded && sd_SERVER_PORT.length()) ? (uint16_t) sd_SERVER_PORT.toInt() : SERVER_PORT;
+}
 
 // =======================
 // LOAD CONFIG FROM SD
@@ -91,8 +126,11 @@ void loadConfigFromSD() {
     else if (line.startsWith("DEVICE_ID="))
       sd_DEVICE_ID = line.substring(10);
 
-    else if (line.startsWith("API_URL="))
-      sd_API_URL = line.substring(8);
+    else if (line.startsWith("SERVER_HOST="))
+      sd_SERVER_HOST = line.substring(12);
+
+    else if (line.startsWith("SERVER_PORT="))
+      sd_SERVER_PORT = line.substring(12);
   }
 
   file.close();
@@ -124,6 +162,74 @@ void beep(int duration = 100) {
   digitalWrite(BUZZER_PIN, BUZZER_INVERTED ? HIGH : LOW);
 }
 
+void beepSuccess() {   // два коротких — ОК
+  beep(70);
+  delay(60);
+  beep(70);
+}
+
+void beepError() {     // один довгий — помилка/увага
+  beep(400);
+}
+
+// ===== WebSocket event handler =====
+void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      wsConnected = true;
+      Serial.println("WS connected");
+      beep(60); // короткий сигнал, що канал відкрито
+      break;
+
+    case WStype_DISCONNECTED:
+      wsConnected = false;
+      Serial.println("WS disconnected");
+      break;
+
+    case WStype_TEXT: {
+      // Формуємо рядок строго по довжині (payload не завжди null-terminated)
+      String msg;
+      msg.reserve(length + 1);
+      for (size_t i = 0; i < length; i++) msg += (char) payload[i];
+
+      Serial.println("WS ack: " + msg);
+
+      if (msg.indexOf("\"status\":\"success\"") >= 0)      beepSuccess();
+      else if (msg.indexOf("\"status\":\"error\"") >= 0)   beepError();
+      else if (msg.indexOf("\"status\":\"warning\"") >= 0) beepError();
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+// ===== WebSocket setup =====
+void setupWebSocket() {
+  String path = "/ws/device/" + cfgDeviceId();
+  String host = cfgHost();
+  uint16_t port = cfgPort();
+
+  if (host.length() == 0) {
+    Serial.println("WS: SERVER_HOST не заданий — додай 'SERVER_HOST=...' у /config.txt на SD");
+    return; // без хоста не підключаємось
+  }
+
+  Serial.printf("WS target: %s://%s:%u%s\n",
+                WS_USE_TLS ? "wss" : "ws", host.c_str(), port, path.c_str());
+
+  if (WS_USE_TLS) {
+    webSocket.beginSSL(host.c_str(), port, path.c_str());
+  } else {
+    webSocket.begin(host.c_str(), port, path.c_str());
+  }
+
+  webSocket.onEvent(onWsEvent);
+  webSocket.setReconnectInterval(3000);        // автопере-підключення
+  webSocket.enableHeartbeat(15000, 3000, 2);   // ping кожні 15с, timeout 3с, 2 промахи → reconnect
+}
+
 // ===== Setup =====
 void setup() {
   Serial.begin(115200);
@@ -138,6 +244,7 @@ void setup() {
   const char* pass = (configLoaded && sd_WIFI_PASS.length()) ? sd_WIFI_PASS.c_str() : WIFI_PASS;
 
   WiFi.begin(ssid, pass);
+  WiFi.setSleep(false); // вимкнути modem sleep → менша затримка радіо
 
   Serial.print("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
@@ -159,20 +266,34 @@ void setup() {
   nfc.SAMConfig();
   Serial.println("PN532 ready");
 
-  // Два коротких звукових сигнали, що пристрій готовий до роботи
+  // Перевірка OTA при старті (по HTTP)
+  checkForOTA();
+
+  // Відкриваємо постійний WebSocket
+  setupWebSocket();
+
+  // Два коротких сигнали — пристрій готовий
   beep(100);
   delay(150);
   beep(100);
+}
 
-  // Перевірка OTA при старті
-  checkForOTA();
+// ===== Надіслати RFID через WebSocket =====
+void sendRFID(const String& uid) {
+  if (!wsConnected) {
+    Serial.println("WS not connected → skip send");
+    return;
+  }
+  String body = "{\"rfid\":\"" + uid + "\"}";
+  webSocket.sendTXT(body);
 }
 
 // ===== Loop =====
 void loop() {
   checkWiFi();
+  webSocket.loop(); // ОБОВʼЯЗКОВО: обслуговує сокет, heartbeat, reconnect
 
-  // OTA: періодична перевірка оновлень (сервер сам вирішує 304 / .bin)
+  // OTA: періодична перевірка оновлень
   if (millis() - lastOtaCheck > OTA_CHECK_INTERVAL) {
     checkForOTA();
   }
@@ -202,39 +323,17 @@ void loop() {
   lastSend = now;
 
   Serial.println("RFID: " + uidStr);
-  beep(300);
 
-  sendToServer(uidStr);
+  // СПЕРШУ відправляємо (мінімальна затримка), фідбек прийде в ack.
+  sendRFID(uidStr);
+  beep(60); // короткий "клац" — картку прочитано
 }
 
-// ===== Побудувати базовий URL сервера (без "/api/data/...") =====
+// ===== Побудувати базовий origin сервера для OTA =====
+// Схема узгоджена з WS_USE_TLS: wss → https, ws → http.
 String serverOrigin() {
-  String urlBase = (configLoaded && sd_API_URL.length()) ? sd_API_URL : String(API_URL);
-  // urlBase виглядає як "https://host/api/data/" → відрізаємо "/api/data/"
-  int idx = urlBase.indexOf("/api/");
-  if (idx > 0) return urlBase.substring(0, idx);
-  return urlBase;
-}
-
-// ===== HTTP POST (short timeout) =====
-void sendToServer(const String& uid) {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  HTTPClient http;
-  http.setTimeout(200);
-
-  String urlBase = (configLoaded && sd_API_URL.length()) ? sd_API_URL : String(API_URL);
-  String devId   = (configLoaded && sd_DEVICE_ID.length()) ? sd_DEVICE_ID : String(DEVICE_ID);
-
-  String fullUrl = urlBase + devId;
-
-  http.begin(fullUrl);
-  http.addHeader("Content-Type", "application/json");
-
-  String body = "{\"rfid\":\"" + uid + "\"}";
-  http.POST(body);
-
-  http.end();
+  String scheme = WS_USE_TLS ? "https" : "http";
+  return scheme + "://" + cfgHost() + ":" + String(cfgPort());
 }
 
 // ===== OTA: завантажити й прошити активну версію з сервера =====
@@ -246,13 +345,11 @@ void checkForOTA() {
   String url = serverOrigin() + String(OTA_DOWNLOAD_PATH);
   Serial.println("OTA: перевірка " + url + " (поточна " FIRMWARE_VERSION ")");
 
-  // Обираємо клієнт залежно від протоколу
   t_httpUpdate_return ret;
   if (url.startsWith("https")) {
     WiFiClientSecure client;
-    client.setInsecure();               // без перевірки CA (простіше)
+    client.setInsecure();
     httpUpdate.rebootOnUpdate(true);
-    // 3-й аргумент → піде хедером x-ESP32-version; сервер поверне 304, якщо збіг
     ret = httpUpdate.update(client, url, FIRMWARE_VERSION);
   } else {
     WiFiClient client;
@@ -261,7 +358,7 @@ void checkForOTA() {
   }
 
   switch (ret) {
-    case HTTP_UPDATE_NO_UPDATES:        // 304 — вже актуальна
+    case HTTP_UPDATE_NO_UPDATES:
       Serial.println("OTA: вже актуальна");
       break;
     case HTTP_UPDATE_FAILED:
@@ -270,7 +367,7 @@ void checkForOTA() {
         httpUpdate.getLastErrorString().c_str());
       break;
     case HTTP_UPDATE_OK:
-      Serial.println("OTA OK");         // зазвичай сюди не дійде — буде reboot
+      Serial.println("OTA OK");
       break;
   }
 }

@@ -200,6 +200,44 @@ h1 {
     box-shadow: none !important;
 }
 
+/* Панель кнопок для монітора V2 */
+.monitor2-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    max-width: 1600px;
+    margin: 0 auto 20px auto;
+}
+
+.monitor2-actions #endSessionBtn {
+    width: auto;
+    flex: 1 1 200px;
+    margin-bottom: 0;
+}
+
+.secondary-btn {
+    padding: 14px 24px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: var(--surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+}
+
+.secondary-btn:hover {
+    background: var(--surface-light);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.secondary-btn:active {
+    transform: translateY(0);
+}
+
 /* Live data */
 pre {
     background: rgba(15, 23, 42, 0.8);

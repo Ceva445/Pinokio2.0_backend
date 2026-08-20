@@ -33,6 +33,21 @@ async def monitor(
     )
 
 
+@router.get("/monitor2", response_class=HTMLResponse)
+async def monitor2(
+    request: Request,
+    current_user: dict = Depends(get_current_user(False))
+) -> HTMLResponse:
+    print("Current user in monitor2:", current_user["role"] if current_user else "None")
+    return templates.TemplateResponse(
+        "monitor2.html",
+        {
+            "request": request,
+            "current_user": current_user
+        }
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(

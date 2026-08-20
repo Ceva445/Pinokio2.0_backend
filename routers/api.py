@@ -65,18 +65,24 @@ async def can_register_on_device(
     return True
 
 
-# ---------- DATA ENDPOINT (ESP32) ----------
+# ---------- CORE RFID PROCESSING (спільне для HTTP і WebSocket) ----------
 
-@router.post("/data/{device_id}")
-async def receive_esp32_data(
+async def process_rfid(
     device_id: str,
     data: Dict[str, Any],
-    devices: DeviceManager = Depends(get_devices),
-    manager: ConnectionManager = Depends(get_manager),
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user(False)),
+    devices: DeviceManager,
+    manager: ConnectionManager,
+    db: AsyncSession,
+) -> Dict[str, Any]:
+    """Спільна бізнес-логіка обробки RFID від ESP32.
 
-):
+    Викликається і HTTP-ендпоінтом POST /data/{device_id}, і
+    WebSocket-ендпоінтом /ws/device/{device_id}.
+
+    Транслює стан у браузерні монітори (type=registration_status) і
+    повертає {"status": ui_status, "message": ui_message}, щоб транспорт
+    (напр. WS) міг віддати фідбек назад на ESP (beep success/error).
+    """
     from app.main import registration_manager, esp_allowed_users
 
     device = devices.update_device_data(device_id, data)
@@ -92,28 +98,22 @@ async def receive_esp32_data(
         )
 
     await manager.broadcast_device_list()
-    # print("Allwed devices:", esp_allowed_users)
-    # print("Current user:", current_user)
-    
+
     # Отримати конфіг динамічно з БД
     config = await config_manager.get_config(db)
     allow_registration_without_login = config.get("allow_registration_without_login", False)
-    
+
     if allow_registration_without_login:
         can_register = True
     else:
         can_register = await can_register_on_device(device_id, manager)
 
-    #     print("Allwed devices:", esp_allowed_users)
-    #     print("Current user:", current_user)
-    #     print("Can register:", can_register)
-    # print("Can register:", can_register)
     rfid = data.get("rfid")
     ui_message = None
     ui_status = "info"
 
     if not rfid:
-        return {"status": "ok"}
+        return {"status": "info", "message": None}
 
     # ---------- EMPLOYEE ----------
     result = await db.execute(
@@ -141,7 +141,7 @@ async def receive_esp32_data(
                 )
             print("Employee devices query result:", result)
             user_devices = result.scalars().all()
-            
+
             ui_message = (
                 f"Pracownik {employee.wms_login} posiada. "
                 f"{', '.join([f'{d.type.value}: {d.name}' for d in user_devices])}. "
@@ -220,7 +220,7 @@ async def receive_esp32_data(
                     user_devices = result.scalars().all()
                     owned_types = {d.type for d in user_devices}
 
-                    if device_db.type in owned_types:               
+                    if device_db.type in owned_types:
                         ui_message = (
                             f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         )
@@ -240,7 +240,7 @@ async def receive_esp32_data(
                             registration_manager.end(device_id)
 
                             scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
-                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)                         
+                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)
                             ui_message = (
                                 f"{employee.wms_login} "
                                 f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
@@ -268,7 +268,7 @@ async def receive_esp32_data(
                             )
                             db.add(transaction)
                             await db.commit()
-    
+
     session = registration_manager.get(device_id)
     timeout_left = None
     if session:
@@ -281,6 +281,248 @@ async def receive_esp32_data(
         device_id,
         {
             "type": "registration_status",
+            "status": ui_status,
+            "message": ui_message,
+            "session": {
+                "timeout_seconds": timeout_left
+            } if session else None
+        },
+    )
+
+    return {"status": ui_status, "message": ui_message}
+
+
+# ---------- DATA ENDPOINT (ESP32) ----------
+
+@router.post("/data/{device_id}")
+async def receive_esp32_data(
+    device_id: str,
+    data: Dict[str, Any],
+    devices: DeviceManager = Depends(get_devices),
+    manager: ConnectionManager = Depends(get_manager),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user(False)),
+
+):
+    # Уся бізнес-логіка винесена в process_rfid(), щоб її могли ділити
+    # HTTP-ендпоінт (цей) і WebSocket-ендпоінт /ws/device/{device_id}.
+    await process_rfid(device_id, data, devices, manager, db)
+    return {"status": "ok"}
+
+
+# ---------- DATA ENDPOINT V2 (ESP32) — копія /data для нового монітора ----------
+# УВАГА: бізнес-логіка ідентична receive_esp32_data. Відрізняється лише тип
+# broadcast ("registration_status_v2" / "esp32_data_v2"), щоб новий монітор
+# (/monitor2) працював незалежно від старого (/monitor).
+
+@router.post("/data2/{device_id}")
+async def receive_esp32_data_v2(
+    device_id: str,
+    data: Dict[str, Any],
+    devices: DeviceManager = Depends(get_devices),
+    manager: ConnectionManager = Depends(get_manager),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user(False)),
+
+):
+    from app.main import registration_manager, esp_allowed_users
+
+    device = devices.update_device_data(device_id, data)
+    # Broadcast ESP data
+    if device.latest_data:
+        await manager.broadcast_device_data(
+            device_id,
+            {
+                "type": "esp32_data_v2",
+                "device_id": device_id,
+                "data": device.latest_data.data,
+            }
+        )
+
+    await manager.broadcast_device_list()
+
+    # Отримати конфіг динамічно з БД
+    config = await config_manager.get_config(db)
+    allow_registration_without_login = config.get("allow_registration_without_login", False)
+
+    if allow_registration_without_login:
+        can_register = True
+    else:
+        can_register = await can_register_on_device(device_id, manager)
+
+    rfid = data.get("rfid")
+    ui_message = None
+    ui_status = "info"
+
+    if not rfid:
+        return {"status": "ok"}
+
+    # ---------- EMPLOYEE ----------
+    result = await db.execute(
+        select(EmployeeDB)
+        .options(selectinload(EmployeeDB.devices))
+        .where(EmployeeDB.rfid == rfid)
+    )
+    employee = result.scalar_one_or_none()
+
+    if employee:
+        if can_register:
+            registration_manager.start_or_replace(device_id, employee)
+            ui_message = (
+                f"Pracownik {employee.wms_login} aktywny. "
+                f"Przyłóż skaner lub drukarkę"
+            )
+            print("ui message:", ui_message)
+            ui_status = "success"
+            if employee.expired:
+                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_status = "warning"
+        else:
+            result = await db.execute(
+                    select(DeviceDB).where(DeviceDB.employee_id == employee.id)
+                )
+            print("Employee devices query result:", result)
+            user_devices = result.scalars().all()
+
+            ui_message = (
+                f"Pracownik {employee.wms_login} posiada. "
+                f"{', '.join([f'{d.type.value}: {d.name}' for d in user_devices])}. "
+            )
+            print("ui message:", ui_message)
+            ui_status = "info"
+            if employee.expired:
+                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_status = "warning"
+
+    else:
+        # ---------- DEVICE ----------
+        result = await db.execute(
+            select(DeviceDB).where(DeviceDB.rfid == rfid)
+        )
+        device_db = result.scalar_one_or_none()
+
+        if not device_db:
+            ui_message = "Nieznany RFID"
+            ui_status = "error"
+            guest = await db.execute(
+                select(DBGuest).where(DBGuest.rfid == rfid and DBGuest.used == False)
+            )
+            guest = guest.scalar_one_or_none()
+            if guest:
+                ui_message = f"To jest: {guest.name}"
+                ui_status = "success"
+
+        else:
+            if not can_register:
+                if device_db.employee_id is None:
+                    ui_message = (
+                        f"{device_db.type.value} {device_db.name} nie jest przypisany do nikogo. "
+                    )
+                    ui_status = "info"
+                else:
+                    employee_full_name = await db.execute(
+                        select(EmployeeDB).where(EmployeeDB.id == device_db.employee_id)
+                    )
+                    employee_full_name = employee_full_name.scalar_one_or_none()
+                    ui_message = (
+                        f"{device_db.type.value} {device_db.name} "
+                        f"należy do {employee_full_name.wms_login}. "
+                        f"Brak uprawnień do rejestracji."
+                    )
+                    ui_status = "info"
+            else:
+                session = registration_manager.get(device_id)
+
+                # brak sesji pracownika
+                if not session:
+                    if device_db.employee_id is not None:
+                        device_db.employee_id = None
+                        await db.commit()
+
+                        ui_message = f"{device_db.type.value} {device_db.name} został odpięty"
+                        ui_status = "success"
+
+                        transaction = TransactionDB(
+                            type=TransactionType.unregistered,
+                            device_id=device_db.id,
+                            employee_id=None
+                        )
+                        db.add(transaction)
+                        await db.commit()
+                    else:
+                        ui_message = "Najpierw przyłóż kartę pracownika"
+                        ui_status = "error"
+
+                else:
+                    employee = session.employee
+
+                    result = await db.execute(
+                        select(DeviceDB).where(DeviceDB.employee_id == employee.id)
+                    )
+                    user_devices = result.scalars().all()
+                    owned_types = {d.type for d in user_devices}
+
+                    if device_db.type in owned_types:
+                        ui_message = (
+                            f"Pracownik już posiada {device_db.type.value} {device_db.name}"
+                        )
+                        ui_status = "error"
+                    else:
+                        device_db.employee_id = employee.id
+                        await db.commit()
+
+                        result = await db.execute(
+                            select(DeviceDB)
+                            .where(DeviceDB.employee_id == employee.id)
+                        )
+                        user_devices = result.scalars().all()
+                        owned_types = {d.type.value for d in user_devices}
+
+                        if owned_types == {"scanner", "printer"}:
+                            registration_manager.end(device_id)
+
+                            scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
+                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)
+                            ui_message = (
+                                f"{employee.wms_login} "
+                                f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
+                                f"Rejestracja zakończona."
+                            )
+                            ui_status = "success"
+                            transaction = TransactionDB(
+                                type=TransactionType.registered,
+                                device_id=device_db.id,
+                                employee_id=employee.id
+                            )
+                            db.add(transaction)
+                            await db.commit()
+                        else:
+                            registration_manager.refresh(device_id)
+                            ui_message = (
+                                f"{device_db.type.value} {device_db.name} "
+                                f"przypisano do {employee.wms_login}"
+                            )
+                            ui_status = "success"
+                            transaction = TransactionDB(
+                                type=TransactionType.registered,
+                                device_id=device_db.id,
+                                employee_id=employee.id
+                            )
+                            db.add(transaction)
+                            await db.commit()
+
+    session = registration_manager.get(device_id)
+    timeout_left = None
+    if session:
+        # обчислюємо скільки секунд залишилось до закінчення сесії
+        timeout_left = (session.started_at + registration_manager.timeout - datetime.now(timezone.utc)).total_seconds()
+        timeout_left = max(0, timeout_left)
+        print(f"[v2] Timeout left for device {device_id}: {timeout_left} seconds")
+
+    await manager.broadcast_device_data(
+        device_id,
+        {
+            "type": "registration_status_v2",
             "status": ui_status,
             "message": ui_message,
             "session": {
