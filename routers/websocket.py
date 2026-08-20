@@ -94,9 +94,12 @@ async def esp_device_websocket(
                 )
                 continue
 
-            # Кожне повідомлення — своя короткоживуча DB-сесія
+            # Кожне повідомлення — своя короткоживуча DB-сесія.
+            # event_suffix="_v2" → події йдуть у новий монітор /monitor2.
             async with async_session() as db:
-                result = await process_rfid(device_id, data, devices, manager, db)
+                result = await process_rfid(
+                    device_id, data, devices, manager, db, event_suffix="_v2"
+                )
 
             # Відповідь назад на ESP (для beep success/error)
             await websocket.send_json(

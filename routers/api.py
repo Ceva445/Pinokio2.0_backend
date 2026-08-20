@@ -73,15 +73,22 @@ async def process_rfid(
     devices: DeviceManager,
     manager: ConnectionManager,
     db: AsyncSession,
+    event_suffix: str = "",
 ) -> Dict[str, Any]:
-    """Спільна бізнес-логіка обробки RFID від ESP32.
+    """Спільна бізнес-логіка обробки RFID від ESP32 для НОВОГО шляху.
 
-    Викликається і HTTP-ендпоінтом POST /data/{device_id}, і
-    WebSocket-ендпоінтом /ws/device/{device_id}.
+    Викликається новим HTTP-ендпоінтом POST /data2/{device_id} і
+    WebSocket-ендпоінтом /ws/device/{device_id} (обидва → /monitor2).
+    Старий ендпоінт /data/{device_id} цю функцію НЕ використовує — він
+    лишається недоторканим оригіналом.
 
-    Транслює стан у браузерні монітори (type=registration_status) і
-    повертає {"status": ui_status, "message": ui_message}, щоб транспорт
-    (напр. WS) міг віддати фідбек назад на ESP (beep success/error).
+    event_suffix керує тим, який монітор слухає події:
+      ""     → type=esp32_data / registration_status        (/monitor)
+      "_v2"  → type=esp32_data_v2 / registration_status_v2   (/monitor2)
+
+    Транслює стан у браузерні монітори і повертає
+    {"status": ui_status, "message": ui_message}, щоб транспорт (напр. WS)
+    міг віддати фідбек назад на ESP (beep success/error).
     """
     from app.main import registration_manager, esp_allowed_users
 
@@ -91,7 +98,7 @@ async def process_rfid(
         await manager.broadcast_device_data(
             device_id,
             {
-                "type": "esp32_data",
+                "type": f"esp32_data{event_suffix}",
                 "device_id": device_id,
                 "data": device.latest_data.data,
             }
@@ -280,7 +287,7 @@ async def process_rfid(
     await manager.broadcast_device_data(
         device_id,
         {
-            "type": "registration_status",
+            "type": f"registration_status{event_suffix}",
             "status": ui_status,
             "message": ui_message,
             "session": {
@@ -304,27 +311,6 @@ async def receive_esp32_data(
     current_user: dict = Depends(get_current_user(False)),
 
 ):
-    # Уся бізнес-логіка винесена в process_rfid(), щоб її могли ділити
-    # HTTP-ендпоінт (цей) і WebSocket-ендпоінт /ws/device/{device_id}.
-    await process_rfid(device_id, data, devices, manager, db)
-    return {"status": "ok"}
-
-
-# ---------- DATA ENDPOINT V2 (ESP32) — копія /data для нового монітора ----------
-# УВАГА: бізнес-логіка ідентична receive_esp32_data. Відрізняється лише тип
-# broadcast ("registration_status_v2" / "esp32_data_v2"), щоб новий монітор
-# (/monitor2) працював незалежно від старого (/monitor).
-
-@router.post("/data2/{device_id}")
-async def receive_esp32_data_v2(
-    device_id: str,
-    data: Dict[str, Any],
-    devices: DeviceManager = Depends(get_devices),
-    manager: ConnectionManager = Depends(get_manager),
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user(False)),
-
-):
     from app.main import registration_manager, esp_allowed_users
 
     device = devices.update_device_data(device_id, data)
@@ -333,23 +319,29 @@ async def receive_esp32_data_v2(
         await manager.broadcast_device_data(
             device_id,
             {
-                "type": "esp32_data_v2",
+                "type": "esp32_data",
                 "device_id": device_id,
                 "data": device.latest_data.data,
             }
         )
 
     await manager.broadcast_device_list()
-
+    # print("Allwed devices:", esp_allowed_users)
+    # print("Current user:", current_user)
+    
     # Отримати конфіг динамічно з БД
     config = await config_manager.get_config(db)
     allow_registration_without_login = config.get("allow_registration_without_login", False)
-
+    
     if allow_registration_without_login:
         can_register = True
     else:
         can_register = await can_register_on_device(device_id, manager)
 
+    #     print("Allwed devices:", esp_allowed_users)
+    #     print("Current user:", current_user)
+    #     print("Can register:", can_register)
+    # print("Can register:", can_register)
     rfid = data.get("rfid")
     ui_message = None
     ui_status = "info"
@@ -383,7 +375,7 @@ async def receive_esp32_data_v2(
                 )
             print("Employee devices query result:", result)
             user_devices = result.scalars().all()
-
+            
             ui_message = (
                 f"Pracownik {employee.wms_login} posiada. "
                 f"{', '.join([f'{d.type.value}: {d.name}' for d in user_devices])}. "
@@ -462,7 +454,7 @@ async def receive_esp32_data_v2(
                     user_devices = result.scalars().all()
                     owned_types = {d.type for d in user_devices}
 
-                    if device_db.type in owned_types:
+                    if device_db.type in owned_types:               
                         ui_message = (
                             f"Pracownik już posiada {device_db.type.value} {device_db.name}"
                         )
@@ -482,7 +474,7 @@ async def receive_esp32_data_v2(
                             registration_manager.end(device_id)
 
                             scanner = next(d for d in user_devices if d.type.value == DeviceType.scanner.value)
-                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)
+                            printer = next(d for d in user_devices if d.type.value == DeviceType.printer.value)                         
                             ui_message = (
                                 f"{employee.wms_login} "
                                 f"ma już skaner {scanner.name} i drukarkę {printer.name}. "
@@ -510,19 +502,19 @@ async def receive_esp32_data_v2(
                             )
                             db.add(transaction)
                             await db.commit()
-
+    
     session = registration_manager.get(device_id)
     timeout_left = None
     if session:
         # обчислюємо скільки секунд залишилось до закінчення сесії
         timeout_left = (session.started_at + registration_manager.timeout - datetime.now(timezone.utc)).total_seconds()
         timeout_left = max(0, timeout_left)
-        print(f"[v2] Timeout left for device {device_id}: {timeout_left} seconds")
+        print(f"Timeout left for device {device_id}: {timeout_left} seconds")
 
     await manager.broadcast_device_data(
         device_id,
         {
-            "type": "registration_status_v2",
+            "type": "registration_status",
             "status": ui_status,
             "message": ui_message,
             "session": {
@@ -531,6 +523,27 @@ async def receive_esp32_data_v2(
         },
     )
 
+    return {"status": "ok"}
+
+
+# ---------- DATA ENDPOINT V2 (ESP32) — копія /data для нового монітора ----------
+# УВАГА: бізнес-логіка ідентична receive_esp32_data. Відрізняється лише тип
+# broadcast ("registration_status_v2" / "esp32_data_v2"), щоб новий монітор
+# (/monitor2) працював незалежно від старого (/monitor).
+
+@router.post("/data2/{device_id}")
+async def receive_esp32_data_v2(
+    device_id: str,
+    data: Dict[str, Any],
+    devices: DeviceManager = Depends(get_devices),
+    manager: ConnectionManager = Depends(get_manager),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user(False)),
+):
+    # Копія /data для нового монітора (/monitor2): та сама логіка через
+    # process_rfid, але події йдуть із суфіксом _v2
+    # (esp32_data_v2 / registration_status_v2).
+    await process_rfid(device_id, data, devices, manager, db, event_suffix="_v2")
     return {"status": "ok"}
 
 
