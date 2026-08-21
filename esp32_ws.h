@@ -168,6 +168,10 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
     case WStype_CONNECTED:
       wsConnected = true;
       Serial.println("WS connected");
+      // Порожній "hello" одразу після конекту — щоб пристрій зʼявився в списку
+      // (сервер трактує повідомлення без "rfid" як реєстрацію без RFID-логіки).
+      // Спрацьовує і при старті (живлення), і після кожного авто-реконекту.
+      webSocket.sendTXT("{}");
       break;
 
     case WStype_DISCONNECTED:
