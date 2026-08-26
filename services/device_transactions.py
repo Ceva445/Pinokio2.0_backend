@@ -1,5 +1,6 @@
 # services/device_transactions.py
 
+import logging
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,6 +11,9 @@ from models.db_device_status import DeviceStatusDB
 from models.device_transaction import DeviceChangeTransaction
 
 from services.google_sheets import sync_device_to_sheet
+
+
+logger = logging.getLogger(__name__)
 
 
 FIELD_LABELS = {
@@ -108,8 +112,13 @@ async def create_device_transaction(
 
     await db.flush()
 
-    await sync_device_to_sheet(
-        db=db,
-        device_id=device.id,
-        notes=notes
-    )
+    # Дзеркалення в Google Sheet — best-effort: збій (напр. 429 rate limit,
+    # мережа) НЕ повинен валити успішну зміну девайса у 500.
+    try:
+        await sync_device_to_sheet(
+            db=db,
+            device_id=device.id,
+            notes=notes
+        )
+    except Exception as exc:
+        logger.warning("sync_device_to_sheet failed (non-fatal): %s", exc)
