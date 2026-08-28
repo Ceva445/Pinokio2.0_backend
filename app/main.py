@@ -247,6 +247,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def no_cache_middleware(request, call_next):
+    """Забороняємо кешування (браузер + Cloudflare) для всіх відповідей —
+    щоб оновлення HTML/CSS/JS зʼявлялись одразу, без застарілого кешу."""
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 # Монтування статичних файлів
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
