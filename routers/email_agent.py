@@ -98,13 +98,26 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
         else "nie zwrócili urządzenia przez ponad 12 godzin:"
     )
 
+    # ALL-менеджери отримують ЛИШЕ зведений лист → виключаємо їх з відділових,
+    # щоб не було дублю (реальні відділи — EMAG/STOCK/XD/…, "ALL" — сентинел)
+    all_emails = (
+        await db.execute(
+            select(DepartmentManagerDB.email).where(
+                func.upper(DepartmentManagerDB.department) == "ALL"
+            )
+        )
+    ).scalars().all()
+    all_emails_set = set(all_emails)
+
     for department, employees in employees_devices.items():
         managers_stmt = select(DepartmentManagerDB.email).where(
             DepartmentManagerDB.department == department
         )
 
         result = await db.execute(managers_stmt)
-        manager_emails = result.scalars().all()
+        manager_emails = [
+            e for e in result.scalars().all() if e not in all_emails_set
+        ]
 
         if not manager_emails:
             continue
@@ -120,6 +133,22 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
             "emails": manager_emails,
             "subject": subject,
             "message": message
+        })
+
+    # 🔹 Один зведений лист для ALL-менеджерів: усі інциденти з усіх відділів
+    if employees_devices and all_emails_set:
+        sections = [
+            f"[{department}]\n" + "\n".join(employees)
+            for department, employees in employees_devices.items()
+        ]
+        combined_message = (
+            f"Zestawienie wszystkich działów — pracownicy {time_text}\n\n"
+            + "\n\n".join(sections)
+        )
+        notifications.append({
+            "emails": sorted(all_emails_set),
+            "subject": "Alert zwrotu urządzenia - wszystkie działy",
+            "message": combined_message,
         })
 
     return {
