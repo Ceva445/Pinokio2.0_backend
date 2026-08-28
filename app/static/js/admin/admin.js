@@ -405,7 +405,10 @@ async function loadDevices() {
                 <td>${d.status_name ?? "—"}</td>
                 <td>${d.enabled ? "✅" : "❌"}</td>
                 <td>${d.employee_wms_login ?? "—"}</td>
-                <td><a href="/admin/devices/${d.id}">✏️</a></td>
+                <td>
+                    <a href="/admin/devices/${d.id}" title="Edytuj">✏️</a>
+                    <a href="/admin/device-transactions?device=${encodeURIComponent(d.name)}" title="Historia zmian" style="margin-left:8px">🕘</a>
+                </td>
             `;
             tbody.appendChild(tr);
         }

@@ -278,6 +278,12 @@ function renderDeviceTransactionsPagination(page, pages) {
 
 document.addEventListener("DOMContentLoaded", () => {
     if (!document.querySelector("#deviceTransactionsTable")) return;
+
+    // Попереднє заповнення фільтра пристрою з URL (?device=NAZWA)
+    const urlDevice = new URLSearchParams(window.location.search).get("device");
+    const deviceSearchEl = document.getElementById("deviceTransactionDeviceSearch");
+    if (urlDevice && deviceSearchEl) deviceSearchEl.value = urlDevice;
+
     loadDeviceTransactions();
 
     const userInput = document.getElementById("deviceTransactionUserSearch");
