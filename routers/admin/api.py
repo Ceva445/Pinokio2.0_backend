@@ -846,6 +846,9 @@ async def update_device(
                 device=device,
                 descriptions=descriptions
             )
+            # Персистимо аудит-транзакцію: flush недостатньо — без цього commit
+            # рядок відкочується на закритті сесії (регресія з d9fd662).
+            await db.commit()
 
         return device
 
