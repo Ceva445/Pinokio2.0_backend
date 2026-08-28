@@ -89,7 +89,8 @@ async def create_device_transaction(
     db: AsyncSession,
     user_id: int,
     device: DeviceDB,
-    descriptions: list[str]
+    descriptions: list[str],
+    note: str | None = None
 ):
 
     if not descriptions:
@@ -101,6 +102,10 @@ async def create_device_transaction(
         f"{timestamp} User: admin "
         + " ".join(descriptions)
     )
+
+    # Довільна нотатка адміна — додається в КІНЕЦЬ опису транзакції
+    if note and note.strip():
+        notes = notes + " | Notatka: " + note.strip()
 
     transaction = DeviceChangeTransaction(
         user_id=user_id,

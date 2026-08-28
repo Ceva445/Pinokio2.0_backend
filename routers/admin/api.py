@@ -844,7 +844,8 @@ async def update_device(
                 db=db,
                 user_id=user["id"],
                 device=device,
-                descriptions=descriptions
+                descriptions=descriptions,
+                note=payload.get("notes")
             )
             # Персистимо аудит-транзакцію: flush недостатньо — без цього commit
             # рядок відкочується на закритті сесії (регресія з d9fd662).

@@ -585,10 +585,12 @@ async function loadDeviceDetail(deviceId) {
                     status_id: form.status_id.value
                         ? parseInt(form.status_id.value)
                         : null,
-                    ports: portValues
+                    ports: portValues,
+                    notes: form.notes.value
                 })
             });
 
+            form.notes.value = "";   // нотатка одноразова — чистимо після збереження
             showSuccess("Urządzenie zostało zaktualizowane ✅");
         } catch (err) {
             showError(err.message);
