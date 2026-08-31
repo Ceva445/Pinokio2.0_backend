@@ -3,6 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 import asyncio
+import os
+import smtplib
+import logging
+from email.mime.text import MIMEText
 
 from db.session import get_db
 from models.db_transaction import TransactionDB, TransactionType
@@ -12,10 +16,32 @@ from models.db_device import DeviceDB
 
 router = APIRouter(tags=["Email Agent"])
 
+logger = logging.getLogger(__name__)
+
 DEVICE_TYPE_PL = {
     "scanner": "skaner",
     "printer": "drukarka"
 }
+
+# ---------- SMTP (креди з .env) ----------
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_FROM = os.getenv("SMTP_FROM")
+
+
+def send_email_sync(to_email: str, subject: str, message: str):
+    """Синхронна відправка одного листа (викликати через asyncio.to_thread)."""
+    msg = MIMEText(message)
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to_email
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_FROM, [to_email], msg.as_string())
 
 
 def get_time_threshold(now: datetime, hours: int = 12) -> datetime:
@@ -151,7 +177,29 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
             "message": combined_message,
         })
 
+    # 🔹 Фактична відправка кожної підготовленої notification
+    sent = 0
+    errors = 0
+    for n in notifications:
+        for email in n["emails"]:
+            try:
+                await asyncio.to_thread(
+                    send_email_sync, email, n["subject"], n["message"]
+                )
+                sent += 1
+                logger.info("Return-alert email sent to %s (%s)", email, n["subject"])
+            except Exception as exc:
+                errors += 1
+                logger.error("Email send FAILED to %s: %s", email, exc)
+
+    logger.info(
+        "send-email done: notifications=%d sent=%d errors=%d",
+        len(notifications), sent, errors
+    )
+
     return {
-        "status": "prepared",
-        "notifications": notifications
+        "status": "sent",
+        "notifications": len(notifications),
+        "sent": sent,
+        "errors": errors,
     }
