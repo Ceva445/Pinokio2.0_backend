@@ -57,21 +57,23 @@ function fillForm(config) {
     if (emailEnabled) {
         emailEnabled.checked = config.email_notifications_enabled !== false;
     }
-    renderEmailTimes(config.email_send_times || '');
+    renderEmailTimes('emailTimesContainer', config.email_send_times || '');
+    renderEmailTimes('emailTimesContainerSat', config.email_send_times_saturday || '');
+    renderEmailTimes('emailTimesContainerSun', config.email_send_times_sunday || '');
 }
 
-// Відрендерити рядки годин з рядка "HH:MM,HH:MM"
-function renderEmailTimes(timesStr) {
-    const container = document.getElementById('emailTimesContainer');
+// Відрендерити рядки годин з рядка "HH:MM,HH:MM" у заданий контейнер
+function renderEmailTimes(containerId, timesStr) {
+    const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    const times = String(timesStr).split(',').map(t => t.trim()).filter(Boolean);
-    (times.length ? times : ['09:00']).forEach(t => addEmailTimeRow(t));
+    String(timesStr).split(',').map(t => t.trim()).filter(Boolean)
+        .forEach(t => addEmailTimeRow(containerId, t));
 }
 
 // Додати один рядок з time-picker + кнопкою видалення
-function addEmailTimeRow(value) {
-    const container = document.getElementById('emailTimesContainer');
+function addEmailTimeRow(containerId, value) {
+    const container = document.getElementById(containerId);
     if (!container) return;
     const row = document.createElement('div');
     row.className = 'email-time-row';
@@ -135,9 +137,11 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
 
     // Email-нотифікації: enabled + зібрані години
     updates['email_notifications_enabled'] = document.getElementById('emailNotificationsEnabled').checked;
-    const emailTimes = Array.from(document.querySelectorAll('#emailTimesContainer .email-time-input'))
-        .map(i => i.value).filter(Boolean);
-    updates['email_send_times'] = emailTimes.join(',');
+    const collectTimes = (cid) => Array.from(document.querySelectorAll('#' + cid + ' .email-time-input'))
+        .map(i => i.value).filter(Boolean).join(',');
+    updates['email_send_times'] = collectTimes('emailTimesContainer');
+    updates['email_send_times_saturday'] = collectTimes('emailTimesContainerSat');
+    updates['email_send_times_sunday'] = collectTimes('emailTimesContainerSun');
     
     try {
         const response = await fetch('/admin/api/system-config', {
@@ -169,8 +173,11 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     fillForm(currentConfig);
 });
 
-// Кнопка «Dodaj godzinę»
-document.getElementById('addEmailTimeBtn')?.addEventListener('click', () => addEmailTimeRow(''));
+// Кнопки «Dodaj» для кожної колонки (делегування по data-add-time)
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-add-time]');
+    if (btn) addEmailTimeRow(btn.getAttribute('data-add-time'), '');
+});
 
 // Загрузити конфіг при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', loadConfig);

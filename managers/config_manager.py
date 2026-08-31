@@ -118,6 +118,8 @@ class ConfigManager:
             "allow_registration_without_login": default_config.ALLOW_REGISTRATION_WITHOUT_LOGIN,
             "email_notifications_enabled": True,
             "email_send_times": "09:00,15:00",
+            "email_send_times_saturday": "09:00,15:00",
+            "email_send_times_sunday": "09:00,15:00",
         }
     
     def invalidate_cache(self):

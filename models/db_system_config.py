@@ -32,7 +32,10 @@ class SystemConfigDB(Base):
     # Розклад email-нотифікацій про неповернені пристрої
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Час(и) відправки за день, HH:MM через кому (час Europe/Warsaw). Напр. "09:00,15:00"
+    # email_send_times — будні (пн-пт); окремі розклади для суботи й неділі.
     email_send_times: Mapped[str] = mapped_column(String, default="09:00,15:00")
+    email_send_times_saturday: Mapped[str] = mapped_column(String, default="09:00,15:00")
+    email_send_times_sunday: Mapped[str] = mapped_column(String, default="09:00,15:00")
 
     def to_dict(self):
         """Конвертувати в словник"""
@@ -49,4 +52,6 @@ class SystemConfigDB(Base):
             "temporary_card_duration_hours": self.temporary_card_duration_hours,
             "email_notifications_enabled": self.email_notifications_enabled,
             "email_send_times": self.email_send_times,
+            "email_send_times_saturday": self.email_send_times_saturday,
+            "email_send_times_sunday": self.email_send_times_sunday,
         }

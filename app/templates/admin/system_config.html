@@ -157,9 +157,24 @@
 
                 <div class="form-group">
                     <label>Godziny wysyłki (czas warszawski)</label>
-                    <div id="emailTimesContainer"></div>
-                    <button type="button" class="btn" id="addEmailTimeBtn" style="margin-top:6px">＋ Dodaj godzinę</button>
-                    <small>O której i ile razy dziennie wysyłać alerty. Dodaj dowolną liczbę godzin (np. 09:00 i 15:00).</small>
+                    <div class="email-days-grid" style="display:flex; gap:24px; flex-wrap:wrap;">
+                        <div class="email-day-col">
+                            <strong>Dni robocze (pon–pt)</strong>
+                            <div id="emailTimesContainer" style="margin-top:6px"></div>
+                            <button type="button" class="btn" data-add-time="emailTimesContainer" style="margin-top:4px">＋ Dodaj</button>
+                        </div>
+                        <div class="email-day-col">
+                            <strong>Sobota</strong>
+                            <div id="emailTimesContainerSat" style="margin-top:6px"></div>
+                            <button type="button" class="btn" data-add-time="emailTimesContainerSat" style="margin-top:4px">＋ Dodaj</button>
+                        </div>
+                        <div class="email-day-col">
+                            <strong>Niedziela</strong>
+                            <div id="emailTimesContainerSun" style="margin-top:6px"></div>
+                            <button type="button" class="btn" data-add-time="emailTimesContainerSun" style="margin-top:4px">＋ Dodaj</button>
+                        </div>
+                    </div>
+                    <small>O której i ile razy dziennie wysyłać alerty. Pusta kolumna = brak wysyłki w te dni.</small>
                 </div>
             </fieldset>
 

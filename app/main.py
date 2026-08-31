@@ -242,11 +242,17 @@ async def email_notification_scheduler():
                 async with async_session_factory() as db:
                     config = await config_manager.get_config(db)
                     enabled = config.get("email_notifications_enabled", True)
-                    times = [
-                        t.strip()
-                        for t in str(config.get("email_send_times") or "").split(",")
-                        if t.strip()
-                    ]
+
+                    # Окремі розклади: будні (пн-пт) / субота / неділя
+                    weekday = now.weekday()  # Mon=0 ... Sat=5, Sun=6
+                    if weekday == 5:
+                        times_str = config.get("email_send_times_saturday")
+                    elif weekday == 6:
+                        times_str = config.get("email_send_times_sunday")
+                    else:
+                        times_str = config.get("email_send_times")
+
+                    times = [t.strip() for t in str(times_str or "").split(",") if t.strip()]
 
                     if enabled and hhmm in times:
                         last_fired = minute_key
