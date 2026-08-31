@@ -116,6 +116,8 @@ class ConfigManager:
             "auth_cleanup_interval_seconds": default_config.AUTH_CLEANUP_INTERVAL_SECONDS,
             "device_not_returned_hours": default_config.DEVICE_NOT_RETURNED_HOURS,
             "allow_registration_without_login": default_config.ALLOW_REGISTRATION_WITHOUT_LOGIN,
+            "email_notifications_enabled": True,
+            "email_send_times": "09:00,15:00",
         }
     
     def invalidate_cache(self):

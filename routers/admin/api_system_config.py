@@ -24,7 +24,9 @@ class ConfigUpdateRequest(BaseModel):
     device_not_returned_hours: Optional[int] = None
     allow_registration_without_login: Optional[bool] = None
     temporary_card_duration_hours: Optional[int] = None
-    
+    email_notifications_enabled: Optional[bool] = None
+    email_send_times: Optional[str] = None
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -90,7 +92,26 @@ async def update_config(
             raise ValueError("device_not_returned_hours must be > 0")
         if "temporary_card_duration_hours" in updates and updates["temporary_card_duration_hours"] <= 0:
             raise ValueError("temporary_card_duration_hours must be > 0")
-        
+
+        # Валідація розкладу email: "HH:MM,HH:MM..." (нормалізуємо, унікальні, сортовані)
+        if "email_send_times" in updates:
+            times = []
+            for part in str(updates["email_send_times"] or "").split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    hh, mm = part.split(":")
+                    h, m = int(hh), int(mm)
+                    if not (0 <= h <= 23 and 0 <= m <= 59):
+                        raise ValueError()
+                    times.append(f"{h:02d}:{m:02d}")
+                except Exception:
+                    raise ValueError(f"Nieprawidłowy czas: '{part}' (oczekiwano HH:MM)")
+            if not times:
+                raise ValueError("Podaj co najmniej jeden czas wysyłki (HH:MM)")
+            updates["email_send_times"] = ",".join(sorted(set(times)))
+
         updated_config = await config_manager.update_config(db, updates)
         
         # Оновити менеджери з новими значеннями

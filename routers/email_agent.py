@@ -55,8 +55,13 @@ def get_time_threshold(now: datetime, hours: int = 12) -> datetime:
 
 @router.post("/send-email")
 async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
+    """Ручний тригер (адмін/тест). Планувальник кличе run_email_notifications напряму."""
+    return await run_email_notifications(db)
+
+
+async def run_email_notifications(db: AsyncSession) -> dict:
     from managers.config_manager import config_manager
-    
+
     now = datetime.now(timezone.utc)
     
     # Взяти кількість годин з конфіго
@@ -126,14 +131,16 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
 
     # ALL-менеджери отримують ЛИШЕ зведений лист → виключаємо їх з відділових,
     # щоб не було дублю (реальні відділи — EMAG/STOCK/XD/…, "ALL" — сентинел)
-    all_emails = (
+    all_emails_raw = (
         await db.execute(
             select(DepartmentManagerDB.email).where(
                 func.upper(DepartmentManagerDB.department) == "ALL"
             )
         )
     ).scalars().all()
-    all_emails_set = set(all_emails)
+    # Дедуп ALL: регістронезалежно (одна адреса — один лист)
+    all_emails = list({e.lower(): e for e in all_emails_raw}.values())
+    all_lower = {e.lower() for e in all_emails_raw}
 
     for department, employees in employees_devices.items():
         managers_stmt = select(DepartmentManagerDB.email).where(
@@ -141,8 +148,9 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
         )
 
         result = await db.execute(managers_stmt)
+        # виключаємо ALL-менеджерів (регістронезалежно), щоб не дублювати
         manager_emails = [
-            e for e in result.scalars().all() if e not in all_emails_set
+            e for e in result.scalars().all() if e.lower() not in all_lower
         ]
 
         if not manager_emails:
@@ -162,7 +170,7 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
         })
 
     # 🔹 Один зведений лист для ALL-менеджерів: усі інциденти з усіх відділів
-    if employees_devices and all_emails_set:
+    if employees_devices and all_emails:
         sections = [
             f"[{department}]\n" + "\n".join(employees)
             for department, employees in employees_devices.items()
@@ -172,7 +180,7 @@ async def send_email_endpoint(db: AsyncSession = Depends(get_db)):
             + "\n\n".join(sections)
         )
         notifications.append({
-            "emails": sorted(all_emails_set),
+            "emails": sorted(all_emails),
             "subject": "Alert zwrotu urządzenia - wszystkie działy",
             "message": combined_message,
         })

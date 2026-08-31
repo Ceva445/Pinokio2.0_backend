@@ -137,6 +137,31 @@
                     >
                     <small>Jak długo pracownik może korzystać z tymczasowej karty (domyślnie 72 godziny)</small>
                 </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
+                <legend>📧 Powiadomienia email (zwrot urządzeń)</legend>
+
+                <div class="form-group checkbox-group">
+                    <label for="emailNotificationsEnabled">
+                        <input
+                            type="checkbox"
+                            id="emailNotificationsEnabled"
+                            name="email_notifications_enabled"
+                            class="config-checkbox"
+                        >
+                        Włącz automatyczne powiadomienia email
+                    </label>
+                    <small>Gdy wyłączone, alerty o nie oddanych urządzeniach nie są wysyłane</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Godziny wysyłki (czas warszawski)</label>
+                    <div id="emailTimesContainer"></div>
+                    <button type="button" class="btn" id="addEmailTimeBtn" style="margin-top:6px">＋ Dodaj godzinę</button>
+                    <small>O której i ile razy dziennie wysyłać alerty. Dodaj dowolną liczbę godzin (np. 09:00 i 15:00).</small>
+                </div>
+            </fieldset>
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">💾 Zapisz zmiany</button>

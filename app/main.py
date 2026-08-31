@@ -81,13 +81,15 @@ async def lifespan(app: FastAPI):
     auth_cleanup_task = asyncio.create_task(cleanup_auth_sessions())
     registration_cleanup_task = asyncio.create_task(cleanup_registration_sessions())
     employee_expiration_task = asyncio.create_task(do_employee_expired_if_needed())
-    
+    email_scheduler_task = asyncio.create_task(email_notification_scheduler())
+
     yield
-    
-    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task]:
+
+    _bg_tasks = [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task, email_scheduler_task]
+    for task in _bg_tasks:
         task.cancel()
-    
-    for task in [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task]:
+
+    for task in _bg_tasks:
         try:
             await task
         except asyncio.CancelledError:
@@ -210,6 +212,56 @@ async def cleanup_registration_sessions():
                 
         except Exception as exc:
             logger.error("Error in registration cleanup task: %s", exc)
+
+
+async def email_notification_scheduler():
+    """Планувальник email-нотифікацій про неповернені пристрої.
+
+    Тикає кожні 20с; коли час (Europe/Warsaw) збігається з одним із
+    email_send_times у конфізі (адмін задає в панелі) — кличе розсилку.
+    Захист від подвійної відправки в межах хвилини через last_fired.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from db.session import engine
+
+    tz = ZoneInfo("Europe/Warsaw")
+    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    last_fired = None
+
+    logger.info("Email notification scheduler started")
+
+    while True:
+        try:
+            now = datetime.now(tz)
+            hhmm = now.strftime("%H:%M")
+            minute_key = now.strftime("%Y-%m-%d %H:%M")
+
+            if minute_key != last_fired:
+                async with async_session_factory() as db:
+                    config = await config_manager.get_config(db)
+                    enabled = config.get("email_notifications_enabled", True)
+                    times = [
+                        t.strip()
+                        for t in str(config.get("email_send_times") or "").split(",")
+                        if t.strip()
+                    ]
+
+                    if enabled and hhmm in times:
+                        last_fired = minute_key
+                        from routers.email_agent import run_email_notifications
+                        result = await run_email_notifications(db)
+                        logger.info(
+                            "Scheduled email notifications fired at %s (Warsaw): %s",
+                            hhmm, result
+                        )
+
+            await asyncio.sleep(20)
+        except Exception as exc:
+            logger.error("Error in email notification scheduler: %s", exc)
+            await asyncio.sleep(30)
+
 
 # ===============================
 # CLEANUP USER ESP ACCESS

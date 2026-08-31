@@ -51,6 +51,37 @@ function fillForm(config) {
     if (checkbox) {
         checkbox.checked = config.allow_registration_without_login;
     }
+
+    // Email notifications
+    const emailEnabled = document.getElementById('emailNotificationsEnabled');
+    if (emailEnabled) {
+        emailEnabled.checked = config.email_notifications_enabled !== false;
+    }
+    renderEmailTimes(config.email_send_times || '');
+}
+
+// Відрендерити рядки годин з рядка "HH:MM,HH:MM"
+function renderEmailTimes(timesStr) {
+    const container = document.getElementById('emailTimesContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    const times = String(timesStr).split(',').map(t => t.trim()).filter(Boolean);
+    (times.length ? times : ['09:00']).forEach(t => addEmailTimeRow(t));
+}
+
+// Додати один рядок з time-picker + кнопкою видалення
+function addEmailTimeRow(value) {
+    const container = document.getElementById('emailTimesContainer');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'email-time-row';
+    row.style.cssText = 'display:flex; gap:8px; align-items:center; margin-bottom:6px;';
+    row.innerHTML = `
+        <input type="time" class="config-input email-time-input" value="${value || ''}" style="width:auto; margin:0;">
+        <button type="button" class="btn email-time-remove" title="Usuń">✕</button>
+    `;
+    row.querySelector('.email-time-remove').addEventListener('click', () => row.remove());
+    container.appendChild(row);
 }
 
 // Оновити час останньої оновації
@@ -101,6 +132,12 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     
     // Явно обробити checkbox, оскільки FormData не містить unchecked checkboxes
     updates['allow_registration_without_login'] = document.getElementById('allowRegistrationWithoutLogin').checked;
+
+    // Email-нотифікації: enabled + зібрані години
+    updates['email_notifications_enabled'] = document.getElementById('emailNotificationsEnabled').checked;
+    const emailTimes = Array.from(document.querySelectorAll('#emailTimesContainer .email-time-input'))
+        .map(i => i.value).filter(Boolean);
+    updates['email_send_times'] = emailTimes.join(',');
     
     try {
         const response = await fetch('/admin/api/system-config', {
@@ -131,6 +168,9 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
 document.getElementById('resetBtn').addEventListener('click', () => {
     fillForm(currentConfig);
 });
+
+// Кнопка «Dodaj godzinę»
+document.getElementById('addEmailTimeBtn')?.addEventListener('click', () => addEmailTimeRow(''));
 
 // Загрузити конфіг при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', loadConfig);
