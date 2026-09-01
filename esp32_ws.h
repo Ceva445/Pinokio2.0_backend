@@ -38,13 +38,13 @@ const char* DEVICE_ID = "E-2";
 // Реальний домен задається у /config.txt на SD-карті:
 //     SERVER_HOST=twoj-domen.example.com
 //     SERVER_PORT=443
-const char*   SERVER_HOST = "";    // порожньо → береться з SD config.txt (SERVER_HOST=)
+const char*   SERVER_HOST = "pinokio.piatek-magazyn.com";    // порожньо → береться з SD config.txt (SERVER_HOST=)
 const uint16_t SERVER_PORT = 443;  // wss:// за замовчуванням; SD може перекрити (SERVER_PORT=)
 const bool    WS_USE_TLS   = true;  // true → beginSSL (wss://)
 
 // ===== OTA (лишається по HTTP — не критично до затримки) =====
 // Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.3"
 const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
 
 unsigned long lastOtaCheck = 0;
