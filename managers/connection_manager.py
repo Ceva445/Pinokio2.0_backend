@@ -29,10 +29,16 @@ class ConnectionManager:
         await websocket.send_json(payload)
 
     async def broadcast_device_list(self):
-        payload = {
-            "type": "device_list",
-            "data": self.device_manager.get_all_devices_status(),
-        }
+        status = self.device_manager.get_all_devices_status()
+        # додаємо, хто зараз «слідкує» за кожним ESP (для вибору/підсвітки в моніторі)
+        try:
+            from app.main import esp_watchers
+            for did, dev in status.get("devices", {}).items():
+                w = esp_watchers.get(did)
+                dev["watched_by"] = w.get("username") if w else None
+        except Exception:
+            pass
+        payload = {"type": "device_list", "data": status}
         for ws in list(self.connections.keys()):
             await ws.send_json(payload)
 

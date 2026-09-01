@@ -641,12 +641,26 @@ async function loadUsers() {
                 <td>${u.last_name}</td>
                 <td>${u.role}</td>
                 <td>${u.is_active ? "✅" : "❌"}</td>
-                <td><a href="/admin/users/${u.id}">✏️</a></td>
+                <td>
+                    <a href="/admin/users/${u.id}" title="Edytuj">✏️</a>
+                    ${u.role === "manager" ? `<button type="button" class="btn" style="margin-left:8px" onclick="forceLogout(${u.id}, '${u.username}')" title="Wyloguj z systemu">🚪</button>` : ""}
+                </td>
             `;
             tbody.appendChild(tr);
         }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6">Błąd: ${err.message}</td></tr>`;
+    }
+}
+
+// Примусовий вилог менеджера (адмін)
+async function forceLogout(userId, username) {
+    if (!confirm(`Wylogować menedżera ${username}? Zwolni to jego ESP.`)) return;
+    try {
+        await api(`/admin/api/users/${userId}/force-logout`, { method: "POST" });
+        showSuccess(`Menedżer ${username} został wylogowany ✅`);
+    } catch (err) {
+        showError(err.message);
     }
 }
 

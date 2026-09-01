@@ -38,6 +38,9 @@ device_manager = DeviceManager(timeout_minutes=5)
 manager = ConnectionManager(device_manager)
 registration_manager = RegistrationManager(timeout_seconds=7)
 esp_allowed_users: dict[str, set[int]] = {}
+# --- Вибір ESP при логіні (ексклюзивна прив'язка, тільки менеджери) ---
+esp_watchers: dict[str, dict] = {}   # device_id → {"user_id", "username", "token"}
+revoked_tokens: set[str] = set()     # токени, «виловлені» на закритті вкладки (WS-розрив)
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -270,6 +273,37 @@ async def email_notification_scheduler():
 
 
 # ===============================
+# ESP SELECTION (login-bound tracking)
+# ===============================
+def bind_esp(device_id: str, user: dict, token: str):
+    """Прив'язати менеджера (за токеном сесії) до ESP: ексклюзивно."""
+    esp_watchers[device_id] = {
+        "user_id": user["id"],
+        "username": user["username"],
+        "token": token,
+    }
+    esp_allowed_users.setdefault(device_id, set()).add(user["id"])
+
+
+def release_esp_for_token(token: str) -> str | None:
+    """Зняти прив'язку за токеном (при виловлюванні/розриві). Повертає device_id."""
+    for device_id, w in list(esp_watchers.items()):
+        if w.get("token") == token:
+            esp_watchers.pop(device_id, None)
+            uid = w.get("user_id")
+            if uid is not None and device_id in esp_allowed_users:
+                esp_allowed_users[device_id].discard(uid)
+                if not esp_allowed_users[device_id]:
+                    esp_allowed_users.pop(device_id, None)
+            return device_id
+    return None
+
+
+def esp_watcher_of(device_id: str) -> dict | None:
+    return esp_watchers.get(device_id)
+
+
+# ===============================
 # CLEANUP USER ESP ACCESS
 # ===============================
 def remove_user_from_all_esps(user_id: int):
@@ -280,6 +314,11 @@ def remove_user_from_all_esps(user_id: int):
 
         if not esp_allowed_users[esp_id]:
             esp_allowed_users.pop(esp_id)
+
+    # також зняти watcher-прив'язку цього користувача
+    for device_id, w in list(esp_watchers.items()):
+        if w.get("user_id") == user_id:
+            esp_watchers.pop(device_id, None)
 
 
 def remove_user_ws_subscriptions(user_id: int):

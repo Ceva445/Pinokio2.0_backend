@@ -134,3 +134,44 @@ async def delete_user(
 
     await db.delete(db_user)
     await db.commit()
+
+
+# ===============================
+# FORCE LOGOUT (admin примусово вилоговує менеджера)
+# ===============================
+
+@router.post("/users/{user_id:int}/force-logout")
+async def force_logout_user(
+    user_id: int,
+    user=Depends(require_admin),
+):
+    """Примусовий вилог: revoke усіх токенів користувача, звільнення його ESP,
+    розрив його монітор-WS. Наступний запит цього користувача → 401 (на логін)."""
+    from app.main import remove_user_from_all_esps, manager, revoked_tokens
+    from managers.auth_manager import auth_manager
+
+    revoked = 0
+    # 1) revoke токенів із кешу сесій
+    for token, sess in list(auth_manager.active_sessions.items()):
+        if (sess.get("user") or {}).get("id") == user_id:
+            revoked_tokens.add(token)
+            auth_manager.remove_session(token)
+            revoked += 1
+
+    # 2) звільнити прив'язку ESP (esp_watchers + esp_allowed_users)
+    remove_user_from_all_esps(user_id)
+
+    # 3) розірвати монітор-WS цього користувача (+ revoke його токена, якщо є)
+    for ws in list(manager.connections.keys()):
+        if getattr(ws, "user_id", None) == user_id:
+            tok = getattr(ws, "token", None)
+            if tok:
+                revoked_tokens.add(tok)
+                auth_manager.remove_session(tok)
+            try:
+                await ws.close()
+            except Exception:
+                pass
+
+    await manager.broadcast_device_list()
+    return {"status": "ok", "message": "Menedżer wylogowany", "revoked": revoked}

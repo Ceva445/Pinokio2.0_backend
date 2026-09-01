@@ -37,10 +37,22 @@ def get_current_user(required: bool = True):
                 )
             return None
 
-        # 🔹 Спроба взяти з кешу
+        # 🔹 Токен «виловлений» (менеджер закрив вкладку → WS-розрив) → недійсний
+        from app.main import revoked_tokens
+        if token in revoked_tokens:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Session revoked",
+                )
+            return None
+
+        # 🔹 Спроба взяти з кешу (але перевіряємо, що JWT ще не протух — рівно 12 год)
         user_data = auth_manager.get_user_from_token(token)
         if user_data:
-            return user_data
+            if auth_manager.decode_token(token) is not None:
+                return user_data
+            auth_manager.remove_session(token)  # токен протух → знімаємо сесію
 
         payload = auth_manager.decode_token(token)
         if not payload:
@@ -149,23 +161,38 @@ async def login_form(
     response: Response,
     username: str = Form(...),
     password: str = Form(...),
+    device_id: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
 
     user = await auth_manager.authenticate_user(db, username, password)
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    # --- Вибір ESP: менеджер ОБОВʼЯЗКОВО (онлайн + вільний, ексклюзив); адмін — поза правилом ---
+    from app.main import esp_watchers, bind_esp, device_manager
+    role = user.role.value
+    device_id = (device_id or "").strip()
+    if role != "admin":
+        if not device_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Wybierz urządzenie ESP")
+        dev = device_manager.get_device(device_id)
+        if not dev or not dev.is_online:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Wybrane urządzenie jest niedostępne (offline)")
+        watcher = esp_watchers.get(device_id)
+        if watcher and watcher.get("user_id") != user.id:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"Urządzenie zajęte przez {watcher.get('username')}")
+
     access_token = auth_manager.create_access_token(
         data={"sub": user.username},
-        expires_delta=timedelta(days=7)
+        expires_delta=timedelta(hours=12)
     )
-    
+
     user_dict = {
         "id": user.id,
         "username": user.username,
@@ -175,6 +202,9 @@ async def login_form(
         "is_active": user.is_active
     }
     auth_manager.add_session(access_token, user_dict)
+
+    if role != "admin":
+        bind_esp(device_id, user_dict, access_token)
 
     response.set_cookie(
         key="access_token",
@@ -202,5 +232,31 @@ async def logout(
     return {"message": "Successfully logged out"}
 
 @router.get("/me")
-async def me(current_user: dict = Depends(get_current_user())):
-    return current_user
+async def me(
+    request: Request,
+    current_user: dict = Depends(get_current_user()),
+    token: str = Depends(oauth2_scheme),
+):
+    from app.main import esp_watchers
+    tok = token or get_token_from_cookie(request)
+    bound = None
+    for did, w in esp_watchers.items():
+        if w.get("token") == tok:
+            bound = did
+            break
+    return {**current_user, "bound_device": bound}
+
+
+@router.get("/available-esps")
+async def available_esps():
+    """Публічно (до логіну): онлайн-ESP + хто на них слідкує."""
+    from app.main import device_manager, esp_watchers
+    result = []
+    for did, dev in device_manager.get_online_devices().items():
+        w = esp_watchers.get(did)
+        result.append({
+            "id": did,
+            "name": dev.name,
+            "watched_by": w.get("username") if w else None,
+        })
+    return result

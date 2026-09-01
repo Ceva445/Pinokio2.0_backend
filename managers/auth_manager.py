@@ -100,7 +100,7 @@ class AuthManager:
     def cleanup_expired_sessions(self):
         expired = []
         for token, session in self.active_sessions.items():
-            if datetime.now() - session["created_at"] > timedelta(hours=24):
+            if datetime.now() - session["created_at"] > timedelta(hours=12):
                 expired.append(token)
         
         for token in expired:
