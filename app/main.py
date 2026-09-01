@@ -41,6 +41,11 @@ esp_allowed_users: dict[str, set[int]] = {}
 # --- Вибір ESP при логіні (ексклюзивна прив'язка, тільки менеджери) ---
 esp_watchers: dict[str, dict] = {}   # device_id → {"user_id", "username", "token"}
 revoked_tokens: set[str] = set()     # токени, «виловлені» на закритті вкладки (WS-розрив)
+# Розрив WS ≠ закриття вкладки (reload/перехід теж рвуть сокет), тому логаут
+# відкладаємо: якщо той самий токен перепідключився за LOGOUT_GRACE_SECONDS —
+# скасовуємо. Реально розлогінюємо тільки якщо вкладку закрили назовсім.
+LOGOUT_GRACE_SECONDS = 15
+pending_logouts: dict[str, object] = {}   # token → asyncio.Task відкладеного логауту
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

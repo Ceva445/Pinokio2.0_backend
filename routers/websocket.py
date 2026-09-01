@@ -35,6 +35,14 @@ async def websocket_endpoint(
 
     is_admin = bool(user) and user.get("role") == "admin"
 
+    # Перепідключився той самий токен (reload / повернення на вкладку) →
+    # скасовуємо відкладений логаут: вкладку не закривали.
+    if token:
+        from app.main import pending_logouts
+        _task = pending_logouts.pop(token, None)
+        if _task is not None:
+            _task.cancel()
+
     # Менеджер: авто-підписка на його прив'язаний ESP (без перемикання)
     if user and not is_admin:
         from app.main import esp_watchers
@@ -79,16 +87,34 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        # Менеджер закрив вкладку → виловлюємо: звільняємо ESP + гасимо токен
+        # WS розірвався. Це може бути і reload/перехід на іншу вкладку, і закриття.
+        # Тому логаут — відкладений: якщо токен не повернувся за grace-період,
+        # значить вкладку закрили → звільняємо ESP + гасимо токен.
         _u = getattr(websocket, "app_user", None)
         if _u and _u.get("role") != "admin":
             tok = getattr(websocket, "token", None)
             if tok:
-                from app.main import release_esp_for_token, revoked_tokens
-                release_esp_for_token(tok)
-                revoked_tokens.add(tok)
-                auth_manager.remove_session(tok)
-                await manager.broadcast_device_list()
+                import asyncio
+                from app.main import (
+                    release_esp_for_token, revoked_tokens,
+                    pending_logouts, LOGOUT_GRACE_SECONDS,
+                )
+
+                async def _delayed_logout(t=tok):
+                    try:
+                        await asyncio.sleep(LOGOUT_GRACE_SECONDS)
+                    except asyncio.CancelledError:
+                        return          # встиг перепідключитись — залишаємо залогіненим
+                    pending_logouts.pop(t, None)
+                    release_esp_for_token(t)
+                    revoked_tokens.add(t)
+                    auth_manager.remove_session(t)
+                    await manager.broadcast_device_list()
+
+                old = pending_logouts.pop(tok, None)
+                if old is not None:
+                    old.cancel()
+                pending_logouts[tok] = asyncio.create_task(_delayed_logout())
 
 
 # ==========================================================================
