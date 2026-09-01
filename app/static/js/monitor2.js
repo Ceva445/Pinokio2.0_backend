@@ -23,7 +23,7 @@ let boundDevice = null;
 (async function initAuth() {
     try {
         const res = await fetch("/auth/me", { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) { location.href = "/login"; return; }   // не залогінений → на логін
         const me = await res.json();
         userRole = me.role;
         boundDevice = me.bound_device || null;

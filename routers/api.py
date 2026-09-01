@@ -41,9 +41,9 @@ async def can_register_on_device(
     manager,
 ):
     """
-    Дозвіл на реєстрацію якщо:
-    - є user у esp_allowed_users
-    - І є websocket слухач цього ESP
+    Дозвіл на реєстрацію якщо є websocket-слухач цього ESP, який
+    ЗАЛОГІНЕНИЙ і авторизований (його user_id є в esp_allowed_users).
+    Гість-слухач (user_id=None) права не дає.
     """
 
     from app.main import esp_allowed_users
@@ -53,16 +53,12 @@ async def can_register_on_device(
     if not device_users:
         return False
 
-    # websocket слухачі
-    listeners = [
-        ws for ws, subscribed in manager.connections.items()
-        if subscribed == device_id
-    ]
+    # має бути слухач, чий user_id входить у device_users (авторизований)
+    for ws, subscribed in manager.connections.items():
+        if subscribed == device_id and getattr(ws, "user_id", None) in device_users:
+            return True
 
-    if not listeners:
-        return False
-
-    return True
+    return False
 
 
 # ---------- CORE RFID PROCESSING (спільне для HTTP і WebSocket) ----------
