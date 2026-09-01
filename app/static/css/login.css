@@ -61,3 +61,38 @@
     transform: translateY(0);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
+
+/* Випадаючий список ESP — у стилі інпутів форми */
+.login-form select {
+    width: 100%;
+    padding: 12px 36px 12px 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    box-sizing: border-box;
+    background-color: #334155;
+    color: #f1f5f9;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2394a3b8'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: all 0.2s ease;
+}
+
+.login-form select:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    background-color: #3b4256;
+}
+
+.login-form select option {
+    background: #1e293b;
+    color: #f1f5f9;
+}
+
+.login-form select option:disabled {
+    color: #64748b;
+}
