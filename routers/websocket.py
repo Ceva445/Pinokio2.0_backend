@@ -29,7 +29,7 @@ async def websocket_endpoint(
     token = websocket.cookies.get("access_token")
     user = auth_manager.get_user_from_token(token) if token else None
     websocket.token = token
-    websocket.user = user
+    websocket.app_user = user      # не 'user' — це read-only property Starlette
     if user:
         websocket.user_id = user["id"]
 
@@ -80,7 +80,8 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         # Менеджер закрив вкладку → виловлюємо: звільняємо ESP + гасимо токен
-        if getattr(websocket, "user", None) and websocket.user.get("role") != "admin":
+        _u = getattr(websocket, "app_user", None)
+        if _u and _u.get("role") != "admin":
             tok = getattr(websocket, "token", None)
             if tok:
                 from app.main import release_esp_for_token, revoked_tokens
