@@ -39,13 +39,25 @@ class ConnectionManager:
         except Exception:
             pass
         payload = {"type": "device_list", "data": status}
+        disconnected = []
         for ws in list(self.connections.keys()):
-            await ws.send_json(payload)
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                disconnected.append(ws)
+        for ws in disconnected:
+            self.disconnect(ws)
 
     async def broadcast_device_data(self, device_id: str, payload: Dict[str, Any]):
-        for ws, subscribed in self.connections.items():
+        disconnected = []
+        for ws, subscribed in list(self.connections.items()):
             if subscribed == device_id:
-                await ws.send_json(payload)
+                try:
+                    await ws.send_json(payload)
+                except Exception:
+                    disconnected.append(ws)
+        for ws in disconnected:
+            self.disconnect(ws)
 
     async def broadcast_to_all(self, message_type: str, data: Dict[str, Any]):
         payload = {
