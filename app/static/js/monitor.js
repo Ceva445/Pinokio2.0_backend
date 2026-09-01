@@ -17,7 +17,7 @@ let boundDevice = null;
 (async function initAuth() {
     try {
         const res = await fetch("/auth/me", { credentials: "include" });
-        if (!res.ok) { location.href = "/login"; return; }   // не залогінений → на логін
+        if (!res.ok) return;   // гість → інформаційний режим (дивиться, але не реєструє)
         const me = await res.json();
         userRole = me.role;
         boundDevice = me.bound_device || null;
