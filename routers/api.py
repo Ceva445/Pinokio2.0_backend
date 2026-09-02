@@ -61,6 +61,28 @@ async def can_register_on_device(
     return False
 
 
+async def registration_authorizer_id(device_id: str, manager) -> int | None:
+    """Хто саме дозволив видачу на цьому ESP.
+
+    Це менеджер, який при вході обрав цей пристрій для прослуховування,
+    або (за старою логікою) адмін, що підписався на нього вручну.
+    Повертає users.id або None, якщо авторизованого слухача немає.
+    """
+    from app.main import esp_allowed_users, esp_watchers
+
+    watcher = esp_watchers.get(device_id)
+    if watcher and watcher.get("user_id") is not None:
+        return watcher["user_id"]
+
+    device_users = esp_allowed_users.get(device_id, set())
+    for ws, subscribed in manager.connections.items():
+        if subscribed == device_id:
+            uid = getattr(ws, "user_id", None)
+            if uid in device_users:
+                return uid
+    return None
+
+
 # ---------- CORE RFID PROCESSING (спільне для HTTP і WebSocket) ----------
 
 async def process_rfid(
@@ -110,6 +132,9 @@ async def process_rfid(
         can_register = True
     else:
         can_register = await can_register_on_device(device_id, manager)
+
+    # менеджер, який дозволив видачу — пишемо його в історію реєстрацій
+    authorizer_id = await registration_authorizer_id(device_id, manager)
 
     rfid = data.get("rfid")
     ui_message = None
@@ -211,7 +236,8 @@ async def process_rfid(
                         transaction = TransactionDB(
                             type=TransactionType.unregistered,
                             device_id=device_db.id,
-                            employee_id=None
+                            employee_id=None,
+                            manager_id=authorizer_id,
                         )
                         db.add(transaction)
                         await db.commit()
@@ -258,7 +284,8 @@ async def process_rfid(
                             transaction = TransactionDB(
                                 type=TransactionType.registered,
                                 device_id=device_db.id,
-                                employee_id=employee.id
+                                employee_id=employee.id,
+                                manager_id=authorizer_id,
                             )
                             db.add(transaction)
                             await db.commit()
@@ -272,7 +299,8 @@ async def process_rfid(
                             transaction = TransactionDB(
                                 type=TransactionType.registered,
                                 device_id=device_db.id,
-                                employee_id=employee.id
+                                employee_id=employee.id,
+                                manager_id=authorizer_id,
                             )
                             db.add(transaction)
                             await db.commit()

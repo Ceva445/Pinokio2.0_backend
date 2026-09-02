@@ -184,7 +184,7 @@ async function loadDashboard() {
         tbody.innerHTML = "";
 
         if (!data.departments || data.departments.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5">Brak danych</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4">Brak danych</td></tr>`;
             return;
         }
 
@@ -206,7 +206,7 @@ async function loadDashboard() {
         console.error("❌ Dashboard error:", err);
 
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5">Błąd ładowania</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4">Błąd ładowania</td></tr>`;
         }
     }
 }
@@ -839,7 +839,7 @@ async function loadTransactions(page = 1) {
     if (date_to) params.append("date_to", date_to);
     if (tx_type) params.append("tx_type", tx_type);
 
-    tbody.innerHTML = `<tr><td colspan="4">Ładowanie danych...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5">Ładowanie danych...</td></tr>`;
 
     try {
         const data = await api(`/admin/api/transactions?${params.toString()}`);
@@ -847,7 +847,7 @@ async function loadTransactions(page = 1) {
         tbody.innerHTML = "";
 
         if (data.items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4">Nic nie znaleziono</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5">Nic nie znaleziono</td></tr>`;
         }
 
         for (const t of data.items) {
@@ -861,6 +861,11 @@ async function loadTransactions(page = 1) {
                         : "—"}
                 </td>
                 <td>${t.device?.name ?? "—"}</td>
+                <td>
+                    ${t.manager
+                        ? `${t.manager.first_name ?? ""} ${t.manager.last_name ?? ""} (${t.manager.username ?? ""})`.trim()
+                        : "—"}
+                </td>
             `;
             tbody.appendChild(tr);
         }
@@ -868,7 +873,7 @@ async function loadTransactions(page = 1) {
         renderTransactionsPagination(data.page, data.pages);
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4">Błąd: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">Błąd: ${err.message}</td></tr>`;
     }
 }
 

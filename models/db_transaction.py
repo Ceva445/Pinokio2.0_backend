@@ -29,6 +29,12 @@ class TransactionDB(Base):
     device_id: Mapped[int | None] = mapped_column(
         ForeignKey("devices.id"), nullable=False
     )
+    # Менеджер (або адмін), який своїм підключенням до ESP дозволив видачу.
+    # NULL для старих записів і для реєстрацій без авторизованого слухача.
+    manager_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
 
     employee = relationship("EmployeeDB", back_populates="transactions")
     device = relationship("DeviceDB", back_populates="transactions")
+    manager = relationship("UserDB")
