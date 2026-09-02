@@ -60,10 +60,8 @@ async function checkAuth() {
     // ✔ залогінений
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";
-    // менеджер прив'язаний до одного ESP при вході → навігація по моніторах йому не потрібна
-    const showMonitorLinks = user.role !== "manager";
-    if (monitorBtn) monitorBtn.style.display = showMonitorLinks ? "inline" : "none";
-    if (monitor2Btn) monitor2Btn.style.display = showMonitorLinks ? "inline" : "none";
+    if (monitorBtn) monitorBtn.style.display = "inline";
+    if (monitor2Btn) monitor2Btn.style.display = "inline";
 
     if (user.role === "admin") {
         if (isAdminPage) {
