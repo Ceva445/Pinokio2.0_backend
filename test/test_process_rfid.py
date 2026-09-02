@@ -228,3 +228,88 @@ async def test_T4_1_suffix_routes_events(db_session, devices, manager, reg_manag
     assert manager.last("registration_status") is not None
     assert manager.last("registration_status_v2") is None
     assert manager.last("esp32_data") is not None
+
+
+# ===========================================================================
+# ГРУПА 5 — менеджер, який дозволив видачу (transactions.manager_id)
+# ===========================================================================
+async def _make_manager_user(db, username="mgr1"):
+    from models.db_user import UserDB, UserRole
+    u = UserDB(
+        first_name="Test", last_name="Manager", username=username,
+        password_hash="x", role=UserRole.manager, is_active=True,
+    )
+    db.add(u)
+    await db.commit()
+    await db.refresh(u)
+    return u
+
+
+async def _last_tx(db, type_):
+    from sqlalchemy import select, desc
+    res = await db.execute(
+        select(TransactionDB)
+        .where(TransactionDB.type == type_)
+        .order_by(desc(TransactionDB.id))
+        .limit(1)
+    )
+    return res.scalar_one()
+
+
+async def test_T5_1_registration_records_bound_manager(
+    db_session, devices, manager, reg_manager, set_can_register, monkeypatch
+):
+    """Менеджер, привʼязаний до ESP при вході, потрапляє в транзакцію."""
+    import app.main as mainmod
+    set_can_register(True)
+    u = await _make_manager_user(db_session)
+    monkeypatch.setattr(
+        mainmod, "esp_watchers",
+        {"dev-m": {"user_id": u.id, "username": u.username, "token": "t"}},
+    )
+
+    e = await make_employee(db_session, "EMPM1", wms_login="mgrflow")
+    await process_rfid("dev-m", {"rfid": "EMPM1"}, devices, manager, db_session, event_suffix=SUFFIX)
+    await make_device(db_session, "DEVM1", "Scan-M1", DeviceType.scanner, "SM1")
+    await process_rfid("dev-m", {"rfid": "DEVM1"}, devices, manager, db_session, event_suffix=SUFFIX)
+
+    tx = await _last_tx(db_session, TransactionType.registered)
+    assert tx.manager_id == u.id
+
+
+async def test_T5_2_unregister_records_bound_manager(
+    db_session, devices, manager, reg_manager, set_can_register, monkeypatch
+):
+    """Відчеплення пристрою теж фіксує менеджера."""
+    import app.main as mainmod
+    set_can_register(True)
+    u = await _make_manager_user(db_session, username="mgr2")
+    monkeypatch.setattr(
+        mainmod, "esp_watchers",
+        {"dev-u": {"user_id": u.id, "username": u.username, "token": "t"}},
+    )
+
+    e = await make_employee(db_session, "EMPM2", wms_login="unl2")
+    await make_device(db_session, "DEVM2", "Scan-M2", DeviceType.scanner, "SM2", employee_id=e.id)
+    await process_rfid("dev-u", {"rfid": "DEVM2"}, devices, manager, db_session, event_suffix=SUFFIX)
+
+    tx = await _last_tx(db_session, TransactionType.unregistered)
+    assert tx.manager_id == u.id
+
+
+async def test_T5_3_no_watcher_leaves_manager_null(
+    db_session, devices, manager, reg_manager, set_can_register, monkeypatch
+):
+    """Без привʼязаного слухача колонка лишається порожньою, а не падає."""
+    import app.main as mainmod
+    set_can_register(True)
+    monkeypatch.setattr(mainmod, "esp_watchers", {})
+    monkeypatch.setattr(mainmod, "esp_allowed_users", {})
+
+    e = await make_employee(db_session, "EMPM3", wms_login="nomgr")
+    await process_rfid("dev-n", {"rfid": "EMPM3"}, devices, manager, db_session, event_suffix=SUFFIX)
+    await make_device(db_session, "DEVM3", "Scan-M3", DeviceType.scanner, "SM3")
+    await process_rfid("dev-n", {"rfid": "DEVM3"}, devices, manager, db_session, event_suffix=SUFFIX)
+
+    tx = await _last_tx(db_session, TransactionType.registered)
+    assert tx.manager_id is None

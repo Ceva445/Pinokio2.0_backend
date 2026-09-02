@@ -33,7 +33,8 @@ async def get_transactions(
         select(TransactionDB)
         .options(
             joinedload(TransactionDB.employee),
-            joinedload(TransactionDB.device)
+            joinedload(TransactionDB.device),
+            joinedload(TransactionDB.manager)
         )
         .outerjoin(TransactionDB.employee)
         .join(TransactionDB.device)
