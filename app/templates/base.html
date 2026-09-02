@@ -9,7 +9,9 @@
 <body>
 
 <header style="display:flex; justify-content:flex-end; margin-bottom:20px; gap:10px;">
+    <!-- стара кнопка монітора прихована; використовується Monitor V2
     <a href="/monitor" id="monitorBtn" style="display:none;">📊 ESP32 Real-time Monitor</a>
+    -->
     <a href="/monitor2" id="monitor2Btn" style="display:none;">📈 ESP32 Monitor V2</a>
 
     <a href="/" id="homeBtn" style="display:none;">Do strony głównej</a>
@@ -48,7 +50,7 @@ async function checkAuth() {
         adminBtn.style.display = "none";
         managerBtn.style.display = "none";
         homeBtn.style.display = "none";
-        monitorBtn.style.display = "none";
+        if (monitorBtn) monitorBtn.style.display = "none";
         if (monitor2Btn) monitor2Btn.style.display = "none";
         return;
     }
@@ -58,8 +60,10 @@ async function checkAuth() {
     // ✔ залогінений
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";
-    monitorBtn.style.display = "inline";
-    if (monitor2Btn) monitor2Btn.style.display = "inline";
+    // менеджер прив'язаний до одного ESP при вході → навігація по моніторах йому не потрібна
+    const showMonitorLinks = user.role !== "manager";
+    if (monitorBtn) monitorBtn.style.display = showMonitorLinks ? "inline" : "none";
+    if (monitor2Btn) monitor2Btn.style.display = showMonitorLinks ? "inline" : "none";
 
     if (user.role === "admin") {
         if (isAdminPage) {

@@ -145,10 +145,15 @@ async def process_rfid(
             print("Employee devices query result:", result)
             user_devices = result.scalars().all()
 
-            ui_message = (
-                f"Pracownik {employee.wms_login} posiada. "
-                f"{', '.join([f'{d.type.value}: {d.name}' for d in user_devices])}. "
-            )
+            if user_devices:
+                ui_message = (
+                    f"Pracownik {employee.wms_login} posiada: "
+                    f"{', '.join(f'{d.type.value}: {d.name}' for d in user_devices)}."
+                )
+            else:
+                ui_message = (
+                    f"Pracownik {employee.wms_login} nie posiada żadnego sprzętu."
+                )
             print("ui message:", ui_message)
             ui_status = "info"
             if employee.expired:
