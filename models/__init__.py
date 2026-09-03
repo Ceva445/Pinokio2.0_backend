@@ -1,6 +1,7 @@
 # models/__init__.py
 from .db_device import DeviceDB
 from .db_device_status import DeviceStatusDB
+from .db_site import SiteDB
 from .db_port import DevicePortDB
 from .device_transaction import DeviceChangeTransaction
 from .db_employee import EmployeeDB

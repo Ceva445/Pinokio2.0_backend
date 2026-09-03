@@ -499,6 +499,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("deviceCreateForm");
     if (!form) return;
     loadDeviceStatuses("deviceStatusSelect");
+    loadSiteOptions("deviceSiteSelect");
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -556,7 +557,7 @@ async function loadDeviceDetail(deviceId) {
 
         form.name.value = d.name;
         form.type.value = d.type;
-        form.site.value = d.site;
+        await loadSiteOptions("deviceSiteSelect", d.site);
         form.serial_number.value = d.serial_number;
         form.rfid.value = d.rfid;
         form.ip.value = d.ip || "";
@@ -1104,6 +1105,30 @@ document.addEventListener("DOMContentLoaded", () => {
         input.addEventListener("change", () => loadTransactions(1));
     });
 });
+
+
+async function loadSiteOptions(selectId, selectedName = null) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    try {
+        const sites = await api("/admin/api/sites?only_enabled=true");
+
+        select.innerHTML = '<option value="">-- wybierz site --</option>';
+
+        for (const s of sites) {
+            const option = document.createElement("option");
+            option.value = s.name;
+            option.textContent = s.name;
+            if (selectedName && selectedName === s.name) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
 
 
 async function loadDeviceStatuses(selectId, selectedId = null) {

@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_device_status import DeviceStatusDB
+from models.db_site import SiteDB
 from models.device_transaction import DeviceChangeTransaction
 
 from services.google_sheets import sync_device_to_sheet
@@ -24,7 +25,7 @@ FIELD_LABELS = {
     "type": "device type",
     "status_id": "device status",
     "enabled": "device enabled",
-    "site": "device site",
+    "site_id": "device site",
     "ports": "device ports"
 }
 
@@ -67,6 +68,19 @@ async def build_change_descriptions(
 
             descriptions.append(
                 f"changed device status {old_status} to {new_status}"
+            )
+
+            continue
+
+        if field == "site_id":
+
+            old_site = await db.get(SiteDB, old_value) if old_value else None
+            new_site = await db.get(SiteDB, new_value) if new_value else None
+
+            descriptions.append(
+                f"changed device site "
+                f"{old_site.name if old_site else None} to "
+                f"{new_site.name if new_site else None}"
             )
 
             continue

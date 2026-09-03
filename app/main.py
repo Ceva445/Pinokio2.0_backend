@@ -19,6 +19,7 @@ import sys
 from routers.admin.api import router as admin_api_router
 from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.device_statuses import router as admin_device_statuses_router
+from routers.admin.api_sites import router as admin_sites_router
 from routers.admin.api_system_config import router as admin_system_config_router
 from routers.admin.api_firmware import router as admin_firmware_router
 from routers.admin.pages import router as admin_pages_router
@@ -455,6 +456,7 @@ app.include_router(firmware.router)
 app.include_router(admin_api_router)
 app.include_router(admin_firmware_router)
 app.include_router(admin_device_statuses_router)
+app.include_router(admin_sites_router)
 app.include_router(admin_users_api_router)
 app.include_router(admin_system_config_router)
 app.include_router(admin_pages_router)

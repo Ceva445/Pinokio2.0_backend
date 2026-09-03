@@ -1,0 +1,38 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>Site (magazyny)</h2>
+
+<div class="admin-form" style="margin-bottom:20px;">
+    <div class="form-group">
+        <label>Nazwa site</label>
+        <input id="siteName" placeholder="np. EMAG">
+    </div>
+
+    <div class="form-group">
+        <label>Opis</label>
+        <input id="siteDesc" placeholder="Opis site">
+    </div>
+
+    <button class="btn btn-primary" onclick="createSite()">
+        ➕ Dodaj site
+    </button>
+</div>
+
+<table id="siteTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nazwa</th>
+            <th>Opis</th>
+            <th>Aktywny</th>
+            <th>Urządzenia</th>
+            <th>Akcje</th>
+        </tr>
+    </thead>
+
+    <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', path='js/admin/sites.js') }}"></script>
+{% endblock %}

@@ -10,7 +10,8 @@ from sqlalchemy import func, select, or_, and_
 from db.session import get_db
 from app.dependencies.admin import require_admin, require_manager_or_admin
 from models.db_employee import EmployeeDB
-from models.db_device import DeviceDB, DeviceType, SiteType
+from models.db_device import DeviceDB, DeviceType
+from models.db_site import SiteDB
 from models.db_port import DevicePortDB
 from models.db_device_status import DeviceStatusDB
 from services.device_transactions import build_change_descriptions, create_device_transaction
@@ -513,6 +514,39 @@ async def create_temporary_employee(
 # DEVICES
 # ===============================
 
+async def resolve_site_id(db: AsyncSession, payload: dict) -> int | None:
+    """Визначити site_id з payload.
+
+    Приймає або site_id (число), або site (назва) — назву використовують
+    існуючі клієнти й скрипт синхронізації з Google Sheets, тому контракт
+    API лишається сумісним після переходу з enum на довідник.
+    """
+    if payload.get("site_id") not in (None, "", "null"):
+        try:
+            site_id = int(payload["site_id"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Nieprawidłowy site")
+        if not await db.get(SiteDB, site_id):
+            raise HTTPException(400, "Site nie znaleziony")
+        return site_id
+
+    name = payload.get("site")
+    if name in (None, ""):
+        return None
+
+    site = (await db.execute(
+        select(SiteDB).where(SiteDB.name == str(name).strip())
+    )).scalar_one_or_none()
+
+    if not site:
+        available = (await db.execute(select(SiteDB.name).order_by(SiteDB.name))).scalars().all()
+        raise HTTPException(
+            400,
+            f"Site musi być jeden z: {', '.join(available) or 'brak zdefiniowanych site'}"
+        )
+    return site.id
+
+
 @router.post("/devices")
 async def create_device(
     payload: dict = Body(...),
@@ -538,14 +572,8 @@ async def create_device(
                 detail="Typ urządzenia musi być 'scanner' lub 'printer'"
             )
         
-        # Validate site type
-        try:
-            site_type = SiteType(payload["site"])
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Site musi być jeden z: EMAG, STOCK, XD, KONTROLA, PRZYJECIA_445"
-            )
+        # Site з довідника (за назвою або site_id)
+        site_id = await resolve_site_id(db, payload)
         
         # Coerce status_id: empty string / null -> None; non-numeric -> clear 400
         raw_status = payload.get("status_id")
@@ -565,7 +593,7 @@ async def create_device(
             type=device_type,
             serial_number=payload["serial_number"].strip(),
             rfid=payload["rfid"].strip(),
-            site=site_type,
+            site_id=site_id,
             ip=(payload.get("ip") or "").strip() or None,
             enabled=bool(payload.get("enabled", True)),
             status_id=status_id
@@ -630,7 +658,8 @@ async def get_devices(
         .options(
             selectinload(DeviceDB.employee),
             selectinload(DeviceDB.ports),
-            selectinload(DeviceDB.status)
+            selectinload(DeviceDB.status),
+            selectinload(DeviceDB.site)
         )
     )
 
@@ -660,7 +689,8 @@ async def get_devices(
             "rfid": d.rfid,
             "serial_number": d.serial_number,
             "type": d.type.value,
-            "site": d.site.value,
+            "site": d.site.name if d.site else None,
+            "site_id": d.site_id,
             "ip": d.ip,
             "enabled": d.enabled,
 
@@ -693,7 +723,8 @@ async def get_device(
         .where(DeviceDB.id == device_id)
         .options(
             selectinload(DeviceDB.ports),
-            selectinload(DeviceDB.status)
+            selectinload(DeviceDB.status),
+            selectinload(DeviceDB.site)
         )
     )
     device = result.scalar_one_or_none()
@@ -707,7 +738,8 @@ async def get_device(
         "rfid": device.rfid,
         "serial_number": device.serial_number,
         "type": device.type.value,
-        "site": device.site.value,
+        "site": device.site.name if device.site else None,
+        "site_id": device.site_id,
         "ip": device.ip,
         "enabled": device.enabled,
         "status_id": device.status_id,
@@ -749,11 +781,16 @@ async def update_device(
             "serial_number",
             "rfid",
             "type",
-            "site",
+            "site_id",
             "ip",
             "enabled",
             "status_id"
         ]
+
+        # site приходить назвою (адмінка, синхронізація з Google Sheets) —
+        # переводимо в site_id, щоб далі працювала спільна логіка порівняння
+        if "site" in payload or "site_id" in payload:
+            payload["site_id"] = await resolve_site_id(db, payload)
 
         for field in editable_fields:
 
@@ -765,9 +802,6 @@ async def update_device(
             if field == "type":
                 new_value = DeviceType(new_value)
             
-            if field == "site":
-                new_value = SiteType(new_value)
-
             if field == "name" and new_value:
                 new_value = new_value.upper().strip()
 

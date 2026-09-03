@@ -237,6 +237,17 @@ async def system_config_page(
     )
 
 
+@router.get("/sites", response_class=HTMLResponse)
+async def sites_page(
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/sites/list.html",
+        {"request": request}
+    )
+
+
 @router.get("/device-statuses", response_class=HTMLResponse)
 async def device_statuses_page(
     request: Request,

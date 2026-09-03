@@ -7,13 +7,6 @@ class DeviceType(enum.Enum):
     scanner = "scanner"
     printer = "printer"
 
-class SiteType(enum.Enum):
-    EMAG = "EMAG"
-    XD = "XD"
-    STOCK = "STOCK"
-    KONTROLA = "KONTROLA"
-    PRZYJECIA_445 = "PRZYJECIA_445"
-
 class DeviceDB(Base):
     __tablename__ = "devices"
 
@@ -22,7 +15,9 @@ class DeviceDB(Base):
     rfid: Mapped[str] = mapped_column(String, unique=True, index=True)
     serial_number: Mapped[str] = mapped_column(String, unique=True)
     type: Mapped[DeviceType]
-    site: Mapped[SiteType] = mapped_column(Enum(SiteType, name="sitetype"), nullable=True)
+    site_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sites.id"), nullable=True
+    )
     enabled: Mapped[bool] = mapped_column(default=True)
     ip: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
 
@@ -52,3 +47,4 @@ class DeviceDB(Base):
     )
 
     status = relationship("DeviceStatusDB")
+    site = relationship("SiteDB", back_populates="devices")
