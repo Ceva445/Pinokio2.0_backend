@@ -37,6 +37,10 @@ class SystemConfigDB(Base):
     email_send_times_saturday: Mapped[str] = mapped_column(String, default="09:00,15:00")
     email_send_times_sunday: Mapped[str] = mapped_column(String, default="09:00,15:00")
 
+    # Авто-вилогування менеджера при бездіяльності на його ESP (у хвилинах).
+    # 0 = вимкнено. Бездіяльність = на пристрої ніхто нічого не сканує.
+    manager_idle_logout_minutes: Mapped[int] = mapped_column(Integer, default=15)
+
     def to_dict(self):
         """Конвертувати в словник"""
         return {
@@ -54,4 +58,5 @@ class SystemConfigDB(Base):
             "email_send_times": self.email_send_times,
             "email_send_times_saturday": self.email_send_times_saturday,
             "email_send_times_sunday": self.email_send_times_sunday,
+            "manager_idle_logout_minutes": self.manager_idle_logout_minutes,
         }

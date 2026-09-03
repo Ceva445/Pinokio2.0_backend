@@ -46,6 +46,9 @@ revoked_tokens: set[str] = set()     # токени, «виловлені» на
 # скасовуємо. Реально розлогінюємо тільки якщо вкладку закрили назовсім.
 LOGOUT_GRACE_SECONDS = 15
 pending_logouts: dict[str, object] = {}   # token → asyncio.Task відкладеного логауту
+# Остання активність (скан) на ESP — для авто-вилогування менеджера при простої.
+# Час у хвилинах налаштовується в адмінці (manager_idle_logout_minutes, 0 = вимкнено).
+esp_last_activity: dict[str, "datetime"] = {}   # device_id → datetime (aware, UTC)
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -90,10 +93,11 @@ async def lifespan(app: FastAPI):
     registration_cleanup_task = asyncio.create_task(cleanup_registration_sessions())
     employee_expiration_task = asyncio.create_task(do_employee_expired_if_needed())
     email_scheduler_task = asyncio.create_task(email_notification_scheduler())
+    idle_logout_task = asyncio.create_task(manager_idle_logout_watchdog())
 
     yield
 
-    _bg_tasks = [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task, email_scheduler_task]
+    _bg_tasks = [cleanup_task, auth_cleanup_task, registration_cleanup_task, employee_expiration_task, email_scheduler_task, idle_logout_task]
     for task in _bg_tasks:
         task.cancel()
 
@@ -288,6 +292,7 @@ def bind_esp(device_id: str, user: dict, token: str):
         "token": token,
     }
     esp_allowed_users.setdefault(device_id, set()).add(user["id"])
+    touch_esp_activity(device_id)      # відлік простою стартує з моменту входу
 
 
 def release_esp_for_token(token: str) -> str | None:
@@ -295,6 +300,7 @@ def release_esp_for_token(token: str) -> str | None:
     for device_id, w in list(esp_watchers.items()):
         if w.get("token") == token:
             esp_watchers.pop(device_id, None)
+            esp_last_activity.pop(device_id, None)
             uid = w.get("user_id")
             if uid is not None and device_id in esp_allowed_users:
                 esp_allowed_users[device_id].discard(uid)
@@ -306,6 +312,84 @@ def release_esp_for_token(token: str) -> str | None:
 
 def esp_watcher_of(device_id: str) -> dict | None:
     return esp_watchers.get(device_id)
+
+
+def touch_esp_activity(device_id: str):
+    """Зафіксувати активність (скан) на ESP — скидає таймер простою."""
+    from datetime import datetime, timezone
+    esp_last_activity[device_id] = datetime.now(timezone.utc)
+
+
+async def force_logout_watcher(device_id: str, reason: str = "idle"):
+    """Вилогувати менеджера, привʼязаного до ESP: повідомити вкладку і згасити токен."""
+    watcher = esp_watchers.get(device_id)
+    if not watcher:
+        return None
+
+    token = watcher.get("token")
+    username = watcher.get("username")
+
+    # повідомити вкладку менеджера, щоб вона показала причину і пішла на /login
+    for ws, _sub in list(manager.connections.items()):
+        if getattr(ws, "token", None) == token:
+            try:
+                await ws.send_json({"type": "force_logout", "reason": reason})
+            except Exception:
+                pass
+            try:
+                await ws.close()
+            except Exception:
+                pass
+
+    release_esp_for_token(token)
+    if token:
+        revoked_tokens.add(token)
+        from managers.auth_manager import auth_manager
+        auth_manager.remove_session(token)
+        # відкладений логаут більше не потрібен
+        task = pending_logouts.pop(token, None)
+        if task is not None:
+            task.cancel()
+
+    await manager.broadcast_device_list()
+    logger.info("Manager %s logged out from %s (%s)", username, device_id, reason)
+    return username
+
+
+async def manager_idle_logout_watchdog():
+    """Вилоговує менеджера, якщо на його ESP давно нічого не сканували.
+
+    Час простою задає адмін у панелі (manager_idle_logout_minutes).
+    0 або відʼємне значення — функція вимкнена.
+    """
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from db.session import engine
+
+    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    logger.info("Manager idle-logout watchdog started")
+
+    while True:
+        try:
+            if esp_watchers:
+                async with async_session_factory() as db:
+                    config = await config_manager.get_config(db)
+                minutes = int(config.get("manager_idle_logout_minutes", 15) or 0)
+
+                if minutes > 0:
+                    deadline = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+                    for device_id in list(esp_watchers.keys()):
+                        last = esp_last_activity.get(device_id)
+                        if last is None:
+                            touch_esp_activity(device_id)
+                            continue
+                        if last < deadline:
+                            await force_logout_watcher(device_id, reason="idle")
+
+            await asyncio.sleep(20)
+        except Exception as exc:
+            logger.error("Error in manager idle-logout watchdog: %s", exc)
+            await asyncio.sleep(30)
 
 
 # ===============================

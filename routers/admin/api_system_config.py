@@ -28,6 +28,7 @@ class ConfigUpdateRequest(BaseModel):
     email_send_times: Optional[str] = None
     email_send_times_saturday: Optional[str] = None
     email_send_times_sunday: Optional[str] = None
+    manager_idle_logout_minutes: Optional[int] = None
 
     class Config:
         json_schema_extra = {

@@ -2,6 +2,7 @@
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
 let ws;
 let wsHeartbeat = null;
+let wsClosedByServer = false;   // сервер вилогував → не перепідключатись
 
 let devicesCache = {};
 let activeDevice = null;
@@ -36,6 +37,15 @@ const lastActions = [];
 /* === WebSocket onmessage === */
 function onWsMessage(e) {
     const msg = JSON.parse(e.data);
+
+    // сервер вилогував менеджера (простій на ESP) → на сторінку входу з причиною
+    if (msg.type === "force_logout") {
+        wsClosedByServer = true;
+        clearInterval(wsHeartbeat);
+        try { ws.close(); } catch (err) {}
+        location.href = "/login?reason=" + encodeURIComponent(msg.reason || "idle");
+        return;
+    }
 
     if (msg.type === "device_list") {
         devicesCache = msg.data.devices;
@@ -90,6 +100,7 @@ function connectWs() {
     ws.onclose = () => {
         console.warn("WebSocket disconnected — reconnecting in 2s...");
         clearInterval(wsHeartbeat);
+        if (wsClosedByServer) return;
         setTimeout(connectWs, 2000);
     };
 

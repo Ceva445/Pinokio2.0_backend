@@ -120,6 +120,7 @@ class ConfigManager:
             "email_send_times": "09:00,15:00",
             "email_send_times_saturday": "09:00,15:00",
             "email_send_times_sunday": "09:00,15:00",
+            "manager_idle_logout_minutes": 15,
         }
     
     def invalidate_cache(self):

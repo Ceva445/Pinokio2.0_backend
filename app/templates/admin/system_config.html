@@ -140,6 +140,26 @@
             </fieldset>
 
             <fieldset class="config-fieldset">
+                <legend>⏱️ Automatyczne wylogowanie managera</legend>
+
+                <div class="form-group">
+                    <label for="managerIdleLogoutMinutes">Bezczynność na urządzeniu (minuty)</label>
+                    <input
+                        type="number"
+                        id="managerIdleLogoutMinutes"
+                        name="manager_idle_logout_minutes"
+                        min="0"
+                        max="480"
+                        class="config-input"
+                    >
+                    <small>
+                        Jeśli przez ten czas nikt nic nie zeskanuje na urządzeniu managera,
+                        zostanie on automatycznie wylogowany (domyślnie 15 minut). 0 = wyłączone.
+                    </small>
+                </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
                 <legend>📧 Powiadomienia email (zwrot urządzeń)</legend>
 
                 <div class="form-group checkbox-group">

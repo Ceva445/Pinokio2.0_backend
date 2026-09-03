@@ -313,3 +313,26 @@ async def test_T5_3_no_watcher_leaves_manager_null(
 
     tx = await _last_tx(db_session, TransactionType.registered)
     assert tx.manager_id is None
+
+
+# ===========================================================================
+# ГРУПА 6 — активність на ESP (таймер авто-вилогування менеджера)
+# ===========================================================================
+async def test_T6_1_scan_marks_activity(db_session, devices, manager, reg_manager, set_can_register, monkeypatch):
+    """Скан картки фіксує активність на ESP (скидає таймер простою)."""
+    import app.main as mainmod
+    set_can_register(False)
+    monkeypatch.setattr(mainmod, "esp_last_activity", {})
+
+    await process_rfid("dev-a", {"rfid": "WHATEVER"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert "dev-a" in mainmod.esp_last_activity
+
+
+async def test_T6_2_keepalive_payload_is_not_activity(db_session, devices, manager, reg_manager, set_can_register, monkeypatch):
+    """Порожній payload (конект ESP / keepalive) активністю не рахується."""
+    import app.main as mainmod
+    set_can_register(False)
+    monkeypatch.setattr(mainmod, "esp_last_activity", {})
+
+    await process_rfid("dev-b", {}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert "dev-b" not in mainmod.esp_last_activity

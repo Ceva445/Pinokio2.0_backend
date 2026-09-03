@@ -41,6 +41,17 @@ class DeviceManager:
             device = self.devices[device_id]
             
         device.update_data(data)
+
+        # Скан = активність на ESP: скидає таймер авто-вилогування менеджера.
+        # Ловимо тут, бо це спільна точка для обох шляхів (/data і /data2 + WS),
+        # і тільки для реальних сканів — keepalive та порожній {} не рахуються.
+        if isinstance(data, dict) and data.get("rfid"):
+            try:
+                from app.main import touch_esp_activity
+                touch_esp_activity(device_id)
+            except Exception:
+                pass
+
         return device
     
     def get_device(self, device_id: str) -> Optional[Device]:

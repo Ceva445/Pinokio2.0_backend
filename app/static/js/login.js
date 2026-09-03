@@ -1,3 +1,15 @@
+// Причина вилогування з ?reason= (напр. авто-вилогування за простій)
+(function showLogoutNotice() {
+    const el = document.getElementById("loginNotice");
+    if (!el) return;
+    const reason = new URLSearchParams(location.search).get("reason");
+    if (!reason) return;
+    el.textContent = reason === "idle"
+        ? "Zostałeś wylogowany z powodu bezczynności."
+        : "Zostałeś wylogowany.";
+    el.style.display = "block";
+})();
+
 // Заповнити список ESP (тільки онлайн); зайняті — disabled з іменем того, хто слідкує
 async function loadEsps() {
     const sel = document.getElementById("deviceSelect");
