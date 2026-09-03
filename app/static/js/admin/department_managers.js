@@ -1,3 +1,37 @@
+let dmSitesCache = null;
+
+async function getSitesForManagers() {
+    if (!dmSitesCache) {
+        dmSitesCache = await api("/admin/api/sites");
+    }
+    return dmSitesCache;
+}
+
+async function loadManagerSiteOptions(selectId, selectedId = null) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    try {
+        const sites = await getSitesForManagers();
+
+        select.innerHTML = '<option value="">-- brak site --</option>';
+
+        for (const s of sites) {
+            if (!s.enabled && Number(selectedId) !== Number(s.id)) continue;
+            const option = document.createElement("option");
+            option.value = s.id;
+            option.textContent = s.name;
+            if (selectedId !== null && Number(selectedId) === Number(s.id)) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+
 async function loadDepartmentManagers() {
     const tbody = document.querySelector("#managersTable tbody");
     const q = document.getElementById("search")?.value ?? "";
@@ -11,6 +45,7 @@ async function loadDepartmentManagers() {
             : "/admin/api/department-managers";
 
         const managers = await api(url);
+        const siteNames = new Map((await getSitesForManagers()).map(s => [s.id, s.name]));
         tbody.innerHTML = "";
 
         for (const m of managers) {
@@ -18,6 +53,7 @@ async function loadDepartmentManagers() {
             tr.innerHTML = `
                 <td>${m.department}</td>
                 <td>${m.email}</td>
+                <td>${siteNames.get(m.site_id) ?? ""}</td>
                 <td><a href="/admin/department-managers/${m.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
@@ -43,13 +79,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const createForm = document.getElementById("managerCreateForm");
     if (createForm) {
+        loadManagerSiteOptions("managerSiteSelect");
         createForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             await api("/admin/api/department-managers", {
                 method: "POST",
                 body: JSON.stringify({
                     department: createForm.department.value,
-                    email: createForm.email.value
+                    email: createForm.email.value,
+                    site_id: createForm.site_id.value ? parseInt(createForm.site_id.value) : null
                 })
             });
             alert("Manager stworzono ✅");
@@ -67,7 +105,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "PUT",
                 body: JSON.stringify({
                     department: detailForm.department.value,
-                    email: detailForm.email.value
+                    email: detailForm.email.value,
+                    site_id: detailForm.site_id.value ? parseInt(detailForm.site_id.value) : null
                 })
             });
             alert("Zapisano ✅");
@@ -89,6 +128,7 @@ async function loadManagerDetail(id) {
     const m = await api(`/admin/api/department-managers/${id}`);
     form.department.value = m.department;
     form.email.value = m.email;
+    await loadManagerSiteOptions("managerSiteSelect", m.site_id ?? null);
 }
 
 // Утиліта fetch

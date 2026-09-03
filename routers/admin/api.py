@@ -1088,7 +1088,8 @@ async def create_department_manager(
         
         manager = DepartmentManagerDB(
             department=payload["department"].strip(),
-            email=payload["email"].strip()
+            email=payload["email"].strip(),
+            site_id=await resolve_site_id(db, payload)
         )
         db.add(manager)
         await db.commit()
@@ -1151,7 +1152,11 @@ async def update_department_manager(
         if not manager:
             raise HTTPException(status_code=404, detail="Kierownik departamentu nie znaleziony")
         
-        for field in ["department", "email"]:
+        # site може прийти назвою або site_id
+        if "site" in payload or "site_id" in payload:
+            payload["site_id"] = await resolve_site_id(db, payload)
+
+        for field in ["department", "email", "site_id"]:
             if field in payload:
                 value = payload[field]
                 if isinstance(value, str):
