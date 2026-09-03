@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 
-from app.dependencies.admin import require_admin
+from app.dependencies.admin import require_admin, require_manager_or_admin
 from db.session import get_db
 from models.db_site import SiteDB
 from models.db_device import DeviceDB
@@ -36,9 +36,14 @@ def _serialize(site: SiteDB, devices_count: int | None = None) -> dict:
 async def list_sites(
     only_enabled: bool = False,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_admin),
+    user=Depends(require_manager_or_admin),
 ):
-    """Список майданчиків із кількістю привʼязаних пристроїв."""
+    """Список майданчиків із кількістю привʼязаних пристроїв.
+
+    Читання доступне і менеджеру — форма тимчасового працівника
+    (/manager/temporary-employees/create) теж показує вибір site.
+    Створення, зміна й видалення лишаються тільки для адміна.
+    """
     stmt = (
         select(SiteDB, func.count(DeviceDB.id))
         .outerjoin(DeviceDB, DeviceDB.site_id == SiteDB.id)

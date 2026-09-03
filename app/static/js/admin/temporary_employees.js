@@ -155,11 +155,34 @@ async function loadGuests() {
 }
 
 /* ================================
+   LOAD SITES
+================================ */
+async function loadSitesForTemporary() {
+    const select = document.getElementById("temporaryEmployeeSiteSelect");
+    if (!select) return;
+
+    try {
+        const sites = await api("/admin/api/sites");
+
+        for (const s of sites) {
+            if (!s.enabled) continue;
+            const option = document.createElement("option");
+            option.value = s.id;
+            option.textContent = s.name;
+            select.appendChild(option);
+        }
+    } catch (err) {
+        console.error("Error loading sites:", err);
+    }
+}
+
+/* ================================
    FORM INITIALIZATION
 ================================ */
 document.addEventListener("DOMContentLoaded", () => {
     // Load guests when page loads
     loadGuests();
+    loadSitesForTemporary();
 
     const form = document.getElementById("temporaryEmployeeCreateForm");
     if (!form) return;
@@ -201,7 +224,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     first_name: form.first_name.value,
                     last_name: form.last_name.value,
                     company: form.company.value,
-                    department: form.department.value || null
+                    department: form.department.value || null,
+                    site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
             });
 

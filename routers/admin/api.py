@@ -504,7 +504,8 @@ async def create_temporary_employee(
             company=payload["company"].strip(),
             rfid=guest.rfid,
             wms_login=payload.get("wms_login", "").strip(),
-            department=payload.get("department", "").strip()
+            department=payload.get("department", "").strip(),
+            site_id=await resolve_site_id(db, payload)
         )
         
         # Mark guest as used
