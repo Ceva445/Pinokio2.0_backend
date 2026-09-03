@@ -7,23 +7,40 @@ async function getSitesForManagers() {
     return dmSitesCache;
 }
 
-async function loadManagerSiteOptions(selectId, selectedId = null) {
+/**
+ * Dział = site. Lista pochodzi ze słownika sites plus wartość specjalna ALL
+ * (zbiorczy email). Wartość zapisywana pozostaje tekstem, więc logika
+ * dopasowania działów i ALL w mailach działa bez zmian.
+ *
+ * currentValue, którego nie ma w słowniku (np. historyczne ECOM), jest
+ * dodawany jako opcja — inaczej zapis po cichu zmieniłby przypisanie.
+ */
+async function loadDepartmentOptions(selectId, currentValue = null) {
     const select = document.getElementById(selectId);
     if (!select) return;
 
     try {
         const sites = await getSitesForManagers();
+        const names = sites.filter(s => s.enabled).map(s => s.name);
 
-        select.innerHTML = '<option value="">-- brak site --</option>';
+        if (currentValue && currentValue.toUpperCase() !== "ALL" && !names.includes(currentValue)) {
+            names.push(currentValue);
+        }
+        names.sort();
 
-        for (const s of sites) {
-            if (!s.enabled && Number(selectedId) !== Number(s.id)) continue;
+        select.innerHTML = '<option value="">-- wybierz --</option>';
+
+        const allOption = document.createElement("option");
+        allOption.value = "ALL";
+        allOption.textContent = "ALL (zbiorczy email)";
+        if (currentValue && currentValue.toUpperCase() === "ALL") allOption.selected = true;
+        select.appendChild(allOption);
+
+        for (const name of names) {
             const option = document.createElement("option");
-            option.value = s.id;
-            option.textContent = s.name;
-            if (selectedId !== null && Number(selectedId) === Number(s.id)) {
-                option.selected = true;
-            }
+            option.value = name;
+            option.textContent = name;
+            if (currentValue === name) option.selected = true;
             select.appendChild(option);
         }
     } catch (err) {
@@ -45,7 +62,6 @@ async function loadDepartmentManagers() {
             : "/admin/api/department-managers";
 
         const managers = await api(url);
-        const siteNames = new Map((await getSitesForManagers()).map(s => [s.id, s.name]));
         tbody.innerHTML = "";
 
         for (const m of managers) {
@@ -53,7 +69,6 @@ async function loadDepartmentManagers() {
             tr.innerHTML = `
                 <td>${m.department}</td>
                 <td>${m.email}</td>
-                <td>${siteNames.get(m.site_id) ?? ""}</td>
                 <td><a href="/admin/department-managers/${m.id}">✏️</a></td>
             `;
             tbody.appendChild(tr);
@@ -79,15 +94,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const createForm = document.getElementById("managerCreateForm");
     if (createForm) {
-        loadManagerSiteOptions("managerSiteSelect");
+        loadDepartmentOptions("managerDepartmentSelect");
         createForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             await api("/admin/api/department-managers", {
                 method: "POST",
                 body: JSON.stringify({
                     department: createForm.department.value,
-                    email: createForm.email.value,
-                    site_id: createForm.site_id.value ? parseInt(createForm.site_id.value) : null
+                    email: createForm.email.value
                 })
             });
             alert("Manager stworzono ✅");
@@ -105,8 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "PUT",
                 body: JSON.stringify({
                     department: detailForm.department.value,
-                    email: detailForm.email.value,
-                    site_id: detailForm.site_id.value ? parseInt(detailForm.site_id.value) : null
+                    email: detailForm.email.value
                 })
             });
             alert("Zapisano ✅");
@@ -126,9 +139,8 @@ async function loadManagerDetail(id) {
     if (!form) return;
 
     const m = await api(`/admin/api/department-managers/${id}`);
-    form.department.value = m.department;
+    await loadDepartmentOptions("managerDepartmentSelect", m.department ?? null);
     form.email.value = m.email;
-    await loadManagerSiteOptions("managerSiteSelect", m.site_id ?? null);
 }
 
 // Утиліта fetch

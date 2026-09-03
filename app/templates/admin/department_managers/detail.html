@@ -5,20 +5,15 @@
 
 <form id="managerForm" class="admin-form">
     <div class="form-group">
-        <label>Dział *</label>
-        <input type="text" name="department" required>
+        <label>Dział / Site * <small>(ALL = zbiorczy email ze wszystkich działów)</small></label>
+        <select name="department" id="managerDepartmentSelect" required>
+            <option value="">-- wybierz --</option>
+        </select>
     </div>
 
     <div class="form-group">
         <label>Email *</label>
         <input type="email" name="email" required>
-    </div>
-
-    <div class="form-group">
-        <label>Site</label>
-        <select name="site_id" id="managerSiteSelect">
-            <option value="">-- brak site --</option>
-        </select>
     </div>
 
     <div class="form-actions">

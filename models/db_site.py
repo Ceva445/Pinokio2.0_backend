@@ -20,4 +20,3 @@ class SiteDB(Base):
 
     devices = relationship("DeviceDB", back_populates="site")
     employees = relationship("EmployeeDB", back_populates="site")
-    department_managers = relationship("DepartmentManagerDB", back_populates="site")

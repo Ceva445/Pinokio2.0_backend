@@ -13,7 +13,6 @@ from db.session import get_db
 from models.db_site import SiteDB
 from models.db_device import DeviceDB
 from models.db_employee import EmployeeDB
-from models.db_department_manager import DepartmentManagerDB
 
 router = APIRouter(
     prefix="/admin/api/sites",
@@ -135,18 +134,12 @@ async def delete_site(
     employees_used = (await db.execute(
         select(func.count(EmployeeDB.id)).where(EmployeeDB.site_id == site_id)
     )).scalar_one()
-    managers_used = (await db.execute(
-        select(func.count(DepartmentManagerDB.id)).where(DepartmentManagerDB.site_id == site_id)
-    )).scalar_one()
-
-    if devices_used or employees_used or managers_used:
+    if devices_used or employees_used:
         parts = []
         if devices_used:
             parts.append(f"{devices_used} urządzeń")
         if employees_used:
             parts.append(f"{employees_used} pracowników")
-        if managers_used:
-            parts.append(f"{managers_used} managerów działu")
         raise HTTPException(
             400,
             f"Nie można usunąć: site '{site.name}' jest przypisany do "
