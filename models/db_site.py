@@ -19,3 +19,4 @@ class SiteDB(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     devices = relationship("DeviceDB", back_populates="site")
+    employees = relationship("EmployeeDB", back_populates="site")

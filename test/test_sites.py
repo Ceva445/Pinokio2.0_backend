@@ -86,3 +86,48 @@ async def test_device_out_serializes_site_name(db_session):
     )).scalar_one()
 
     assert DeviceOut.model_validate(device).site == "KONTROLA"
+
+
+async def test_employee_site_relationship(db_session):
+    """Працівник привʼязується до site, перейменування site видно на ньому."""
+    from models.db_employee import EmployeeDB
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    site = await _make_site(db_session, "EMAG_EMP")
+    db_session.add(EmployeeDB(
+        last_name="Kowalski", first_name="Jan", rfid="EMP-RF-1",
+        company="ACME", wms_login="jkow", department="WMS", site_id=site.id,
+    ))
+    await db_session.commit()
+
+    site.name = "EMAG_EMP_2"
+    await db_session.commit()
+
+    emp = (await db_session.execute(
+        select(EmployeeDB).options(selectinload(EmployeeDB.site))
+        .where(EmployeeDB.wms_login == "jkow")
+    )).scalar_one()
+    assert emp.site.name == "EMAG_EMP_2"
+
+
+async def test_site_lists_its_employees(db_session):
+    """Зворотний звʼязок site → employees працює."""
+    from models.db_employee import EmployeeDB
+    from models.db_site import SiteDB
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    site = await _make_site(db_session, "STOCK_EMP")
+    for i in (1, 2):
+        db_session.add(EmployeeDB(
+            last_name=f"N{i}", first_name=f"F{i}", rfid=f"EMP-RF-{i}0",
+            company="ACME", wms_login=f"log{i}", site_id=site.id,
+        ))
+    await db_session.commit()
+
+    loaded = (await db_session.execute(
+        select(SiteDB).options(selectinload(SiteDB.employees))
+        .where(SiteDB.id == site.id)
+    )).scalar_one()
+    assert len(loaded.employees) == 2

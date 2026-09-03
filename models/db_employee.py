@@ -1,3 +1,4 @@
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
 
@@ -12,6 +13,10 @@ class EmployeeDB(Base):
     wms_login: Mapped[str] = mapped_column(unique=True, index=True, nullable=True)
     department: Mapped[str] = mapped_column(nullable=True, index=True)
     expired: Mapped[bool] = mapped_column(default=False)
+    # Майданчик, до якого приписаний працівник (довідник sites)
+    site_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sites.id"), nullable=True
+    )
 
     devices = relationship(
         "DeviceDB",
@@ -22,3 +27,4 @@ class EmployeeDB(Base):
         "TransactionDB",
         back_populates="employee"
     )
+    site = relationship("SiteDB", back_populates="employees")

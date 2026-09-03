@@ -28,6 +28,39 @@ router = APIRouter(
 # CREATE
 # ===============================
 
+async def resolve_site_id(db: AsyncSession, payload: dict) -> int | None:
+    """Визначити site_id з payload.
+
+    Приймає або site_id (число), або site (назва) — назву використовують
+    існуючі клієнти й скрипт синхронізації з Google Sheets, тому контракт
+    API лишається сумісним після переходу з enum на довідник.
+    """
+    if payload.get("site_id") not in (None, "", "null"):
+        try:
+            site_id = int(payload["site_id"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Nieprawidłowy site")
+        if not await db.get(SiteDB, site_id):
+            raise HTTPException(400, "Site nie znaleziony")
+        return site_id
+
+    name = payload.get("site")
+    if name in (None, ""):
+        return None
+
+    site = (await db.execute(
+        select(SiteDB).where(SiteDB.name == str(name).strip())
+    )).scalar_one_or_none()
+
+    if not site:
+        available = (await db.execute(select(SiteDB.name).order_by(SiteDB.name))).scalars().all()
+        raise HTTPException(
+            400,
+            f"Site musi być jeden z: {', '.join(available) or 'brak zdefiniowanych site'}"
+        )
+    return site.id
+
+
 @router.post("/employees")
 async def create_employee(
     payload: dict = Body(...),
@@ -50,7 +83,8 @@ async def create_employee(
             company=payload["company"].strip(),
             rfid=payload["rfid"].strip(),
             wms_login=payload.get("wms_login", "").strip(),
-            department=payload.get("department", "").strip()
+            department=payload.get("department", "").strip(),
+            site_id=await resolve_site_id(db, payload)
         )
 
         db.add(employee)
@@ -150,8 +184,12 @@ async def update_employee(
         if not employee:
             raise HTTPException(status_code=404, detail="Pracownik nie znaleziony")
 
+        # site може прийти назвою або site_id — зводимо до site_id
+        if "site" in payload or "site_id" in payload:
+            payload["site_id"] = await resolve_site_id(db, payload)
+
         do_unexpire = False
-        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department", "expired"]:
+        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department", "expired", "site_id"]:
             if field in payload:
                 value = payload[field]
 
@@ -513,39 +551,6 @@ async def create_temporary_employee(
 # ===============================
 # DEVICES
 # ===============================
-
-async def resolve_site_id(db: AsyncSession, payload: dict) -> int | None:
-    """Визначити site_id з payload.
-
-    Приймає або site_id (число), або site (назва) — назву використовують
-    існуючі клієнти й скрипт синхронізації з Google Sheets, тому контракт
-    API лишається сумісним після переходу з enum на довідник.
-    """
-    if payload.get("site_id") not in (None, "", "null"):
-        try:
-            site_id = int(payload["site_id"])
-        except (TypeError, ValueError):
-            raise HTTPException(400, "Nieprawidłowy site")
-        if not await db.get(SiteDB, site_id):
-            raise HTTPException(400, "Site nie znaleziony")
-        return site_id
-
-    name = payload.get("site")
-    if name in (None, ""):
-        return None
-
-    site = (await db.execute(
-        select(SiteDB).where(SiteDB.name == str(name).strip())
-    )).scalar_one_or_none()
-
-    if not site:
-        available = (await db.execute(select(SiteDB.name).order_by(SiteDB.name))).scalars().all()
-        raise HTTPException(
-            400,
-            f"Site musi być jeden z: {', '.join(available) or 'brak zdefiniowanych site'}"
-        )
-    return site.id
-
 
 @router.post("/devices")
 async def create_device(

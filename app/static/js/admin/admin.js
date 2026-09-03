@@ -240,6 +240,7 @@ async function loadEmployees() {
             : "/admin/api/employees";
 
         const employees = await api(url);
+        const siteNames = new Map((await getSites()).map(s => [s.id, s.name]));
         tbody.innerHTML = "";
 
         for (const e of employees) {
@@ -251,6 +252,7 @@ async function loadEmployees() {
                 <td>${e.company}</td>
                 <td>${e.rfid}</td>
                 <td>${e.department ?? ""}</td>
+                <td>${siteNames.get(e.site_id) ?? ""}</td>
                 <td>${e.expired ? "✅" : ""}</td>
                 <td><a href="/admin/employees/${e.id}">✏️</a></td>
             `;
@@ -279,6 +281,7 @@ async function loadEmployeeDetail(employeeId) {
         form.rfid.value = employee.rfid ?? "";
         form.department.value = employee.department ?? "";
         form.expired.checked = employee.expired ?? false;
+        await loadSiteOptionsById("employeeSiteSelect", employee.site_id ?? null);
     } catch (err) {
         showError("Nie udało się załadować pracownika: " + err.message);
     }
@@ -296,7 +299,8 @@ async function loadEmployeeDetail(employeeId) {
                     company: form.company.value,
                     rfid: form.rfid.value,
                     department: form.department.value || null,
-                    expired: form.expired.checked
+                    expired: form.expired.checked,
+                    site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
             });
 
@@ -331,6 +335,7 @@ async function deleteEmployee(employeeId) {
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("employeeCreateForm");
     if (!form) return;
+    loadSiteOptionsById("employeeSiteSelect");
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -344,7 +349,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     last_name: form.last_name.value,
                     company: form.company.value,
                     rfid: form.rfid.value,
-                    department: form.department.value || null
+                    department: form.department.value || null,
+                    site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
             });
 
@@ -1105,6 +1111,42 @@ document.addEventListener("DOMContentLoaded", () => {
         input.addEventListener("change", () => loadTransactions(1));
     });
 });
+
+
+let sitesCache = null;
+
+async function getSites() {
+    if (!sitesCache) {
+        sitesCache = await api("/admin/api/sites");
+    }
+    return sitesCache;
+}
+
+// Селект site, де значенням є ID (працівники) — на відміну від пристроїв,
+// які історично шлють назву site.
+async function loadSiteOptionsById(selectId, selectedId = null) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    try {
+        const sites = await getSites();
+
+        select.innerHTML = '<option value="">-- brak site --</option>';
+
+        for (const s of sites) {
+            if (!s.enabled && Number(selectedId) !== Number(s.id)) continue;
+            const option = document.createElement("option");
+            option.value = s.id;
+            option.textContent = s.name;
+            if (selectedId !== null && Number(selectedId) === Number(s.id)) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
 
 
 async function loadSiteOptions(selectId, selectedName = null) {

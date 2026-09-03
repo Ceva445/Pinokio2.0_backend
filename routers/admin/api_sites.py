@@ -12,6 +12,7 @@ from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_site import SiteDB
 from models.db_device import DeviceDB
+from models.db_employee import EmployeeDB
 
 router = APIRouter(
     prefix="/admin/api/sites",
@@ -120,17 +121,25 @@ async def delete_site(
     if not site:
         raise HTTPException(404, "Site nie znaleziony")
 
-    # Не даємо видалити майданчик, до якого привʼязані пристрої —
-    # інакше вони б мовчки лишились без site.
-    used = (await db.execute(
+    # Не даємо видалити майданчик, до якого щось привʼязане — інакше
+    # FK віддав би 500 замість зрозумілого повідомлення.
+    devices_used = (await db.execute(
         select(func.count(DeviceDB.id)).where(DeviceDB.site_id == site_id)
     )).scalar_one()
+    employees_used = (await db.execute(
+        select(func.count(EmployeeDB.id)).where(EmployeeDB.site_id == site_id)
+    )).scalar_one()
 
-    if used:
+    if devices_used or employees_used:
+        parts = []
+        if devices_used:
+            parts.append(f"{devices_used} urządzeń")
+        if employees_used:
+            parts.append(f"{employees_used} pracowników")
         raise HTTPException(
             400,
-            f"Nie można usunąć: site '{site.name}' jest przypisany do {used} urządzeń. "
-            f"Zmień ich site lub wyłącz ten site."
+            f"Nie można usunąć: site '{site.name}' jest przypisany do "
+            f"{' i '.join(parts)}. Zmień przypisanie lub wyłącz ten site."
         )
 
     await db.delete(site)
