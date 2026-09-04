@@ -57,6 +57,13 @@ async function checkAuth() {
 
     const user = await res.json();
 
+    // Wymuszona zmiana hasła: dopóki flaga jest ustawiona, użytkownik
+    // trafia na ekran zmiany hasła z każdej innej strony.
+    if (user.must_change_password && !location.pathname.startsWith("/change-password")) {
+        location.href = "/change-password";
+        return;
+    }
+
     // ✔ залогінений
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";

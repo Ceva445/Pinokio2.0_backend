@@ -44,7 +44,13 @@ document.getElementById("loginForm").onsubmit = async e => {
     });
 
     if (res.ok) {
-        location.href = "/";
+        // Pierwsze logowanie: admin ustawił flagę → najpierw własne hasło
+        try {
+            const me = await (await fetch("/auth/me", { credentials: "include" })).json();
+            location.href = me.must_change_password ? "/change-password" : "/";
+        } catch (e) {
+            location.href = "/";
+        }
         return;
     }
 

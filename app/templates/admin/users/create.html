@@ -3,18 +3,50 @@
 
 <h2>Tworzenie użytkownika</h2>
 
-<form id="userCreateForm">
-    <input name="username" placeholder="Login" required>
-    <input name="first_name" placeholder="Imię" required>
-    <input name="last_name" placeholder="Nazwisko" required>
-    <input name="password" type="password" placeholder="Hasło" required>
+<form id="userCreateForm" class="admin-form">
+    <div class="form-group">
+        <label>Login *</label>
+        <input name="username" placeholder="np. jkowalski" required>
+    </div>
 
-    <select name="role">
-        <option value="manager">Manager</option>
-        <option value="admin">Admin</option>
-    </select>
+    <div class="form-group">
+        <label>Imię *</label>
+        <input name="first_name" required>
+    </div>
 
-    <button type="submit">Dodaj</button>
+    <div class="form-group">
+        <label>Nazwisko *</label>
+        <input name="last_name" required>
+    </div>
+
+    <div class="form-group">
+        <label>Hasło startowe *</label>
+        <input name="password" type="password" required>
+        <small class="hint">Hasło, które przekazujesz użytkownikowi na start.</small>
+    </div>
+
+    <div class="form-group">
+        <label>Rola</label>
+        <select name="role">
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+        </select>
+    </div>
+
+    <div class="form-group checkbox-group">
+        <label>
+            <input type="checkbox" name="must_change_password" checked>
+            Wymuś zmianę hasła przy pierwszym logowaniu
+        </label>
+        <small class="hint">
+            Po zalogowaniu hasłem startowym użytkownik musi ustawić własne hasło.
+        </small>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit">💾 Dodaj</button>
+        <a href="/admin/users" class="btn">Anuluj</a>
+    </div>
 </form>
 
 <script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>

@@ -1,24 +1,54 @@
 {% extends "admin/base_admin.html" %}
 {% block admin_content %}
 
-<h2>Urzytkownik #{{ user_id }}</h2>
+<h2>Użytkownik #{{ user_id }}</h2>
 
-<form id="userForm">
-    <input name="first_name">
-    <input name="last_name">
-    <input name="password" type="password" placeholder="Nowe hasło">
+<form id="userForm" class="admin-form">
+    <div class="form-group">
+        <label>Imię</label>
+        <input name="first_name">
+    </div>
 
-    <select name="role">
-        <option value="manager">Manager</option>
-        <option value="admin">Admin</option>
-    </select>
+    <div class="form-group">
+        <label>Nazwisko</label>
+        <input name="last_name">
+    </div>
 
-    <label>
-        <input type="checkbox" name="is_active"> Aktywny
-    </label>
+    <div class="form-group">
+        <label>Nowe hasło</label>
+        <input name="password" type="password" placeholder="Zostaw puste, aby nie zmieniać">
+    </div>
 
-    <button type="submit">Zapisz</button>
-    <button type="button" onclick="deleteUser()">🗑</button>
+    <div class="form-group">
+        <label>Rola</label>
+        <select name="role">
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+        </select>
+    </div>
+
+    <div class="form-group checkbox-group">
+        <label>
+            <input type="checkbox" name="is_active">
+            Aktywny
+        </label>
+    </div>
+
+    <div class="form-group checkbox-group">
+        <label>
+            <input type="checkbox" name="must_change_password">
+            Wymuś zmianę hasła przy następnym logowaniu
+        </label>
+        <small class="hint">
+            Przydatne po zresetowaniu hasła — użytkownik ustawi własne przy logowaniu.
+        </small>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit">💾 Zapisz</button>
+        <button type="button" class="danger" onclick="deleteUser()">🗑 Usuń</button>
+        <a href="/admin/users" class="btn">Wróć</a>
+    </div>
 </form>
 
 <script>

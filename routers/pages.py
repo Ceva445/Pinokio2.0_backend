@@ -48,6 +48,14 @@ async def monitor2(
     )
 
 
+@router.get("/change-password", response_class=HTMLResponse)
+async def change_password_page(request: Request):
+    return templates.TemplateResponse(
+        "change_password.html",
+        {"request": request}
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(

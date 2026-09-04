@@ -35,7 +35,38 @@ async def list_users(
         )
 
     result = await db.execute(stmt)
-    return result.scalars().all()
+    users = result.scalars().all()
+
+    # Kto ma teraz aktywną sesję (sesje trzymane w pamięci procesu).
+    # Bez tego panel pokazywał przycisk wylogowania przy każdym managerze,
+    # także takim, który wcale nie jest zalogowany.
+    from managers.auth_manager import auth_manager
+    from app.main import revoked_tokens, esp_watchers
+
+    logged_in_ids = {
+        (sess.get("user") or {}).get("id")
+        for token, sess in auth_manager.active_sessions.items()
+        if token not in revoked_tokens
+    }
+    bound_by_user = {
+        w.get("user_id"): device_id
+        for device_id, w in esp_watchers.items()
+    }
+
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "role": u.role.value if hasattr(u.role, "value") else u.role,
+            "is_active": u.is_active,
+            "must_change_password": u.must_change_password,
+            "is_logged_in": u.id in logged_in_ids,
+            "bound_device": bound_by_user.get(u.id),
+        }
+        for u in users
+    ]
 
 # ===============================
 # GET BY ID
@@ -75,7 +106,8 @@ async def create_user(
         username=payload.username,
         password_hash=hashed,
         role=payload.role,
-        is_active=True
+        is_active=True,
+        must_change_password=payload.must_change_password
     )
 
     db.add(db_user)
@@ -105,7 +137,9 @@ async def update_user(
     if payload.password:
         db_user.password_hash = auth_manager.get_password_hash(payload.password)
 
-    for field in ["first_name", "last_name", "role", "is_active"]:
+    # Nowe hasło od admina zwykle idzie w parze z wymuszeniem zmiany,
+    # ale decyduje o tym wyłącznie pole must_change_password z formularza.
+    for field in ["first_name", "last_name", "role", "is_active", "must_change_password"]:
         value = getattr(payload, field)
         if value is not None:
             setattr(db_user, field, value)

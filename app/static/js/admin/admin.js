@@ -648,15 +648,18 @@ async function loadUsers() {
                 <td>${u.last_name}</td>
                 <td>${u.role}</td>
                 <td>${u.is_active ? "✅" : "❌"}</td>
+                <td>${u.is_logged_in
+                        ? `🟢 zalogowany${u.bound_device ? ` (${u.bound_device})` : ""}`
+                        : "—"}</td>
                 <td>
                     <a href="/admin/users/${u.id}" title="Edytuj">✏️</a>
-                    ${u.role === "manager" ? `<button type="button" class="btn" style="margin-left:8px" onclick="forceLogout(${u.id}, '${u.username}')" title="Wyloguj z systemu">🚪</button>` : ""}
+                    ${u.is_logged_in ? `<button type="button" class="btn" style="margin-left:8px" onclick="forceLogout(${u.id}, '${u.username}')" title="Wyloguj z systemu">🚪</button>` : ""}
                 </td>
             `;
             tbody.appendChild(tr);
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6">Błąd: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7">Błąd: ${err.message}</td></tr>`;
     }
 }
 
@@ -682,6 +685,7 @@ async function loadUserDetail(userId) {
         form.last_name.value = u.last_name;
         form.role.value = u.role;
         form.is_active.checked = u.is_active;
+        form.must_change_password.checked = u.must_change_password ?? false;
     } catch (err) {
         showError("Nie udało się załadować użytkownika: " + err.message);
     }
@@ -697,7 +701,8 @@ async function loadUserDetail(userId) {
                     last_name: form.last_name.value,
                     password: form.password.value || null,
                     role: form.role.value,
-                    is_active: form.is_active.checked
+                    is_active: form.is_active.checked,
+                    must_change_password: form.must_change_password.checked
                 })
             });
 
@@ -741,7 +746,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     first_name: form.first_name.value,
                     last_name: form.last_name.value,
                     password: form.password.value,
-                    role: form.role.value
+                    role: form.role.value,
+                    must_change_password: form.must_change_password.checked
                 })
             });
 

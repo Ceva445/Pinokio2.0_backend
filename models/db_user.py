@@ -22,6 +22,9 @@ class UserDB(Base):
         default=UserRole.manager
     )
     is_active: Mapped[bool] = mapped_column(default=True)
+    # Wymuś zmianę hasła przy pierwszym logowaniu: użytkownik loguje się
+    # hasłem od admina, po czym musi ustawić własne.
+    must_change_password: Mapped[bool] = mapped_column(default=False)
 
     device_change_transactions = relationship(
         "models.device_transaction.DeviceChangeTransaction",

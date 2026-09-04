@@ -268,6 +268,89 @@
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
+/* ---------- Form layout ----------
+   Pola formularzy dziedziczyły width:100% także dla checkboxów, przez co
+   rozjeżdżały się razem z etykietami. Poniżej wspólny układ dla wszystkich
+   formularzy panelu. */
+.admin-content .form-group {
+    margin-bottom: 18px;
+}
+
+.admin-content .form-group > label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.2px;
+}
+
+.admin-content .form-group > label small {
+    font-weight: 400;
+    opacity: 0.75;
+}
+
+.admin-content .form-group input,
+.admin-content .form-group select,
+.admin-content .form-group textarea {
+    margin-bottom: 0;
+}
+
+.admin-content .form-group small.hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Checkbox: szerokość auto + etykieta w jednej linii */
+.admin-content input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    accent-color: var(--primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transform: scale(1.15);
+}
+
+.admin-content .checkbox-group > label,
+.admin-content label.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.admin-content .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+}
+
+.admin-content .form-actions .btn,
+.admin-content .form-actions a.btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.admin-content .form-actions a.btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
 /* ---------- Buttons ---------- */
 .admin-content button {
     padding: 12px 20px;

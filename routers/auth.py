@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from db.session import get_db
 from schemas.user import UserCreate, UserOut, Token, UserUpdate
+from schemas.user import PasswordChange
 from models.db_user import UserDB, UserRole
 from managers.auth_manager import auth_manager
 
@@ -92,7 +93,8 @@ def get_current_user(required: bool = True):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "role": user.role.value,
-            "is_active": user.is_active
+            "is_active": user.is_active,
+            "must_change_password": user.must_change_password
         }
 
         auth_manager.add_session(token, user_dict)
@@ -199,7 +201,8 @@ async def login_form(
         "first_name": user.first_name,
         "last_name": user.last_name,
         "role": user.role.value,
-        "is_active": user.is_active
+        "is_active": user.is_active,
+        "must_change_password": user.must_change_password
     }
     auth_manager.add_session(access_token, user_dict)
 
@@ -218,16 +221,25 @@ async def login_form(
 
 @router.post("/logout")
 async def logout(
+    request: Request,
     response: Response,
     current_user: dict = Depends(get_current_user()),
     token: str = Depends(oauth2_scheme)
 ):
-    from app.main import remove_user_from_all_esps, remove_user_ws_subscriptions
+    from app.main import remove_user_from_all_esps, remove_user_ws_subscriptions, revoked_tokens
     user_id = current_user["id"]
     remove_user_from_all_esps(user_id)
     remove_user_ws_subscriptions(user_id)
 
-    auth_manager.remove_session(token)
+    # Logowanie działa na ciasteczku, więc nagłówka Authorization zwykle nie ma
+    # i token z oauth2_scheme jest pusty. Bez sięgnięcia do ciasteczka sesja
+    # zostawała w pamięci: użytkownik wyglądał na zalogowanego, a jego token
+    # dalej był ważny po stronie serwera.
+    token = token or get_token_from_cookie(request)
+    if token:
+        auth_manager.remove_session(token)
+        revoked_tokens.add(token)
+
     response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
 
@@ -245,6 +257,41 @@ async def me(
             bound = did
             break
     return {**current_user, "bound_device": bound}
+
+
+@router.post("/change-password")
+async def change_password(
+    payload: PasswordChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user()),
+):
+    """Zmiana własnego hasła (ekran pierwszego logowania).
+
+    Jedyne wymaganie: co najmniej 4 znaki — bez reguł złożoności.
+    """
+    new_password = payload.new_password or ""
+    if len(new_password) < 4:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Hasło musi mieć co najmniej 4 znaki"
+        )
+
+    result = await db.execute(
+        select(UserDB).where(UserDB.id == current_user["id"])
+    )
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Użytkownik nie znaleziony")
+
+    db_user.password_hash = auth_manager.get_password_hash(new_password)
+    db_user.must_change_password = False
+    await db.commit()
+
+    # sesja w pamięci trzyma kopię danych użytkownika — odświeżamy flagę,
+    # inaczej /auth/me dalej odsyłałby na ekran zmiany hasła
+    current_user["must_change_password"] = False
+
+    return {"status": "ok"}
 
 
 @router.get("/available-esps")
