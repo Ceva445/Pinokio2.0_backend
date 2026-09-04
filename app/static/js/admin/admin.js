@@ -376,8 +376,10 @@ async function loadDevices() {
     const q = search?.value ?? "";
 
     const statusSelect = document.getElementById("deviceStatusFilter");
+    const assignedSelect = document.getElementById("deviceAssignedFilter");
 
     const selectedStatus = statusSelect?.value || "";
+    const selectedAssigned = assignedSelect?.value || "";
 
     const params = new URLSearchParams();
 
@@ -387,6 +389,10 @@ async function loadDevices() {
 
         if (selectedStatus) {
         params.append("status_ids", selectedStatus);
+    }
+
+    if (selectedAssigned) {
+        params.append("assigned", selectedAssigned);
     }
 
     const url = `/admin/api/devices?${params.toString()}`;
@@ -1236,6 +1242,13 @@ document.addEventListener("DOMContentLoaded", () => {
         loadStatusFilter();
 
         deviceStatusFilter.addEventListener("change", () => {
+            loadDevices();
+        });
+    }
+
+    const deviceAssignedFilter = document.getElementById("deviceAssignedFilter");
+    if (deviceAssignedFilter) {
+        deviceAssignedFilter.addEventListener("change", () => {
             loadDevices();
         });
     }

@@ -656,6 +656,10 @@ async def create_device(
 async def get_devices(
     q: str | None = Query(default=None),
     status_ids: list[int] | None = Query(default=None),
+    assigned: str | None = Query(
+        default=None,
+        description="'assigned' = tylko wydane, 'unassigned' = tylko wolne, brak = wszystkie",
+    ),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
@@ -682,6 +686,12 @@ async def get_devices(
         stmt = stmt.where(
             DeviceDB.status_id.in_(status_ids)
         )
+
+    # Kolumna "Przypisany do": pozwala odrzucić puste wiersze i wrócić do nich.
+    if assigned == "assigned":
+        stmt = stmt.where(DeviceDB.employee_id.isnot(None))
+    elif assigned == "unassigned":
+        stmt = stmt.where(DeviceDB.employee_id.is_(None))
 
     stmt = stmt.order_by(DeviceDB.name)
 
