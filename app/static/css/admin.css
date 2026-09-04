@@ -397,3 +397,99 @@
         position: relative;
     }
 }
+
+/* ---------- Dashboard drill-down ----------
+   Liczby na dashboardzie są klikalne (patrz DASHBOARD_DRILL_MIN w admin.js):
+   klik rozwija pod wierszem tabelę z tym, kto ma jaki sprzęt. */
+.drill-link {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.drill-link:hover,
+.drill-link.is-open {
+    color: var(--primary);
+    text-decoration-style: solid;
+}
+
+.drill-row td {
+    padding: 0 !important;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.drill-panel {
+    max-height: 420px;
+    overflow: auto;
+    padding: 16px 18px;
+    border-left: 3px solid var(--primary);
+}
+
+.drill-title {
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.drill-empty {
+    padding: 6px 0;
+    color: var(--text-secondary);
+}
+
+.drill-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 13px;
+}
+
+.drill-table th,
+.drill-table td {
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.drill-table thead th {
+    position: sticky;
+    top: 0;
+    background: rgba(22, 20, 110, 0.95);
+    color: #e0e7ff;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.drill-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.drill-devices {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.drill-devices li {
+    margin-bottom: 4px;
+}
+
+.drill-muted {
+    color: var(--text-secondary);
+}
+
+/* Sprzęt wycofany, który wciąż wisi na pracowniku. */
+.drill-flag {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    font-size: 11px;
+    white-space: nowrap;
+}

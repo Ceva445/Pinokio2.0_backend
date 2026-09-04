@@ -1293,6 +1293,12 @@ async def get_dashboard(
     departments = [
         {
             "department": row.department or "Brak",
+
+            # Etykieta wyżej jest dla oka ("Brak" zamiast pustego); rozwinięcie
+            # potrzebuje wartości, którą da się odesłać do API — pusty ciąg
+            # oznacza tam właśnie pracowników bez działu.
+            "department_filter": row.department or "",
+
             "employees": row.employees or 0,
             "devices": row.devices or 0,
             "scanners": row.scanners or 0,
@@ -1310,3 +1316,156 @@ async def get_dashboard(
         },
         "departments": departments
     }
+
+# ===============================
+# Dashboard drill-down
+# ===============================
+# Kafelki wyżej pokazują same liczby. Poniższe dwa endpointy zwracają wiersze,
+# które się na daną liczbę składają — czyli kto trzyma jaki sprzęt. Filtry
+# muszą odpowiadać dokładnie tym z get_dashboard: inaczej rozwinięcie nie
+# zgadzałoby się z liczbą, spod której je otwarto.
+
+
+def _dashboard_device_row(device: DeviceDB) -> dict:
+    """Urządzenie razem z osobą, która je ma."""
+    employee = device.employee
+    return {
+        "id": device.id,
+        "name": device.name,
+        "serial_number": device.serial_number,
+        "rfid": device.rfid,
+        "type": device.type.value,
+        "enabled": device.enabled,
+        "site": device.site.name if device.site else None,
+        "status_name": device.status.name if device.status else None,
+        "employee": {
+            "id": employee.id,
+            "wms_login": employee.wms_login,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "department": employee.department,
+        } if employee else None,
+    }
+
+
+@router.get("/dashboard/devices")
+async def get_dashboard_devices(
+    device_type: str | None = Query(
+        default=None, alias="type", description="'scanner' albo 'printer'; brak = oba typy"
+    ),
+    enabled: bool | None = Query(default=None, description="brak = i dostępne, i niedostępne"),
+    assigned: bool | None = Query(default=None, description="true = tylko wydane, false = tylko wolne"),
+    department: str | None = Query(
+        default=None,
+        description="Dział posiadacza. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Urządzenia stojące za liczbą klikniętą na dashboardzie."""
+    if device_type not in (None, "scanner", "printer"):
+        raise HTTPException(status_code=400, detail="type musi być 'scanner' albo 'printer'")
+
+    stmt = (
+        select(DeviceDB)
+        .outerjoin(EmployeeDB, DeviceDB.employee_id == EmployeeDB.id)
+        .options(
+            selectinload(DeviceDB.employee),
+            selectinload(DeviceDB.status),
+            selectinload(DeviceDB.site)
+        )
+    )
+
+    if device_type:
+        stmt = stmt.where(DeviceDB.type == DeviceType(device_type))
+
+    if enabled is not None:
+        stmt = stmt.where(DeviceDB.enabled.is_(enabled))
+
+    if assigned is not None:
+        stmt = stmt.where(
+            DeviceDB.employee_id.is_not(None) if assigned else DeviceDB.employee_id.is_(None)
+        )
+
+    if department is not None:
+        # Pusty ciąg to wiersz "Brak" z tabeli per dział: pracownik istnieje,
+        # ale nie ma działu. Samo department IS NULL złapałoby przy outerjoin
+        # także urządzenia bez posiadacza — stąd dodatkowy warunek na EmployeeDB.id.
+        stmt = stmt.where(
+            EmployeeDB.id.is_not(None),
+            EmployeeDB.department.is_(None) if department == "" else EmployeeDB.department == department
+        )
+
+    # Najpierw wydane, pogrupowane po osobie, potem wolne — tak, jak czyta się
+    # tabelę "kto co ma".
+    stmt = stmt.order_by(
+        DeviceDB.employee_id.is_(None),
+        EmployeeDB.last_name,
+        EmployeeDB.first_name,
+        DeviceDB.name
+    )
+
+    devices = (await db.execute(stmt)).scalars().all()
+
+    return [_dashboard_device_row(d) for d in devices]
+
+
+@router.get("/dashboard/employees")
+async def get_dashboard_employees(
+    department: str | None = Query(
+        default=None,
+        description="Dział. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Pracownicy stojący za kolumną "Pracownicy" w tabeli per dział — czyli ci,
+    którzy mają wydane co najmniej jedno dostępne urządzenie."""
+    stmt = (
+        select(EmployeeDB)
+        .join(DeviceDB, DeviceDB.employee_id == EmployeeDB.id)
+        .where(DeviceDB.enabled.is_(True))
+        .options(
+            selectinload(EmployeeDB.devices).selectinload(DeviceDB.status),
+            selectinload(EmployeeDB.devices).selectinload(DeviceDB.site),
+            selectinload(EmployeeDB.site)
+        )
+        .distinct()
+        .order_by(EmployeeDB.last_name, EmployeeDB.first_name)
+    )
+
+    if department is not None:
+        stmt = stmt.where(
+            EmployeeDB.department.is_(None) if department == "" else EmployeeDB.department == department
+        )
+
+    employees = (await db.execute(stmt)).scalars().all()
+
+    return [
+        {
+            "id": e.id,
+            "wms_login": e.wms_login,
+            "first_name": e.first_name,
+            "last_name": e.last_name,
+            "company": e.company,
+            "department": e.department,
+            "site": e.site.name if e.site else None,
+
+            # Cały sprzęt przypisany do osoby, także niedostępny — fizycznie
+            # nadal jest u niej. Liczba na dashboardzie liczy tylko dostępne,
+            # więc ta lista bywa od niej dłuższa; stąd flaga "enabled".
+            "devices": [
+                {
+                    "id": d.id,
+                    "name": d.name,
+                    "type": d.type.value,
+                    "serial_number": d.serial_number,
+                    "enabled": d.enabled,
+                    "status_name": d.status.name if d.status else None,
+                    "site": d.site.name if d.site else None,
+                }
+                for d in sorted(e.devices, key=lambda d: d.name)
+            ],
+        }
+        for e in employees
+    ]

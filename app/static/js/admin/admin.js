@@ -106,6 +106,18 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Nazwy urządzeń i pracowników wpisuje admin, a rozwinięcia dashboardu
+// wstawiają je przez innerHTML — stąd ucieczka znaków.
+function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[ch]);
+}
+
 async function api(url, options = {}) {
     const res = await fetch(url, {
         credentials: "include",
@@ -128,6 +140,172 @@ async function api(url, options = {}) {
 /* ================================
    DASHBOARD
 ================================ */
+
+// Klikalna jest każda niezerowa liczba — przy jednej sztuce też warto wiedzieć,
+// kto ją ma. Zero zostaje zwykłym tekstem, bo nie ma czego rozwijać.
+const DASHBOARD_DRILL_MIN = 1;
+
+function deviceDrill(label, params) {
+    return { kind: "devices", label, params };
+}
+
+function employeeDrill(label, params) {
+    return { kind: "employees", label, params };
+}
+
+function drillQuery(drill) {
+    // Puste wartości zostają w zapytaniu: "department=" to u nas pracownicy
+    // bez działu, a pominięty parametr znaczy "bez filtra".
+    return new URLSearchParams(drill.params).toString();
+}
+
+// Liczba w komórce; powyżej progu klikalna i rozwijająca szczegóły pod wierszem.
+function setDashboardCount(cell, value, drill) {
+    if (!cell) return;
+
+    cell.textContent = value;
+    if (!drill || value < DASHBOARD_DRILL_MIN) return;
+
+    const link = document.createElement("a");
+    link.href = "#";
+    link.className = "drill-link";
+    link.textContent = value;
+    link.title = `Pokaż: ${drill.label}`;
+    link.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleDashboardDetails(cell, link, drill);
+    });
+
+    cell.textContent = "";
+    cell.appendChild(link);
+}
+
+async function toggleDashboardDetails(cell, link, drill) {
+    const row = cell.closest("tr");
+    const key = `${drill.kind}?${drillQuery(drill)}`;
+    const opened = row.nextElementSibling;
+
+    if (opened && opened.classList.contains("drill-row")) {
+        const sameNumber = opened.dataset.drillKey === key;
+        opened.remove();
+        row.querySelectorAll(".drill-link.is-open").forEach((a) => a.classList.remove("is-open"));
+        if (sameNumber) return;   // drugi klik w tę samą liczbę = zwinięcie
+    }
+
+    const detail = document.createElement("tr");
+    detail.className = "drill-row";
+    detail.dataset.drillKey = key;
+    detail.innerHTML = `<td colspan="${row.children.length}"></td>`;
+    row.after(detail);
+    link.classList.add("is-open");
+
+    const holder = detail.firstElementChild;
+    holder.innerHTML = `<div class="drill-panel"><div class="drill-empty">Ładowanie…</div></div>`;
+
+    try {
+        const rows = await api(`/admin/api/dashboard/${drill.kind}?${drillQuery(drill)}`);
+        holder.innerHTML = drill.kind === "employees"
+            ? renderEmployeeDrill(rows, drill.label)
+            : renderDeviceDrill(rows, drill.label);
+    } catch (err) {
+        holder.innerHTML = `<div class="drill-panel"><div class="drill-empty">Błąd: ${esc(err.message)}</div></div>`;
+    }
+}
+
+function deviceTypeLabel(type) {
+    return type === "scanner" ? "📦 Skaner" : "🖨 Drukarka";
+}
+
+function employeeName(employee) {
+    const name = [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim();
+    if (!name) return employee.wms_login || `#${employee.id}`;
+    return employee.wms_login ? `${name} (${employee.wms_login})` : name;
+}
+
+function drillPanel(label, count, inner) {
+    return `
+        <div class="drill-panel">
+            <div class="drill-title">${esc(label)} — ${count}</div>
+            ${inner}
+        </div>`;
+}
+
+function renderDeviceDrill(devices, label) {
+    if (!devices.length) {
+        return drillPanel(label, 0, `<div class="drill-empty">Brak danych</div>`);
+    }
+
+    const body = devices.map((d) => `
+        <tr>
+            <td><a href="/admin/devices/${d.id}">${esc(d.name)}</a></td>
+            <td>${deviceTypeLabel(d.type)}</td>
+            <td>${esc(d.serial_number)}</td>
+            <td>${esc(d.site ?? "—")}</td>
+            <td>${esc(d.status_name ?? "—")}</td>
+            <td>${d.enabled ? "✅" : "❌"}</td>
+            <td>${d.employee
+                ? `<a href="/admin/employees/${d.employee.id}">${esc(employeeName(d.employee))}</a>`
+                : `<span class="drill-muted">nieprzypisane</span>`}</td>
+            <td>${esc(d.employee?.department ?? "—")}</td>
+        </tr>`).join("");
+
+    return drillPanel(label, devices.length, `
+        <table class="drill-table">
+            <thead>
+                <tr>
+                    <th>Nazwa</th>
+                    <th>Typ</th>
+                    <th>Nr seryjny</th>
+                    <th>Site</th>
+                    <th>Status</th>
+                    <th>Aktywne</th>
+                    <th>Przypisany do</th>
+                    <th>Dział</th>
+                </tr>
+            </thead>
+            <tbody>${body}</tbody>
+        </table>`);
+}
+
+function renderEmployeeDrill(employees, label) {
+    if (!employees.length) {
+        return drillPanel(label, 0, `<div class="drill-empty">Brak danych</div>`);
+    }
+
+    const body = employees.map((e) => `
+        <tr>
+            <td><a href="/admin/employees/${e.id}">${esc(employeeName(e))}</a></td>
+            <td>${esc(e.department ?? "—")}</td>
+            <td>${esc(e.site ?? "—")}</td>
+            <td>${esc(e.company ?? "—")}</td>
+            <td>
+                ${e.devices.length
+                    ? `<ul class="drill-devices">${e.devices.map((d) => `
+                        <li>
+                            ${deviceTypeLabel(d.type)}
+                            <a href="/admin/devices/${d.id}">${esc(d.name)}</a>
+                            <span class="drill-muted">${esc(d.serial_number)}</span>
+                            ${d.enabled ? "" : `<span class="drill-flag">niedostępny</span>`}
+                        </li>`).join("")}</ul>`
+                    : `<span class="drill-muted">brak</span>`}
+            </td>
+        </tr>`).join("");
+
+    return drillPanel(label, employees.length, `
+        <table class="drill-table">
+            <thead>
+                <tr>
+                    <th>Pracownik</th>
+                    <th>Dział</th>
+                    <th>Site</th>
+                    <th>Kompania</th>
+                    <th>Sprzęt</th>
+                </tr>
+            </thead>
+            <tbody>${body}</tbody>
+        </table>`);
+}
+
 async function loadDashboard() {
     console.log("🚀 Dashboard init");
 
@@ -159,22 +337,31 @@ async function loadDashboard() {
         const disabledScanners = data.devices?.disabled_by_type?.scanner ?? 0;
         const disabledPrinters = data.devices?.disabled_by_type?.printer ?? 0;
 
-        // Populate cells
-        scannerEl.textContent = enabledScanners;
-        printerEl.textContent = enabledPrinters;
-        disabledScannerEl.textContent = disabledScanners;
-        disabledPrinterEl.textContent = disabledPrinters;
+        // Populate cells. Każdy filtr powtarza warunek, którym policzono liczbę.
+        setDashboardCount(scannerEl, enabledScanners,
+            deviceDrill("Skanery dostępne", { type: "scanner", enabled: "true" }));
+        setDashboardCount(printerEl, enabledPrinters,
+            deviceDrill("Drukarki dostępne", { type: "printer", enabled: "true" }));
+        setDashboardCount(disabledScannerEl, disabledScanners,
+            deviceDrill("Skanery niedostępne", { type: "scanner", enabled: "false" }));
+        setDashboardCount(disabledPrinterEl, disabledPrinters,
+            deviceDrill("Drukarki niedostępne", { type: "printer", enabled: "false" }));
 
         // Calculate totals
         const totalAvailable = enabledScanners + enabledPrinters;
         const totalDisabled = disabledScanners + disabledPrinters;
         const grandTotal = totalAvailable + totalDisabled;
 
-        if (totalScannersEl) totalScannersEl.textContent = enabledScanners + disabledScanners;
-        if (totalPrintersEl) totalPrintersEl.textContent = enabledPrinters + disabledPrinters;
-        if (totalAvailableEl) totalAvailableEl.textContent = totalAvailable;
-        if (totalDisabledEl) totalDisabledEl.textContent = totalDisabled;
-        if (grandTotalEl) grandTotalEl.textContent = grandTotal;
+        setDashboardCount(totalScannersEl, enabledScanners + disabledScanners,
+            deviceDrill("Skanery razem", { type: "scanner" }));
+        setDashboardCount(totalPrintersEl, enabledPrinters + disabledPrinters,
+            deviceDrill("Drukarki razem", { type: "printer" }));
+        setDashboardCount(totalAvailableEl, totalAvailable,
+            deviceDrill("Sprzęt dostępny", { enabled: "true" }));
+        setDashboardCount(totalDisabledEl, totalDisabled,
+            deviceDrill("Sprzęt niedostępny", { enabled: "false" }));
+        setDashboardCount(grandTotalEl, grandTotal,
+            deviceDrill("Cały sprzęt", {}));
 
         // =========================
         // DEPARTMENTS
@@ -184,20 +371,33 @@ async function loadDashboard() {
         tbody.innerHTML = "";
 
         if (!data.departments || data.departments.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4">Brak danych</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5">Brak danych</td></tr>`;
             return;
         }
 
         for (const d of data.departments) {
             const tr = document.createElement("tr");
+            const label = d.department ?? "Brak";
 
-            tr.innerHTML = `
-                <td>${d.department ?? "Brak"}</td>
-                <td>${d.employees ?? 0}</td>
-                <td>${d.devices ?? 0}</td>
-                <td>${d.scanners ?? 0}</td>
-                <td>${d.printers ?? 0}</td>
-            `;
+            // Wiersz "Brak" to pracownicy bez działu; API rozpoznaje ich po
+            // pustym parametrze, nie po etykiecie z tabeli.
+            const department = d.department_filter ?? "";
+
+            // Liczby per dział dotyczą wyłącznie sprzętu wydanego i dostępnego —
+            // dokładnie tak, jak liczy je get_dashboard.
+            const scope = { department, enabled: "true", assigned: "true" };
+
+            tr.innerHTML = `<td>${esc(label)}</td><td></td><td></td><td></td><td></td>`;
+            const [, employeesCell, devicesCell, scannersCell, printersCell] = tr.children;
+
+            setDashboardCount(employeesCell, d.employees ?? 0,
+                employeeDrill(`Pracownicy — ${label}`, { department }));
+            setDashboardCount(devicesCell, d.devices ?? 0,
+                deviceDrill(`Urządzenia — ${label}`, scope));
+            setDashboardCount(scannersCell, d.scanners ?? 0,
+                deviceDrill(`Skanery — ${label}`, { ...scope, type: "scanner" }));
+            setDashboardCount(printersCell, d.printers ?? 0,
+                deviceDrill(`Drukarki — ${label}`, { ...scope, type: "printer" }));
 
             tbody.appendChild(tr);
         }
@@ -206,7 +406,7 @@ async function loadDashboard() {
         console.error("❌ Dashboard error:", err);
 
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="4">Błąd ładowania</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5">Błąd ładowania</td></tr>`;
         }
     }
 }
