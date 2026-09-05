@@ -212,6 +212,26 @@ async function toggleDashboardDetails(cell, link, drill) {
     }
 }
 
+// Panel kierownika nie ma ekranów szczegółów — /admin/devices/{id} oddaje mu
+// 403, więc link prowadziłby w pustą stronę. Dla niego zostaje sam tekst.
+let dashboardDetailsAreOpenable = false;
+
+async function checkDashboardLinks() {
+    try {
+        const resp = await fetch("/auth/me", { credentials: "include" });
+        const user = resp.ok ? await resp.json() : null;
+        dashboardDetailsAreOpenable = user?.role === "admin";
+    } catch (err) {
+        dashboardDetailsAreOpenable = false;
+    }
+}
+
+function drillTarget(href, label) {
+    return dashboardDetailsAreOpenable
+        ? `<a href="${href}">${esc(label)}</a>`
+        : esc(label);
+}
+
 function deviceTypeLabel(type) {
     return type === "scanner" ? "📦 Skaner" : "🖨 Drukarka";
 }
@@ -237,14 +257,14 @@ function renderDeviceDrill(devices, label) {
 
     const body = devices.map((d) => `
         <tr>
-            <td><a href="/admin/devices/${d.id}">${esc(d.name)}</a></td>
+            <td>${drillTarget(`/admin/devices/${d.id}`, d.name)}</td>
             <td>${deviceTypeLabel(d.type)}</td>
             <td>${esc(d.serial_number)}</td>
             <td>${esc(d.site ?? "—")}</td>
             <td>${esc(d.status_name ?? "—")}</td>
             <td>${d.enabled ? "✅" : "❌"}</td>
             <td>${d.employee
-                ? `<a href="/admin/employees/${d.employee.id}">${esc(employeeName(d.employee))}</a>`
+                ? drillTarget(`/admin/employees/${d.employee.id}`, employeeName(d.employee))
                 : `<span class="drill-muted">nieprzypisane</span>`}</td>
             <td>${esc(d.employee?.department ?? "—")}</td>
         </tr>`).join("");
@@ -274,7 +294,7 @@ function renderEmployeeDrill(employees, label) {
 
     const body = employees.map((e) => `
         <tr>
-            <td><a href="/admin/employees/${e.id}">${esc(employeeName(e))}</a></td>
+            <td>${drillTarget(`/admin/employees/${e.id}`, employeeName(e))}</td>
             <td>${esc(e.department ?? "—")}</td>
             <td>${esc(e.site ?? "—")}</td>
             <td>${esc(e.company ?? "—")}</td>
@@ -283,7 +303,7 @@ function renderEmployeeDrill(employees, label) {
                     ? `<ul class="drill-devices">${e.devices.map((d) => `
                         <li>
                             ${deviceTypeLabel(d.type)}
-                            <a href="/admin/devices/${d.id}">${esc(d.name)}</a>
+                            ${drillTarget(`/admin/devices/${d.id}`, d.name)}
                             <span class="drill-muted">${esc(d.serial_number)}</span>
                             ${d.enabled ? "" : `<span class="drill-flag">niedostępny</span>`}
                         </li>`).join("")}</ul>`
@@ -326,7 +346,10 @@ async function loadDashboard() {
     }
 
     try {
-        const data = await api("/admin/api/dashboard");
+        const [data] = await Promise.all([
+            api("/admin/api/dashboard"),
+            checkDashboardLinks()
+        ]);
         console.log("📊 DATA:", data);
 
         // =========================
