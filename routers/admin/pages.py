@@ -272,3 +272,29 @@ async def firmware_page(
         "admin/firmware.html",
         {"request": request}
     )
+
+# ===============================
+# REPORTS PAGES
+# ===============================
+
+@router.get("/reports", response_class=HTMLResponse)
+async def reports_index(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    """Spis raportów — na razie jeden, ale zakładka ma gdzie rosnąć."""
+    return templates.TemplateResponse(
+        "admin/reports/index.html",
+        {"request": request}
+    )
+
+
+@router.get("/reports/registrations", response_class=HTMLResponse)
+async def registrations_report_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/reports/registrations.html",
+        {"request": request}
+    )

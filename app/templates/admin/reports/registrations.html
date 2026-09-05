@@ -1,0 +1,80 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>📑 Raport — Historia rejestracji</h2>
+
+<form id="registrationsReportForm" class="admin-form" onsubmit="return false">
+    <div class="report-filters">
+        <div class="form-group">
+            <label>Data od</label>
+            <input type="date" id="reportDateFrom">
+        </div>
+
+        <div class="form-group">
+            <label>Data do</label>
+            <input type="date" id="reportDateTo">
+        </div>
+
+        <div class="form-group">
+            <label>Dział</label>
+            <select id="reportDepartment">
+                <option value="">Wszystkie działy</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>
+            Urządzenia
+            <small>
+                Zaznacz z listy albo wklej nazwy oddzielone średnikiem
+                (np. <code>TERM003;TERM004;ZEBRAMOB44506</code>) — zostaną zaznaczone automatycznie.
+            </small>
+        </label>
+
+        <div class="picker">
+            <div class="picker__bar">
+                <input
+                    type="text"
+                    id="devicePickerSearch"
+                    placeholder="Szukaj po nazwie albo wklej listę przez ;"
+                    autocomplete="off"
+                >
+                <button type="button" class="btn" id="devicePickerClear">Wyczyść</button>
+            </div>
+
+            <div id="devicePickerPasteInfo" class="picker__info hidden"></div>
+
+            <div id="devicePickerChips" class="picker__chips">
+                <span class="drill-muted">Wszystkie urządzenia</span>
+            </div>
+
+            <div id="devicePickerList" class="picker__list">Ładowanie…</div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="reportDownload">⬇️ Pobierz XLSX</button>
+        <button type="button" class="btn" id="reportReset">Wyczyść filtry</button>
+        <span id="reportSummary" class="drill-muted"></span>
+    </div>
+</form>
+
+<h3>Podgląd</h3>
+<table id="reportPreviewTable">
+    <thead>
+        <tr>
+            <th>Data / czas</th>
+            <th>Typ</th>
+            <th>Pracownik</th>
+            <th>Urządzenie</th>
+            <th>Manager</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- admin.js pierwszy: reports.js korzysta z jego api(), esc() i komunikatów -->
+<script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>
+<script src="{{ url_for('static', path='js/admin/reports.js') }}"></script>
+{% endblock %}

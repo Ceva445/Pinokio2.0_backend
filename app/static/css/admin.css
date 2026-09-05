@@ -493,3 +493,136 @@
     font-size: 11px;
     white-space: nowrap;
 }
+
+/* ---------- Podmenu w sidebarze ---------- */
+.admin-sidebar__sub {
+    margin: 4px 0 0 14px;
+    padding-left: 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.admin-sidebar__sub a {
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* ---------- Raporty: filtry i wybór urządzeń ---------- */
+.hidden {
+    display: none !important;
+}
+
+.report-filters {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.report-filters .form-group {
+    flex: 1 1 200px;
+    min-width: 180px;
+}
+
+.picker {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.6);
+    padding: 12px;
+}
+
+.picker__bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.picker__bar input {
+    margin-bottom: 0;
+}
+
+.picker__bar .btn {
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.picker__info {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+    font-size: 13px;
+}
+
+.picker__info--warn {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.35);
+    color: #fde68a;
+}
+
+.picker__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0;
+    min-height: 26px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px 3px 10px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.18);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    font-size: 13px;
+}
+
+.chip button {
+    padding: 0;
+    width: 18px;
+    height: 18px;
+    line-height: 1;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.picker__list {
+    max-height: 260px;
+    overflow: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 8px;
+}
+
+.picker__row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.picker__row:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.picker__empty {
+    padding: 10px 4px;
+    color: var(--text-secondary);
+}
