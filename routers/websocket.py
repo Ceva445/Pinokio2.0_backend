@@ -122,7 +122,7 @@ async def websocket_endpoint(
 # --------------------------------------------------------------------------
 # ESP тримає один відкритий сокет і шле на кожен скан {"rfid": "..."}.
 # Сервер проганяє через ту саму process_rfid() (спільна з HTTP) і відсилає
-# назад ack {"type":"ack","status":...,"message":...} для beep-фідбека.
+# назад ack {"type":"ack","status":...,"message":...,"code":...} для beep-фідбека.
 # ==========================================================================
 
 @router.websocket("/ws/device/{device_id}")
@@ -177,12 +177,14 @@ async def esp_device_websocket(
                     device_id, data, devices, manager, db, event_suffix="_v2"
                 )
 
-            # Відповідь назад на ESP (для beep success/error)
+            # Відповідь назад на ESP: за "code" він і вирішує, як пікати.
+            # Поле додане пізніше — стара прошивка його просто ігнорує.
             await websocket.send_json(
                 {
                     "type": "ack",
                     "status": result.get("status"),
                     "message": result.get("message"),
+                    "code": result.get("code"),
                 }
             )
 

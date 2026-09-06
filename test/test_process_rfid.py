@@ -35,7 +35,8 @@ async def test_T0_1_no_rfid_no_status_broadcast(db_session, devices, manager, re
     set_can_register(True)
     res = await process_rfid("dev-1", {"temp": 21}, devices, manager, db_session, event_suffix=SUFFIX)
 
-    assert res == {"status": "info", "message": None}
+    # "code" — машинний код для звуку на ESP; без RFID немає що кодувати
+    assert res == {"status": "info", "message": None, "code": None}
     # статус НЕ транслюється, але дані пристрою — так
     assert _status(manager) is None
     assert manager.last(f"esp32_data{SUFFIX}") is not None
@@ -70,6 +71,41 @@ async def test_T1_2b_guest_used_is_filtered_out_after_fix(db_session, devices, m
     p = _status(manager)
     assert p["status"] == "error"
     assert p["message"] == "Nieznany RFID"
+
+
+# ---------------------------------------------------------------------------
+# Код для звуку на ESP: прошивка вирішує довжину сигналу за "code", а не за
+# текстом повідомлення, тому переформулювання рядка не має ламати буззер.
+# ---------------------------------------------------------------------------
+async def test_unknown_card_is_coded_for_the_buzzer(db_session, devices, manager, reg_manager, set_can_register):
+    set_can_register(False)
+    res = await process_rfid("d", {"rfid": "NOPE"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert res["code"] == "unknown_rfid"
+
+
+async def test_guest_card_is_not_an_unknown_card(db_session, devices, manager, reg_manager, set_can_register):
+    """Картку гостя система впізнала — довгого сигналу бути не має."""
+    set_can_register(False)
+    await make_guest(db_session, "G3", "Gość Ala", used=False)
+    res = await process_rfid("d", {"rfid": "G3"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert res["message"] == "To jest: Gość Ala"
+    assert res["code"] is None
+
+
+async def test_known_card_carries_no_code(db_session, devices, manager, reg_manager, set_can_register):
+    set_can_register(False)
+    await make_employee(db_session, "E1")
+    res = await process_rfid("d", {"rfid": "E1"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert res["code"] is None
+
+
+async def test_other_errors_are_not_coded_as_unknown(db_session, devices, manager, reg_manager, set_can_register):
+    """Пристрій без відкритої сесії теж помилка, але сигнал має лишитись коротким."""
+    set_can_register(True)
+    await make_device(db_session, "D1", "SCAN-1", DeviceType.scanner, "sn-1")
+    res = await process_rfid("d", {"rfid": "D1"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert res["status"] == "error"
+    assert res["code"] is None
 
 
 async def test_T1_3_employee_info_lists_devices(db_session, devices, manager, reg_manager, set_can_register):

@@ -139,9 +139,12 @@ async def process_rfid(
     rfid = data.get("rfid")
     ui_message = None
     ui_status = "info"
+    # Kod maszynowy obok komunikatu: czytnik reaguje dźwiękiem na kod, a nie na
+    # treść zdania — przeredagowanie komunikatu nie zepsuje wtedy buzzera.
+    ui_code = None
 
     if not rfid:
-        return {"status": "info", "message": None}
+        return {"status": "info", "message": None, "code": None}
 
     # ---------- EMPLOYEE ----------
     result = await db.execute(
@@ -195,6 +198,7 @@ async def process_rfid(
         if not device_db:
             ui_message = "Nieznany RFID"
             ui_status = "error"
+            ui_code = "unknown_rfid"
             guest = await db.execute(
                 select(DBGuest).where(DBGuest.rfid == rfid, DBGuest.used == False)
             )
@@ -202,6 +206,7 @@ async def process_rfid(
             if guest:
                 ui_message = f"To jest: {guest.name}"
                 ui_status = "success"
+                ui_code = None
 
         else:
             if not can_register:
@@ -325,7 +330,7 @@ async def process_rfid(
         },
     )
 
-    return {"status": ui_status, "message": ui_message}
+    return {"status": ui_status, "message": ui_message, "code": ui_code}
 
 
 # ---------- DATA ENDPOINT (ESP32) ----------
