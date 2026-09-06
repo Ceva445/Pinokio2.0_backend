@@ -44,11 +44,18 @@ const bool    WS_USE_TLS   = true;  // true → beginSSL (wss://)
 
 // ===== OTA (лишається по HTTP — не критично до затримки) =====
 // Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
-#define FIRMWARE_VERSION "1.0.4"
+#define FIRMWARE_VERSION "1.0.5"
 const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
 
 unsigned long lastOtaCheck = 0;
 const unsigned long OTA_CHECK_INTERVAL = 30UL * 60UL * 1000UL; // 30 хв
+
+// OTA приводить плату до тієї версії, що лежить на сервері — у БУДЬ-ЯКИЙ бік,
+// бо порівняння йде на збіг, а не на "новіша". Для тестового білда, залитого
+// по USB, це означає відкат через кілька секунд після старту.
+// Постав false, щоб плата лишилась на тому, що ти прошив. У продакшні — true.
+// Свідомо не #define: макрос з таким іменем конфліктує в збірці Arduino.
+const bool OTA_ENABLED = true;
 
 // ===== SD =====
 #define SD_CS 5
@@ -75,7 +82,7 @@ Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
 #define BEEP_UNKNOWN_MS  1000
 // Якщо відповідь не прийшла (немає мережі або сервера) — усе одно пікаємо
 // коротко, щоб людина не гадала, чи картку взагалі прочитано.
-#define ACK_TIMEOUT_MS   1500
+#define ACK_TIMEOUT_MS   2500
 
 // ===== WebSocket =====
 WebSocketsClient webSocket;
@@ -89,6 +96,7 @@ const unsigned long SEND_DELAY = 1000;
 // Останній скан чекає на вердикт сервера.
 bool awaitingAck = false;
 unsigned long ackDeadline = 0;
+unsigned long scanSentAt = 0;   // для заміру, скільки йшла відповідь
 // Пікає loop(), а не WS-колбек: beep() блокує на delay(), а тримати сокет
 // заблокованим цілу секунду не можна.
 int pendingBeepMs = 0;
@@ -204,11 +212,20 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 
       // Сервер шле машинний код поруч із текстом — орієнтуємось на код, щоб
       // переформулювання повідомлення не зламало звук.
+      bool unknownCard = msg.indexOf("\"code\": \"unknown_rfid\"") >= 0
+                      || msg.indexOf("\"code\":\"unknown_rfid\"") >= 0;
+      unsigned long ackAfter = millis() - scanSentAt;
+
       if (awaitingAck) {
         awaitingAck = false;
-        bool unknownCard = msg.indexOf("\"code\": \"unknown_rfid\"") >= 0
-                        || msg.indexOf("\"code\":\"unknown_rfid\"") >= 0;
         pendingBeepMs = unknownCard ? BEEP_UNKNOWN_MS : BEEP_OK_MS;
+        Serial.printf("BEEP: %d ms (ack за %lu ms, unknown=%d)\n",
+                      pendingBeepMs, ackAfter, unknownCard ? 1 : 0);
+      } else if (unknownCard) {
+        // Відповідь спізнилась — коротким піком уже озвався таймаут. Але
+        // сказати «картка невідома» все одно треба, інакше сенс губиться.
+        pendingBeepMs = BEEP_UNKNOWN_MS;
+        Serial.printf("BEEP: запізнілий ack за %lu ms — додаю довгий сигнал\n", ackAfter);
       }
       break;
     }
@@ -246,6 +263,8 @@ void setupWebSocket() {
 // ===== Setup =====
 void setup() {
   Serial.begin(115200);
+  delay(200);
+  Serial.println("\n=== Pinokio ESP firmware " FIRMWARE_VERSION " ===");
 
   loadConfigFromSD();
 
@@ -280,7 +299,11 @@ void setup() {
   Serial.println("PN532 ready");
 
   // Перевірка OTA при старті (по HTTP)
-  checkForOTA();
+  if (OTA_ENABLED) {
+    checkForOTA();
+  } else {
+    Serial.println("OTA: ВИМКНЕНО (тестовий білд) — плата лишається на цій прошивці");
+  }
 
   // Відкриваємо постійний WebSocket
   setupWebSocket();
@@ -316,11 +339,12 @@ void loop() {
   // Відповіді немає — підтверджуємо хоча б сам скан.
   if (awaitingAck && (long)(millis() - ackDeadline) >= 0) {
     awaitingAck = false;
+    Serial.printf("BEEP: ack не прийшов за %d ms — короткий сигнал\n", ACK_TIMEOUT_MS);
     beep(BEEP_OK_MS);
   }
 
   // OTA: періодична перевірка оновлень
-  if (millis() - lastOtaCheck > OTA_CHECK_INTERVAL) {
+  if (OTA_ENABLED && millis() - lastOtaCheck > OTA_CHECK_INTERVAL) {
     checkForOTA();
   }
 
@@ -354,7 +378,8 @@ void loop() {
   // вона не прийде за ACK_TIMEOUT_MS — коротким піком озветься loop().
   sendRFID(uidStr);
   awaitingAck = true;
-  ackDeadline = millis() + ACK_TIMEOUT_MS;
+  scanSentAt = millis();
+  ackDeadline = scanSentAt + ACK_TIMEOUT_MS;
 }
 
 // ===== Побудувати базовий origin сервера для OTA =====
