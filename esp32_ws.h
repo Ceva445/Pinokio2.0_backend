@@ -44,7 +44,7 @@ const bool    WS_USE_TLS   = true;  // true → beginSSL (wss://)
 
 // ===== OTA (лишається по HTTP — не критично до затримки) =====
 // Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
-#define FIRMWARE_VERSION "1.0.3"
+#define FIRMWARE_VERSION "1.0.4"
 const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
 
 unsigned long lastOtaCheck = 0;
@@ -69,6 +69,14 @@ Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
 #define BUZZER_PIN 25
 #define BUZZER_INVERTED true
 
+// Сигнал звучить ПІСЛЯ відповіді сервера: тільки тоді відомо, що саме сталося.
+// Звичайний скан — короткий тон, невідома картка — помітно довший.
+#define BEEP_OK_MS       300
+#define BEEP_UNKNOWN_MS  1000
+// Якщо відповідь не прийшла (немає мережі або сервера) — усе одно пікаємо
+// коротко, щоб людина не гадала, чи картку взагалі прочитано.
+#define ACK_TIMEOUT_MS   1500
+
 // ===== WebSocket =====
 WebSocketsClient webSocket;
 bool wsConnected = false;
@@ -77,6 +85,13 @@ bool wsConnected = false;
 String lastUID = "";
 unsigned long lastSend = 0;
 const unsigned long SEND_DELAY = 1000;
+
+// Останній скан чекає на вердикт сервера.
+bool awaitingAck = false;
+unsigned long ackDeadline = 0;
+// Пікає loop(), а не WS-колбек: beep() блокує на delay(), а тримати сокет
+// заблокованим цілу секунду не можна.
+int pendingBeepMs = 0;
 
 // WiFi reconnect
 unsigned long lastWifiCheck = 0;
@@ -186,7 +201,15 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
       for (size_t i = 0; i < length; i++) msg += (char) payload[i];
 
       Serial.println("WS ack: " + msg);
-      // Варіант 2: без звукового розрізнення результату — лише лог у Serial.
+
+      // Сервер шле машинний код поруч із текстом — орієнтуємось на код, щоб
+      // переформулювання повідомлення не зламало звук.
+      if (awaitingAck) {
+        awaitingAck = false;
+        bool unknownCard = msg.indexOf("\"code\": \"unknown_rfid\"") >= 0
+                        || msg.indexOf("\"code\":\"unknown_rfid\"") >= 0;
+        pendingBeepMs = unknownCard ? BEEP_UNKNOWN_MS : BEEP_OK_MS;
+      }
       break;
     }
 
@@ -283,6 +306,19 @@ void loop() {
   checkWiFi();
   webSocket.loop(); // ОБОВʼЯЗКОВО: обслуговує сокет, heartbeat, reconnect
 
+  // Відкладений сигнал із WS-колбека.
+  if (pendingBeepMs > 0) {
+    int duration = pendingBeepMs;
+    pendingBeepMs = 0;
+    beep(duration);
+  }
+
+  // Відповіді немає — підтверджуємо хоча б сам скан.
+  if (awaitingAck && (long)(millis() - ackDeadline) >= 0) {
+    awaitingAck = false;
+    beep(BEEP_OK_MS);
+  }
+
   // OTA: періодична перевірка оновлень
   if (millis() - lastOtaCheck > OTA_CHECK_INTERVAL) {
     checkForOTA();
@@ -314,9 +350,11 @@ void loop() {
 
   Serial.println("RFID: " + uidStr);
 
-  // СПЕРШУ відправляємо (мінімальна затримка), потім один сигнал на скан.
+  // Відправляємо і мовчимо: тон дасть відповідь сервера (onWsEvent), а якщо
+  // вона не прийде за ACK_TIMEOUT_MS — коротким піком озветься loop().
   sendRFID(uidStr);
-  beep(300); // один біп на скан (як у старій прошивці)
+  awaitingAck = true;
+  ackDeadline = millis() + ACK_TIMEOUT_MS;
 }
 
 // ===== Побудувати базовий origin сервера для OTA =====
