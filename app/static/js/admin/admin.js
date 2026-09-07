@@ -1054,6 +1054,18 @@ document.addEventListener("DOMContentLoaded", () => {
 let transactionsPage = 1;
 const TRANSACTIONS_PER_PAGE = 10;
 
+// Nazwy typów operacji: w tabeli i w filtrze mają brzmieć tak samo, żeby
+// wybór z listy dało się odnaleźć w wynikach.
+const TRANSACTION_TYPE_LABELS = {
+    registered: "Rejestracja (wydanie)",
+    unregistered: "Wyrejestrowanie (zwrot)"
+};
+
+// Szybka zmiana kilku filtrów po kolei wysyła kilka zapytań naraz, a odpowiedzi
+// potrafią wrócić w innej kolejności. Bez tego licznika starsza odpowiedź
+// nadpisywała nowszą i tabela pokazywała dane sprzed ostatniego filtra.
+let transactionsRequestId = 0;
+
 async function loadTransactions(page = 1) {
     const tbody = document.querySelector("#transactionsTable tbody");
     if (!tbody) return;
@@ -1082,9 +1094,11 @@ async function loadTransactions(page = 1) {
     if (tx_type) params.append("tx_type", tx_type);
 
     tbody.innerHTML = `<tr><td colspan="5">Ładowanie danych...</td></tr>`;
+    const requestId = ++transactionsRequestId;
 
     try {
         const data = await api(`/admin/api/transactions?${params.toString()}`);
+        if (requestId !== transactionsRequestId) return;   // wyprzedził nas nowszy filtr
 
         tbody.innerHTML = "";
 
@@ -1096,7 +1110,7 @@ async function loadTransactions(page = 1) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${new Date(t.timestamp).toLocaleString()}</td>
-                <td>${t.type}</td>
+                <td>${TRANSACTION_TYPE_LABELS[t.type] ?? t.type}</td>
                 <td>
                     ${t.employee
                         ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
@@ -1115,6 +1129,7 @@ async function loadTransactions(page = 1) {
         renderTransactionsPagination(data.page, data.pages);
 
     } catch (err) {
+        if (requestId !== transactionsRequestId) return;
         tbody.innerHTML = `<tr><td colspan="5">Błąd: ${err.message}</td></tr>`;
     }
 }
@@ -1345,6 +1360,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!input) return;
         input.addEventListener("change", () => loadTransactions(1));
     });
+
+    const resetButton = document.getElementById("transactionFiltersReset");
+    if (resetButton) {
+        resetButton.addEventListener("click", () => {
+            [employeeInput, deviceInput, dateFromInput, dateToInput, typeInput]
+                .forEach(input => { if (input) input.value = ""; });
+            loadTransactions(1);
+        });
+    }
 });
 
 

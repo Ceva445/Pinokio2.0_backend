@@ -3,35 +3,38 @@
 
 <h2>Rejestracje</h2>
 
-<div style="margin-bottom:10px">
-    <input
-        id="transactionEmployeeSearch"
-        placeholder="Pracownik"
-        style="width:220px"
-    >
+<div class="tx-filters">
+    <label>
+        Pracownik
+        <input id="transactionEmployeeSearch" placeholder="Login, imię lub nazwisko">
+    </label>
 
-    <input
-        id="transactionDeviceSearch"
-        placeholder="Urządzenie"
-        style="width:220px"
-    >
+    <label>
+        Urządzenie
+        <input id="transactionDeviceSearch" placeholder="Nazwa urządzenia">
+    </label>
 
-    <input
-        id="transactionDateFrom"
-        type="date"
-        style="width:160px"
-    >
+    <label>
+        Od (data i godzina)
+        <input id="transactionDateFrom" type="datetime-local">
+    </label>
 
-    <input
-        id="transactionDateTo"
-        type="date"
-        style="width:160px"
-    >
-    <select id="transactionType" style="width:180px">
-        <option value="">Wszystkie typy</option>
-        <option value="registered">registered</option>
-        <option value="unregistered">unregistered</option>
-    </select>
+    <label>
+        Do (data i godzina)
+        <input id="transactionDateTo" type="datetime-local">
+        <small>Godzina 00:00 = cały ten dzień</small>
+    </label>
+
+    <label>
+        Typ operacji
+        <select id="transactionType">
+            <option value="">Wszystkie typy</option>
+            <option value="registered">Rejestracja (wydanie)</option>
+            <option value="unregistered">Wyrejestrowanie (zwrot)</option>
+        </select>
+    </label>
+
+    <button type="button" id="transactionFiltersReset" class="btn">Wyczyść filtry</button>
 </div>
 
 <table id="transactionsTable">

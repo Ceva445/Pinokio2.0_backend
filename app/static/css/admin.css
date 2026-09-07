@@ -626,3 +626,54 @@
     padding: 10px 4px;
     color: var(--text-secondary);
 }
+
+/* ---------- Rejestracje: pasek filtrów ---------- */
+.tx-filters {
+    display: flex;
+    flex-wrap: wrap;
+    /* Do góry, nie do dołu: podpowiedź pod polem "Do" inaczej rozjeżdża
+       sąsiednie pola na różne wysokości. */
+    align-items: flex-start;
+    gap: 12px 14px;
+    margin-bottom: 14px;
+}
+
+/* Przycisk stoi obok pól, więc potrzebuje wysokości etykiety nad nimi. */
+.tx-filters .btn {
+    margin-top: 18px;
+}
+
+.tx-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.tx-filters input,
+.tx-filters select {
+    margin-bottom: 0;
+    min-width: 210px;
+}
+
+.tx-filters small {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.tx-filters .btn {
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tx-filters .btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+}

@@ -9,6 +9,7 @@ from models.db_transaction import TransactionDB
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 from models.db_transaction import TransactionType
 
 router = APIRouter(
@@ -17,6 +18,16 @@ router = APIRouter(
 )
 
 PAGE_SIZE = 10
+
+# Магазин стоїть у Польщі, а сесія БД працює в UTC. Поле у браузері віддає час
+# без зони — це локальний час, який адмін бачить на екрані. Без цієї прив'язки
+# введена година поїхала б на 1–2 години і фільтр мовчки показував би не те.
+LOCAL_TZ = ZoneInfo("Europe/Warsaw")
+
+
+def _as_local(moment: datetime) -> datetime:
+    """Час із форми — місцевий; уже зонований лишаємо як є."""
+    return moment if moment.tzinfo else moment.replace(tzinfo=LOCAL_TZ)
 
 @router.get("")
 async def get_transactions(
@@ -59,15 +70,16 @@ async def get_transactions(
 
     # 📅 дата ВІД
     if date_from:
-        stmt = stmt.where(TransactionDB.timestamp >= date_from)
+        stmt = stmt.where(TransactionDB.timestamp >= _as_local(date_from))
 
-    # 📅 дата ДО (включно весь день)
+    # 📅 дата ДО — тепер із годиною, тож межу беремо як задано.
+    # Виняток — рівно опівніч: у полі без часу це означає "увесь той день",
+    # і саме так фільтр поводився досі. Інакше вибір самої дати давав би
+    # порожній результат за цей день.
     if date_to:
-        stmt = stmt.where(
-            TransactionDB.timestamp <= datetime.combine(
-                date_to.date(), time.max
-            )
-        )
+        if date_to.time() == time.min:
+            date_to = datetime.combine(date_to.date(), time.max)
+        stmt = stmt.where(TransactionDB.timestamp <= _as_local(date_to))
 
     # 🔄 тип транзакції
     if tx_type:
