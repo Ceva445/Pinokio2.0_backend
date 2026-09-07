@@ -1052,7 +1052,6 @@ document.addEventListener("DOMContentLoaded", () => {
 ================================ */
 
 let transactionsPage = 1;
-const TRANSACTIONS_PER_PAGE = 10;
 
 // Nazwy typów operacji: w tabeli i w filtrze mają brzmieć tak samo, żeby
 // wybór z listy dało się odnaleźć w wynikach.
@@ -1082,10 +1081,9 @@ async function loadTransactions(page = 1) {
     const date_to = dateToInput?.value ?? "";
     const tx_type = typeInput?.value ?? "";
 
-    const params = new URLSearchParams({
-        page: page,
-        limit: TRANSACTIONS_PER_PAGE
-    });
+    // Rozmiar strony ustala serwer (PAGE_SIZE) — wysyłanie go stąd tylko
+    // udawałoby, że klient ma na to wpływ.
+    const params = new URLSearchParams({ page: page });
 
     if (employee_q) params.append("employee_q", employee_q);
     if (device_q) params.append("device_q", device_q);

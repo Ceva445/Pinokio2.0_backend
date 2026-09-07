@@ -17,7 +17,9 @@ router = APIRouter(
     tags=["Admin Transactions"]
 )
 
-PAGE_SIZE = 10
+# Rozmiar strony historii rejestracji. Tabela jest wąska, a magazyn czyta ją
+# raczej "przewiń i znajdź" niż strona po stronie, więc 200 wierszy naraz.
+PAGE_SIZE = 200
 
 # Магазин стоїть у Польщі, а сесія БД працює в UTC. Поле у браузері віддає час
 # без зони — це локальний час, який адмін бачить на екрані. Без цієї прив'язки
