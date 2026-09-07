@@ -40,7 +40,11 @@ REPORT_TZ = ZoneInfo("Europe/Warsaw")
 COLUMNS = ("Data / czas", "Typ", "Pracownik", "Urządzenie", "Manager")
 COLUMN_WIDTHS = (22, 16, 34, 24, 30)
 
-PREVIEW_LIMIT = 50
+# Podgląd pokazuje wszystko, co pasuje do filtrów — po to się go czyta.
+# Ta liczba to wyłącznie bezpiecznik na wypadek, gdyby historia urosła do
+# dziesiątek tysięcy wierszy i przeglądarka miała je wszystkie narysować.
+# Plik XLSX nie ma żadnego ograniczenia i zawsze zawiera komplet.
+PREVIEW_LIMIT = 2000
 
 
 def _filtered(
@@ -205,8 +209,8 @@ async def registration_report_preview(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    """Pierwsze wiersze raportu plus ich łączna liczba — żeby admin wiedział,
-    co pobiera, zanim pobierze."""
+    """Wiersze raportu plus ich łączna liczba — żeby admin widział na ekranie
+    to samo, co dostanie w pliku."""
     filters = {
         "date_from": date_from,
         "date_to": date_to,

@@ -174,8 +174,10 @@ async function loadReportPreview() {
             tbody.appendChild(tr);
         }
 
+        // Gdy bezpiecznik przytnie podgląd, trzeba powiedzieć wprost, że plik
+        // i tak zawiera komplet — inaczej wygląda to jak brakujące dane.
         summary.textContent = data.total > data.rows.length
-            ? `Wierszy: ${data.total} (podgląd pierwszych ${data.rows.length}) · plik: ${data.file_name}`
+            ? `Wierszy: ${data.total} · na ekranie pierwsze ${data.rows.length}, w pliku wszystkie · plik: ${data.file_name}`
             : `Wierszy: ${data.total} · plik: ${data.file_name}`;
 
     } catch (err) {
