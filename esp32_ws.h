@@ -44,7 +44,7 @@ const bool    WS_USE_TLS   = true;  // true → beginSSL (wss://)
 
 // ===== OTA (лишається по HTTP — не критично до затримки) =====
 // Ця версія має ЗБІГАТИСЯ з тим, що адмін вписав при заливці прошивки.
-#define FIRMWARE_VERSION "1.0.5"
+#define FIRMWARE_VERSION "1.0.7"
 const char* OTA_DOWNLOAD_PATH = "/api/firmware/download";
 
 unsigned long lastOtaCheck = 0;
