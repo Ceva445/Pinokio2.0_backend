@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from config import templates
-from app.dependencies.admin import require_admin
+from app.dependencies.admin import require_admin, require_admin_or_observer
 
 router = APIRouter(
     prefix="/admin",
@@ -11,8 +11,10 @@ router = APIRouter(
 @router.get("/", response_class=HTMLResponse)
 async def admin_dashboard(
     request: Request,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_or_observer)
 ):
+    """Jedyny ekran panelu, do którego wchodzi obserwator. Reszta zostaje
+    pod require_admin, więc menu poniżej rysuje się dla niego skrócone."""
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {

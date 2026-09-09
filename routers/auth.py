@@ -176,11 +176,14 @@ async def login_form(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # --- Вибір ESP: менеджер ОБОВʼЯЗКОВО (онлайн + вільний, ексклюзив); адмін — поза правилом ---
+    # --- Вибір ESP: лише менеджер, і для нього ОБОВʼЯЗКОВО (онлайн + вільний,
+    # ексклюзив). Адмін поза правилом. Спостерігач сприяту не видає, тож
+    # зчитувача не обирає — і, головне, не потрапляє в esp_allowed_users. ---
     from app.main import esp_watchers, bind_esp, device_manager
     role = user.role.value
+    binds_reader = role == UserRole.manager.value
     device_id = (device_id or "").strip()
-    if role != "admin":
+    if binds_reader:
         if not device_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Wybierz urządzenie ESP")
         dev = device_manager.get_device(device_id)
@@ -206,7 +209,7 @@ async def login_form(
     }
     auth_manager.add_session(access_token, user_dict)
 
-    if role != "admin":
+    if binds_reader:
         bind_esp(device_id, user_dict, access_token)
 
     response.set_cookie(

@@ -11,6 +11,9 @@
         <h3>Panel administracyjny</h3>
         <ul>
             <li><a href="/admin">Dashboard</a></li>
+            {# Obserwator wchodzi tylko na dashboard — reszta ekranów oddaje mu 403,
+               więc pokazywanie ich w menu byłoby zaproszeniem w martwy link. #}
+            {% if not (user and user.role == "observer") %}
             <li><a href="/admin/employees">Pracownicy</a></li>
             <li><a href="/admin/temporary-employees/create">Dodaj pracownika tymczasowego</a></li>
             <li><a href="/admin/guests">Goście</a></li>
@@ -29,6 +32,7 @@
             <li><a href="/admin/sites">Site (magazyny)</a></li>
             <li><a href="/admin/firmware">📡 Firmware (OTA)</a></li>
             <li><a href="/admin/system-config">⚙️ Konfiguracja systemu</a></li>
+            {% endif %}
         </ul>
     </aside>
 

@@ -7,6 +7,9 @@ import enum
 class UserRole(str, enum.Enum):
     admin = "admin"
     manager = "manager"
+    # Obserwator: wchodzi do panelu tylko po to, żeby patrzeć na dashboard.
+    # Nie wydaje sprzętu i nie ma wstępu na monitor.
+    observer = "observer"
 
 
 class UserDB(Base):

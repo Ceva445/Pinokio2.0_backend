@@ -1,12 +1,26 @@
 """Маршрути для HTML сторінок"""
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from config import templates
+from models.db_user import UserRole
 from routers.auth import get_current_user
 
 router = APIRouter(tags=["Pages"])
+
+
+def _block_observer(current_user: dict | None) -> None:
+    """Monitor to ekran wydawania sprzętu — obserwatorowi nic tam nie wolno.
+
+    Gość (bez logowania) monitor widzi, ale w trybie informacyjnym; obserwator
+    jest zalogowany, więc bez tego sprawdzenia miałby ten ekran normalnie.
+    """
+    if current_user and current_user.get("role") == UserRole.observer.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Obserwator nie ma dostępu do monitora"
+        )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -23,7 +37,7 @@ async def monitor(
     request: Request,
     current_user: dict = Depends(get_current_user(False))
 ) -> HTMLResponse:
-    print("Current user in monitor:", current_user["role"] if current_user else "None")
+    _block_observer(current_user)
     return templates.TemplateResponse(
         "monitor.html",
         {
@@ -38,7 +52,7 @@ async def monitor2(
     request: Request,
     current_user: dict = Depends(get_current_user(False))
 ) -> HTMLResponse:
-    print("Current user in monitor2:", current_user["role"] if current_user else "None")
+    _block_observer(current_user)
     return templates.TemplateResponse(
         "monitor2.html",
         {

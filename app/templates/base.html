@@ -67,17 +67,22 @@ async function checkAuth() {
     // ✔ залогінений
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";
-    if (monitorBtn) monitorBtn.style.display = "inline";
-    if (monitor2Btn) monitor2Btn.style.display = "inline";
 
-    if (user.role === "admin") {
+    // Спостерігач сприяту не видає, тож монітор йому і не показуємо —
+    // сервер його туди все одно не пустить (403), а мертве посилання
+    // виглядає як поломка.
+    const isObserver = user.role === "observer";
+    if (monitorBtn) monitorBtn.style.display = isObserver ? "none" : "inline";
+    if (monitor2Btn) monitor2Btn.style.display = isObserver ? "none" : "inline";
+
+    if (user.role === "admin" || isObserver) {
         if (isAdminPage) {
-            // 🟢 адмін в адмінці → показати "На головну"
+            // 🟢 адмін/спостерігач у панелі → показати "На головну"
             adminBtn.style.display = "none";
             managerBtn.style.display = "none";
             homeBtn.style.display = "inline";
         } else {
-            // 🟢 адмін не в адмінці → показати "Адмінка"
+            // 🟢 адмін/спостерігач поза панеллю → показати вхід у панель
             adminBtn.style.display = "inline";
             managerBtn.style.display = "none";
             homeBtn.style.display = "none";

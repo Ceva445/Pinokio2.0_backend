@@ -18,6 +18,7 @@ from models.db_guest import DBGuest
 from models.db_transaction import TransactionType as DbTransactionType
 from schemas.transaction import TransactionType
 from routers.auth import get_current_user
+from app.dependencies.admin import forbid_observer
 
 router = APIRouter(prefix="/api", tags=["API"])
 
@@ -586,7 +587,7 @@ async def receive_esp32_data_v2(
 @router.post("/subscribe-esp/{esp_id}")
 async def subscribe_esp(
     esp_id: str,
-    current_user: dict = Depends(get_current_user())
+    current_user: dict = Depends(forbid_observer)
 ):
     from app.main import esp_allowed_users
 

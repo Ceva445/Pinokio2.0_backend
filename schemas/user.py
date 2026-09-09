@@ -6,6 +6,7 @@ from typing import Optional
 class UserRole(str, Enum):
     admin = "admin"
     manager = "manager"
+    observer = "observer"
 
 
 class UserBase(BaseModel):

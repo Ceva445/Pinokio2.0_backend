@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, or_, and_
 
 from db.session import get_db
-from app.dependencies.admin import require_admin, require_manager_or_admin
+from app.dependencies.admin import (
+    require_admin,
+    require_dashboard_viewer,
+    require_manager_or_admin,
+)
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
 from models.db_site import SiteDB
@@ -1212,7 +1216,7 @@ async def delete_department_manager(
 @router.get("/dashboard")
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_manager_or_admin)
+    user=Depends(require_dashboard_viewer)
 ):
     # =========================
     # GLOBAL COUNTS
@@ -1360,7 +1364,7 @@ async def get_dashboard_devices(
         description="Dział posiadacza. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
     ),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_manager_or_admin)
+    user=Depends(require_dashboard_viewer)
 ):
     """Urządzenia stojące za liczbą klikniętą na dashboardzie."""
     if device_type not in (None, "scanner", "printer"):
@@ -1417,7 +1421,7 @@ async def get_dashboard_employees(
         description="Dział. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
     ),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_manager_or_admin)
+    user=Depends(require_dashboard_viewer)
 ):
     """Pracownicy stojący za kolumną "Pracownicy" w tabeli per dział — czyli ci,
     którzy mają wydane co najmniej jedno dostępne urządzenie."""
