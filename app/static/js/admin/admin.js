@@ -237,9 +237,11 @@ function deviceTypeLabel(type) {
 }
 
 function employeeName(employee) {
+    // Login WMS z przodu, bo po nim listy są sortowane — z imieniem na początku
+    // kolejność wyglądałaby z ekranu na przypadkową.
     const name = [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim();
-    if (!name) return employee.wms_login || `#${employee.id}`;
-    return employee.wms_login ? `${name} (${employee.wms_login})` : name;
+    if (!employee.wms_login) return name || `#${employee.id}`;
+    return name ? `${employee.wms_login} — ${name}` : employee.wms_login;
 }
 
 function drillPanel(label, count, inner) {

@@ -102,6 +102,31 @@ async def test_drilldown_says_who_holds_the_device(db_session, warehouse):
     assert rows["SCAN-C1"]["employee"]["department"] is None
 
 
+async def test_devices_come_back_alphabetically(db_session, warehouse):
+    """Panel czyta się szukając nazwy wzrokiem. Wcześniej rządziło nazwisko
+    posiadacza i nazwy szły pozornie losowo."""
+    names = [d["name"] for d in await _devices(db_session)]
+    assert names == sorted(names)
+    assert names == ["PRINT-A2", "PRINT-B1", "PRINT-BROKEN", "PRINT-FREE",
+                     "SCAN-A1", "SCAN-B2", "SCAN-C1"]
+
+
+async def test_employees_come_back_by_wms_login(db_session):
+    """Сортування свідомо не за прізвищем: у продакшн-даних ім'я і прізвище
+    подекуди переставлені місцями, а логін WMS вводиться в одному форматі.
+    Логіни тут навмисне йдуть проти алфавіту прізвищ."""
+    zoll = await _employee(db_session, "A-ZOLL", "STOCK", last_name="Zoll")
+    adam = await _employee(db_session, "Z-ADAMSKI", "STOCK", last_name="Adamski")
+    await _device(db_session, "SCAN-Z1", DeviceType.scanner, zoll.id)
+    await _device(db_session, "SCAN-Z2", DeviceType.scanner, adam.id)
+
+    rows = await get_dashboard_employees(db=db_session, user=None, department=None)
+    logins = [e["wms_login"] for e in rows]
+
+    assert logins == sorted(logins)
+    assert logins == ["A-ZOLL", "Z-ADAMSKI"]
+
+
 async def test_free_devices_have_no_holder(db_session, warehouse):
     rows = {d["name"]: d for d in await _devices(db_session, assigned=False)}
 

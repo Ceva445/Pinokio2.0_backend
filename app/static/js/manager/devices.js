@@ -58,9 +58,10 @@ function deviceParams() {
 }
 
 function personLabel(employee) {
+    // Ten sam zapis co w panelach dashboardu: login WMS pierwszy.
     const name = [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim();
-    if (!name) return employee.wms_login || "—";
-    return employee.wms_login ? `${name} (${employee.wms_login})` : name;
+    if (!employee.wms_login) return name || "—";
+    return name ? `${employee.wms_login} — ${name}` : employee.wms_login;
 }
 
 async function loadDevices() {

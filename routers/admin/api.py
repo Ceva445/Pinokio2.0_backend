@@ -141,7 +141,9 @@ async def get_employees(
                 EmployeeDB.wms_login.ilike(f"%{q}%")
             )
         )
-    stmt = stmt.order_by(EmployeeDB.last_name, EmployeeDB.first_name)
+    # Po loginie WMS, bo to jedyny klucz wpisywany bez wariantów: w danych
+    # z produkcji imię i nazwisko bywają zamienione miejscami.
+    stmt = stmt.order_by(EmployeeDB.wms_login)
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -1400,14 +1402,9 @@ async def get_dashboard_devices(
             EmployeeDB.department.is_(None) if department == "" else EmployeeDB.department == department
         )
 
-    # Najpierw wydane, pogrupowane po osobie, potem wolne — tak, jak czyta się
-    # tabelę "kto co ma".
-    stmt = stmt.order_by(
-        DeviceDB.employee_id.is_(None),
-        EmployeeDB.last_name,
-        EmployeeDB.first_name,
-        DeviceDB.name
-    )
+    # Alfabetycznie po nazwie urządzenia — tak się tej listy szuka wzrokiem.
+    # Wcześniej rządziło nazwisko posiadacza i nazwy szły pozornie losowo.
+    stmt = stmt.order_by(DeviceDB.name)
 
     devices = (await db.execute(stmt)).scalars().all()
 
@@ -1435,7 +1432,7 @@ async def get_dashboard_employees(
             selectinload(EmployeeDB.site)
         )
         .distinct()
-        .order_by(EmployeeDB.last_name, EmployeeDB.first_name)
+        .order_by(EmployeeDB.wms_login)
     )
 
     if department is not None:
