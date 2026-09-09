@@ -424,11 +424,15 @@
 .drill-panel {
     max-height: 420px;
     overflow: auto;
-    padding: 16px 18px;
+    /* Bez górnego paddingu: ten pasek należy do obszaru przewijania, więc
+       wiersze przejeżdżałyby nad przyklejonym nagłówkiem tabeli. Odstęp daje
+       niżej sam tytuł. */
+    padding: 0 18px 16px;
     border-left: 3px solid var(--primary);
 }
 
 .drill-title {
+    padding-top: 16px;
     margin-bottom: 10px;
     font-size: 13px;
     font-weight: 600;
@@ -459,7 +463,10 @@
 .drill-table thead th {
     position: sticky;
     top: 0;
-    background: rgba(22, 20, 110, 0.95);
+    /* Sticky bez z-index bywa malowany pod kolejnymi wierszami, a półprzezroczyste
+       tło i tak by je przepuszczało — stąd warstwa i pełny kolor. */
+    z-index: 1;
+    background: #16146e;
     color: #e0e7ff;
     font-weight: 600;
     white-space: nowrap;
