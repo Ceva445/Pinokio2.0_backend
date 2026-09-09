@@ -2,7 +2,7 @@
 
 {% block styles %}
     <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -13,6 +13,7 @@
             <li><a href="/manager">📊 Dashboard</a></li>
             <li><a href="/manager/temporary-employees/create">Dodaj pracownika tymczasowego</a></li>
             <li><a href="/manager/transactions">📝 Historia Rejestracji</a></li>
+            <li><a href="/manager/devices">📦 Urządzenia</a></li>
         </ul>
     </aside>
 

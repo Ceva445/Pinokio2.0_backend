@@ -677,3 +677,17 @@
 .tx-filters .btn:hover {
     background: rgba(255, 255, 255, 0.14);
 }
+
+/* Krótkie wyjaśnienie pod nagłówkiem — np. czemu ekran jest tylko do odczytu. */
+.tx-hint {
+    margin: -4px 0 16px;
+    max-width: 70ch;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Szeroka tabela ma przewijać się sama, zamiast przesuwać całą stronę w bok. */
+.table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}

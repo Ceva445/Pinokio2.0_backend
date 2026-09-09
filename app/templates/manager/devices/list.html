@@ -1,0 +1,66 @@
+{% extends "manager/base_manager.html" %}
+
+{% block manager_content %}
+<h2>📦 Urządzenia</h2>
+
+<p class="tx-hint">
+    Podgląd sprzętu — do wyszukiwania, kto co ma na stanie.
+    Zakładanie, edycja i historia zmian urządzeń pozostają po stronie administratora.
+</p>
+
+<div class="tx-filters">
+    <label>
+        Szukaj
+        <input id="deviceSearch" placeholder="Nazwa, nr seryjny, RFID albo osoba">
+    </label>
+
+    <label>
+        Typ
+        <select id="deviceTypeFilter">
+            <option value="">Wszystkie typy</option>
+            <option value="scanner">📦 Skanery</option>
+            <option value="printer">🖨 Drukarki</option>
+        </select>
+    </label>
+
+    <label>
+        Status
+        <select id="deviceStatusFilter">
+            <option value="">Wszystkie statusy</option>
+        </select>
+    </label>
+
+    <label>
+        Przypisanie
+        <select id="deviceAssignedFilter">
+            <option value="">Wszystkie</option>
+            <option value="assigned">Tylko wydane</option>
+            <option value="unassigned">Tylko wolne</option>
+        </select>
+    </label>
+
+    <button type="button" id="deviceFiltersReset" class="btn">Wyczyść filtry</button>
+    <span id="deviceSummary" class="drill-muted"></span>
+</div>
+
+<div class="table-scroll">
+<table id="managerDevicesTable">
+    <thead>
+        <tr>
+            <th>Nazwa</th>
+            <th>Typ</th>
+            <th>Nr seryjny</th>
+            <th>RFID</th>
+            <th>Site</th>
+            <th>Status</th>
+            <th>Aktywne</th>
+            <th>Przypisany do</th>
+            <th>Dział</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+</div>
+
+<script src="{{ url_for('static', path='js/manager/devices.js') }}?v=1"></script>
+{% endblock %}

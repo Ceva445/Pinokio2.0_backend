@@ -51,6 +51,21 @@ async def manager_transactions(
 
 
 # ===============================
+# DEVICES PAGE (tylko podgląd)
+# ===============================
+
+@router.get("/devices", response_class=HTMLResponse)
+async def manager_devices(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    return templates.TemplateResponse(
+        "manager/devices/list.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
 
