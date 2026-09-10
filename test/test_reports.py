@@ -9,10 +9,15 @@ from io import BytesIO
 
 import pytest
 from openpyxl import load_workbook
+from sqlalchemy import select
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
-from models.db_transaction import TransactionDB, TransactionType
+from models.db_transaction import (
+    TRANSACTION_SOURCE_PANEL,
+    TransactionDB,
+    TransactionType,
+)
 from models.db_user import UserDB
 from routers.admin.reports import (
     COLUMNS,
@@ -147,6 +152,33 @@ async def test_manager_is_named_like_on_the_screen(db_session, history):
     report = await _preview(db_session, date_from=date(2026, 3, 10), date_to=date(2026, 3, 10))
 
     assert report["rows"][0][4] == "Ola Zima (ozima)"
+
+
+async def test_panel_return_is_signed_in_both_columns(db_session, history):
+    """Зняте адміном з панелі: картку ніхто не прикладав, тож у колонці
+    працівника стоїть той, хто зняв — так само, як це показує екран."""
+    manager = (await db_session.execute(select(UserDB))).scalars().first()
+    db_session.add(TransactionDB(
+        timestamp=_moment(14), type=TransactionType.unregistered,
+        employee_id=None, device_id=history["scanner"].id,
+        manager_id=manager.id, source=TRANSACTION_SOURCE_PANEL,
+    ))
+    await db_session.commit()
+
+    report = await _preview(db_session, date_from=date(2026, 3, 14))
+
+    assert report["total"] == 1
+    row = report["rows"][0]
+    assert row[2] == "Ola Zima (ozima)"
+    assert row[4] == "Ola Zima (ozima)"
+
+
+async def test_reader_return_keeps_the_dash(db_session, history):
+    """Повернення на зчитувачі лишається як було — інакше зміна переписала б
+    вигляд усієї наявної історії."""
+    report = await _preview(db_session, date_from=date(2026, 3, 13), date_to=date(2026, 3, 13))
+
+    assert report["rows"][0][2] == "—"
 
 
 # ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ from models.db_device import DeviceDB, DeviceType
 from models.db_site import SiteDB
 from models.db_port import DevicePortDB
 from models.db_device_status import DeviceStatusDB
+from models.db_transaction import TRANSACTION_SOURCE_PANEL, TransactionDB, TransactionType
 from services.device_transactions import build_change_descriptions, create_device_transaction
 import logging
 
@@ -955,6 +956,68 @@ async def delete_device(
 
     await db.delete(device)
     await db.commit()
+
+
+@router.post("/devices/{device_id:int}/unassign")
+async def unassign_device(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin)
+):
+    """Zdjęcie sprzętu z pracownika bez czytnika.
+
+    Normalnie zwrot robi sam pracownik kartą, a manager go autoryzuje. Zostaje
+    reszta przypadków: ktoś odszedł z pracy, zgubił kartę albo urządzenie wróciło
+    pocztą — wtedy nikt tego nie zamknie i sprzęt wisi na kimś w nieskończoność.
+    Stąd ten przycisk.
+
+    Wiersz w historii powstaje taki sam jak przy zwrocie na czytniku, bo dla
+    magazynu to jest ten sam fakt. Różnicę niesie kolumna source: nikt tu nie
+    przykładał karty, więc w miejscu pracownika ekran pokaże administratora,
+    który zwrot wykonał.
+    """
+    device = (await db.execute(
+        select(DeviceDB)
+        .where(DeviceDB.id == device_id)
+        .options(selectinload(DeviceDB.employee))
+    )).scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Nie ma takiego urządzenia")
+
+    if device.employee_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{device.name} nie jest do nikogo przypisany"
+        )
+
+    # Kogo zdejmujemy — do odpowiedzi, żeby ekran mógł to pokazać. Sam wiersz
+    # historii pracownika nie zapisuje, tak samo jak zwrot na czytniku.
+    previous = device.employee
+    previous_label = previous.wms_login if previous else None
+
+    device.employee_id = None
+
+    db.add(TransactionDB(
+        type=TransactionType.unregistered,
+        device_id=device.id,
+        employee_id=None,
+        manager_id=user["id"],
+        source=TRANSACTION_SOURCE_PANEL,
+    ))
+
+    await db.commit()
+
+    logger.info(
+        "Admin %s zdjął %s z %s z panelu",
+        user["username"], device.name, previous_label
+    )
+
+    return {
+        "device": device.name,
+        "previous_employee": previous_label,
+        "performed_by": user["username"],
+    }
 
 
 # ===============================

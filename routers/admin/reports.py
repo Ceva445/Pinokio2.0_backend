@@ -23,7 +23,7 @@ from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_device import DeviceDB
 from models.db_employee import EmployeeDB
-from models.db_transaction import TransactionDB
+from models.db_transaction import TRANSACTION_SOURCE_PANEL, TransactionDB
 
 router = APIRouter(
     prefix="/admin/api/reports",
@@ -106,12 +106,22 @@ def _local(moment: datetime | None) -> datetime | None:
 
 
 def _row(transaction: TransactionDB) -> tuple:
+    signature = _manager_label(transaction.manager)
+
+    # Zwrot zdjęty z panelu przez administratora: karty nikt nie przykładał,
+    # więc w miejscu pracownika idzie ten, kto zwrot wykonał — dokładnie tak,
+    # jak pokazuje to ekran rejestracji.
+    if transaction.employee is None and transaction.source == TRANSACTION_SOURCE_PANEL:
+        performer = signature
+    else:
+        performer = _employee_label(transaction.employee)
+
     return (
         _local(transaction.timestamp),
         transaction.type.value,
-        _employee_label(transaction.employee),
+        performer,
         transaction.device.name if transaction.device else "—",
-        _manager_label(transaction.manager),
+        signature,
     )
 
 

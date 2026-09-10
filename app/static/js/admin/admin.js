@@ -645,12 +645,49 @@ async function loadDevices() {
                 <td>
                     <a href="/admin/devices/${d.id}" title="Edytuj">✏️</a>
                     <a href="/admin/device-transactions?device=${encodeURIComponent(d.name)}" title="Historia zmian" style="margin-left:8px">🕘</a>
+                    ${d.employee_wms_login
+                        ? `<a href="#" title="Odbierz sprzęt od pracownika"
+                              style="margin-left:8px"
+                              onclick="unassignDevice(${d.id}, this); return false;">↩️</a>`
+                        : ""}
                 </td>
             `;
             tbody.appendChild(tr);
         }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="11">Błąd: ${err.message}</td></tr>`;
+    }
+}
+
+/**
+ * Zdjęcie sprzętu z pracownika bez czytnika.
+ *
+ * Zwrot normalnie robi sam pracownik kartą; ten przycisk jest na resztę
+ * przypadków — ktoś odszedł, zgubił kartę, sprzęt wrócił pocztą. W historii
+ * rejestracji powstaje zwykłe "Wyrejestrowanie (zwrot)", tylko podpisane
+ * administratorem, który je wykonał.
+ */
+async function unassignDevice(deviceId, link) {
+    const row = link.closest("tr");
+    const name = row?.cells[0]?.textContent?.trim() ?? `#${deviceId}`;
+    const holder = row?.cells[9]?.textContent?.trim() ?? "";
+
+    if (!confirm(`Odebrać ${name} od ${holder}?
+
+W historii rejestracji pojawi się zwrot podpisany Twoim loginem.`)) {
+        return;
+    }
+
+    // Podwójne kliknięcie zdążyłoby wysłać drugie żądanie, zanim tabela się
+    // przeładuje — a to drugi wiersz w historii o niczym.
+    link.style.pointerEvents = "none";
+
+    try {
+        await api(`/admin/api/devices/${deviceId}/unassign`, { method: "POST" });
+        await loadDevices();
+    } catch (err) {
+        link.style.pointerEvents = "";
+        alert(`Nie udało się odebrać urządzenia: ${err.message}`);
     }
 }
 
@@ -1067,6 +1104,21 @@ const TRANSACTION_TYPE_LABELS = {
 // nadpisywała nowszą i tabela pokazywała dane sprzed ostatniego filtra.
 let transactionsRequestId = 0;
 
+/**
+ * Podpis wiersza historii — kto stoi za operacją.
+ *
+ * Przy zwrocie zdjętym z panelu ta sama osoba idzie też w kolumnę pracownika:
+ * karty nikt nie przykładał, a pusty myślnik w tym miejscu niczym nie różniłby
+ * takiego wiersza od zwrotu na czytniku.
+ */
+function transactionSignature(t) {
+    if (!t.manager) return "—";
+    const name = [t.manager.first_name, t.manager.last_name].filter(Boolean).join(" ").trim();
+    if (!t.manager.username) return name || "—";
+    return name ? `${name} (${t.manager.username})` : t.manager.username;
+}
+
+
 async function loadTransactions(page = 1) {
     const tbody = document.querySelector("#transactionsTable tbody");
     if (!tbody) return;
@@ -1108,20 +1160,20 @@ async function loadTransactions(page = 1) {
 
         for (const t of data.items) {
             const tr = document.createElement("tr");
+            const signature = transactionSignature(t);
+            // Tylko zwrot zdjęty z panelu; przy zwrocie na czytniku myślnik
+            // znaczy "pracownik oddał sprzęt" i tak ma zostać.
+            const performer = t.source === "panel" ? signature : "—";
             tr.innerHTML = `
                 <td>${new Date(t.timestamp).toLocaleString()}</td>
                 <td>${TRANSACTION_TYPE_LABELS[t.type] ?? t.type}</td>
                 <td>
                     ${t.employee
                         ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
-                        : "—"}
+                        : performer}
                 </td>
                 <td>${t.device?.name ?? "—"}</td>
-                <td>
-                    ${t.manager
-                        ? `${t.manager.first_name ?? ""} ${t.manager.last_name ?? ""} (${t.manager.username ?? ""})`.trim()
-                        : "—"}
-                </td>
+                <td>${signature}</td>
             `;
             tbody.appendChild(tr);
         }

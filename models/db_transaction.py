@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, DateTime, Enum
+from sqlalchemy import ForeignKey, DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from db.base import Base
@@ -9,6 +9,10 @@ from datetime import datetime
 class TransactionType(enum.Enum):
     registered = "registered"
     unregistered = "unregistered"
+
+
+# Wartość kolumny `source` dla zwrotu zdjętego ręcznie z panelu administratora.
+TRANSACTION_SOURCE_PANEL = "panel"
 
 
 class TransactionDB(Base):
@@ -34,6 +38,14 @@ class TransactionDB(Base):
     manager_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
+
+    # Skąd wziął się wiersz. NULL = karta przyłożona do czytnika; tak powstały
+    # wszystkie dotychczasowe zapisy i tak nadal powstaje ich większość.
+    # "panel" = zwrot zdjęty ręcznie przez administratora z ekranu urządzeń.
+    # Takiego zwrotu nikt nie potwierdza kartą, więc w historii w miejscu
+    # pracownika pokazujemy tego, kto go wykonał — inaczej wiersz nie różniłby
+    # się od zdjęcia sprzętu na czytniku.
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     employee = relationship("EmployeeDB", back_populates="transactions")
     device = relationship("DeviceDB", back_populates="transactions")

@@ -45,6 +45,8 @@ def _item(t: TransactionDB) -> dict:
         "id": t.id,
         "timestamp": t.timestamp,
         "type": t.type.value,
+        # Zwrot zdjęty z panelu przez admina — ekran pokazuje go inaczej.
+        "source": t.source,
         "employee": {
             "id": employee.id,
             "wms_login": employee.wms_login,
