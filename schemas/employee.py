@@ -9,7 +9,6 @@ class EmployeeOut(BaseModel):
     rfid: str
     devices: list[DeviceOut] = []
     wms_login: Optional[str] = None
-    department: Optional[str] = None
     expired: bool = False
 
     class Config:

@@ -11,7 +11,6 @@ class EmployeeDB(Base):
     rfid: Mapped[str] = mapped_column(unique=True, index=True)
     company: Mapped[str]
     wms_login: Mapped[str] = mapped_column(unique=True, index=True, nullable=True)
-    department: Mapped[str] = mapped_column(nullable=True, index=True)
     expired: Mapped[bool] = mapped_column(default=False)
     # Майданчик, до якого приписаний працівник (довідник sites)
     site_id: Mapped[int | None] = mapped_column(

@@ -31,7 +31,7 @@ async def _call(db, **filters):
 async def shift(db_session):
     """Одна зміна: видачі зранку, повернення після обіду."""
     anna = EmployeeDB(last_name="Nowak", first_name="Anna", rfid="r-anna",
-                      company="Demo", wms_login="A-NOWAK", department="STOCK")
+                      company="Demo", wms_login="A-NOWAK")
     db_session.add(anna)
     await db_session.commit()
 

@@ -102,7 +102,7 @@ async def make_employee(db, rfid, wms_login="jkowalski", expired=False):
     from models.db_employee import EmployeeDB
     e = EmployeeDB(
         last_name="Kowalski", first_name="Jan", rfid=rfid, company="ACME",
-        wms_login=wms_login, department="WMS", expired=expired,
+        wms_login=wms_login, expired=expired,
     )
     db.add(e)
     await db.commit()

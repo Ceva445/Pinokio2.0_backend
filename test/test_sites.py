@@ -97,7 +97,7 @@ async def test_employee_site_relationship(db_session):
     site = await _make_site(db_session, "EMAG_EMP")
     db_session.add(EmployeeDB(
         last_name="Kowalski", first_name="Jan", rfid="EMP-RF-1",
-        company="ACME", wms_login="jkow", department="WMS", site_id=site.id,
+        company="ACME", wms_login="jkow", site_id=site.id,
     ))
     await db_session.commit()
 

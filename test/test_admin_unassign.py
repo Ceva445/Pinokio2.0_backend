@@ -34,7 +34,7 @@ async def warehouse(db_session):
     admin = UserDB(first_name="Local", last_name="Admin", username="C-ADMIN",
                    password_hash="x", role=UserRole.admin)
     anna = EmployeeDB(last_name="Nowak", first_name="Anna", rfid="r-anna",
-                      company="Demo", wms_login="A-NOWAK", department="STOCK")
+                      company="Demo", wms_login="A-NOWAK")
     db_session.add_all([admin, anna])
     await db_session.commit()
 
