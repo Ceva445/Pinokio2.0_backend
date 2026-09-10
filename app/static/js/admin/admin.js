@@ -642,12 +642,11 @@ async function loadDevices() {
                 <td>${d.status_name ?? "—"}</td>
                 <td>${d.enabled ? "✅" : "❌"}</td>
                 <td>${d.employee_wms_login ?? "—"}</td>
-                <td>
+                <td class="row-actions">
                     <a href="/admin/devices/${d.id}" title="Edytuj">✏️</a>
-                    <a href="/admin/device-transactions?device=${encodeURIComponent(d.name)}" title="Historia zmian" style="margin-left:8px">🕘</a>
+                    <a href="/admin/device-transactions?device=${encodeURIComponent(d.name)}" title="Historia zmian">🕘</a>
                     ${d.employee_wms_login
                         ? `<a href="#" title="Odbierz sprzęt od pracownika"
-                              style="margin-left:8px"
                               onclick="unassignDevice(${d.id}, this); return false;">↩️</a>`
                         : ""}
                 </td>

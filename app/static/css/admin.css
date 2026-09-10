@@ -698,3 +698,13 @@
     overflow-x: auto;
     max-width: 100%;
 }
+
+/* Ikony akcji w wierszu tabeli. Bez nowrap kolumna zwęża się do najszerszej
+   pozycji i trzecia ikona spada do drugiej linii. */
+.row-actions {
+    white-space: nowrap;
+}
+
+.row-actions a + a {
+    margin-left: 8px;
+}
