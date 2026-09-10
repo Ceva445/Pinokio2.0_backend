@@ -39,18 +39,58 @@ def get_sheet_name(device: DeviceDB) -> str:
     raise Exception(f"Unknown device type: {device.type}")
 
 
+def _previous(previous_row: list[str], column_index: int) -> str:
+    """Wartość, która stoi w tej kolumnie teraz. Arkusz obcina puste ogony
+    wiersza, więc kolumna bywa poza jego zakresem."""
+    return (
+        previous_row[column_index]
+        if column_index < len(previous_row)
+        else ""
+    )
+
+
+def _or_previous(value: str | None, previous_row: list[str], column_index: int) -> str:
+    """Wartość z bazy, a gdy jej nie ma — to, co stoi w arkuszu.
+
+    Pusto w bazie nie znaczy "wyczyść". Statusy i adresy IP trafiły do
+    aplikacji później niż do arkusza, więc dla części sprzętu baza po prostu
+    ich nie zna; zapis pustym ciągiem kasował magazynowi dane, których nie ma
+    skąd odtworzyć. Ceną jest to, że wyczyszczenie pola w panelu nie czyści go
+    w arkuszu — trzeba to zrobić ręcznie.
+    """
+    return value if value else _previous(previous_row, column_index)
+
+
+def _port_order(port):
+    """Porty numeryczne po wartości, resztę alfabetycznie — żeby kolejność w
+    komórce nie zmieniała się z zapisu na zapis."""
+    number = str(port.port_number)
+    return (0, int(number), "") if number.isdigit() else (1, 0, number)
+
+
 def generate_line_to_write(
     device: DeviceDB,
     line_of_position_column: list[str],
-    notes: str
+    notes: str,
+    previous_row: list[str]
 ) -> list[str]:
+    """Wiersz do wpisania w arkusz.
+
+    Aktualizacja nadpisuje CAŁY wiersz, więc każda kolumna musi mieć wartość.
+    Zasada jest jedna: pusto po stronie aplikacji nigdy nie kasuje tego, co
+    magazyn ma w arkuszu. Dotyczy to kolumn, których aplikacja w ogóle nie
+    prowadzi (MODEL, PORT 445 / PORT 999, dopiski z boku), jak i własnych pól,
+    których po prostu nie zna dla danego sprzętu (status, IP, site).
+    """
 
     result_line = []
 
-    for field in line_of_position_column:
+    for column_index, field in enumerate(line_of_position_column):
 
         if field == "S/N":
-            result_line.append(device.serial_number)
+            result_line.append(
+                _or_previous(device.serial_number, previous_row, column_index)
+            )
 
         elif field == "RFID":
             result_line.append(device.rfid)
@@ -59,18 +99,21 @@ def generate_line_to_write(
             result_line.append(device.name)
 
         elif field == "IP":
-            result_line.append(device.ip or "")
-
-        elif field == "STATUS":
             result_line.append(
-                device.status.name if device.status else ""
+                _or_previous(device.ip, previous_row, column_index)
             )
 
-        elif field == "MODEL":
-            result_line.append("")
+        elif field == "STATUS":
+            result_line.append(_or_previous(
+                device.status.name if device.status else None,
+                previous_row, column_index
+            ))
 
         elif field == "SITE":
-            result_line.append(device.site.name if device.site else "")
+            result_line.append(_or_previous(
+                device.site.name if device.site else None,
+                previous_row, column_index
+            ))
 
         elif field == "Inventaryzoano":
             result_line.append(str(date.today()))
@@ -78,16 +121,25 @@ def generate_line_to_write(
         elif field == "Notatka":
             result_line.append(notes)
 
-        elif field == "PORTS":
+        elif field == "PORT EMAG":
 
-            port_name = field.replace("PORTS", "").strip()
-            ports = [p for p in device.ports if port_name in p.port_number]
-            result_line.append(
-                "\n".join(str(p.port_number) for p in ports) if ports else ""
+            # Baza trzyma numery portów bez informacji, do której z trzech
+            # kolumn arkusza należą, więc wszystkie idą tutaj — jeden pod
+            # drugim w jednej komórce.
+            ports = "\n".join(
+                str(port.port_number)
+                for port in sorted(device.ports, key=_port_order)
             )
 
+            # Brak portów w bazie to nie polecenie "wyczyść": TERM001 ma w
+            # arkuszu 8226, a w bazie nic.
+            result_line.append(_or_previous(ports, previous_row, column_index))
+
         else:
-            result_line.append("")
+            # Kolumna spoza aplikacji: MODEL, PORT 445, PORT 999, dopiski
+            # magazynu. Nie mamy czym jej wypełnić, więc przepisujemy to, co
+            # arkusz już zawiera.
+            result_line.append(_previous(previous_row, column_index))
 
     return result_line
 
@@ -197,7 +249,8 @@ async def sync_device_to_sheet(
     row_to_write = generate_line_to_write(
         device=device,
         line_of_position_column=line_of_position_column,
-        notes=notes
+        notes=notes,
+        previous_row=previous_row
     )
 
     write_dev_change_to_spreadsheet(
