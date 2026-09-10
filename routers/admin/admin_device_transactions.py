@@ -17,6 +17,33 @@ router = APIRouter(
 
 PAGE_SIZE = 10
 
+
+def _item(t: DeviceChangeTransaction) -> dict:
+    """Wiersz historii zmian — jawną listą pól, nie obiektem ORM.
+
+    Oddawanie modelu wprost wysyłało do przeglądarki całego użytkownika razem
+    z password_hash. Ten sam błąd był w historii rejestracji i został tam
+    naprawiony w ten sam sposób.
+    """
+    user, device = t.user, t.device
+
+    return {
+        "id": t.id,
+        "timestamp": t.timestamp,
+        "description": t.description,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        } if user else None,
+        "device": {
+            "id": device.id,
+            "name": device.name,
+        } if device else None,
+    }
+
+
 @router.get("")
 async def get_device_transactions(
     page: int = Query(1, ge=1),
@@ -76,7 +103,7 @@ async def get_device_transactions(
     result = await db.execute(stmt)
 
     return {
-        "items": result.scalars().all(),
+        "items": [_item(t) for t in result.scalars().all()],
         "page": page,
         "pages": pages,
         "total": total

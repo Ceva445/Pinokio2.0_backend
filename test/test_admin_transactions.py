@@ -3,13 +3,16 @@
 Головне, що тут перевіряється: межі діапазону тепер із годиною, а не тільки з
 датою, і при цьому вибір самої дати в полі «Do» досі означає весь той день.
 """
+import json
 from datetime import datetime
 
 import pytest
+from sqlalchemy import select
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
 from models.db_transaction import TransactionDB, TransactionType
+from models.db_user import UserDB, UserRole
 from routers.admin.admin_transactions import get_transactions
 
 pytestmark = pytest.mark.asyncio
@@ -105,7 +108,8 @@ async def test_filter_by_operation_type(db_session, shift):
 
     assert registered["total"] == 3
     assert unregistered["total"] == 2
-    assert all(t.type == TransactionType.registered for t in registered["items"])
+    # Ендпоінт віддає готові рядки, а не ORM-обʼєкти — тип приходить рядком.
+    assert all(t["type"] == TransactionType.registered.value for t in registered["items"])
 
 
 async def test_type_and_hour_stack(db_session, shift):
@@ -117,6 +121,28 @@ async def test_type_and_hour_stack(db_session, shift):
         tx_type=TransactionType.unregistered,
     )
     assert page["total"] == 2
+
+
+async def test_rows_do_not_carry_password_hashes(db_session, shift):
+    """Ендпоінт віддавав ORM-обʼєкт менеджера цілком, разом із password_hash —
+    хеші паролів усіх менеджерів бачив кожен, хто відкривав «Rejestracje»."""
+    manager = UserDB(first_name="Viktoriia", last_name="Riabiik",
+                     username="P-RIABIIKV", password_hash="$pbkdf2-sha256$secret",
+                     role=UserRole.manager)
+    db_session.add(manager)
+    await db_session.commit()
+
+    transaction = (await db_session.execute(select(TransactionDB))).scalars().first()
+    transaction.manager_id = manager.id
+    await db_session.commit()
+
+    page = await _call(db_session)
+
+    assert "secret" not in json.dumps(page, default=str)
+    signed = [t for t in page["items"] if t["manager"]]
+    assert signed and set(signed[0]["manager"]) == {
+        "id", "username", "first_name", "last_name"
+    }
 
 
 async def test_no_filters_returns_everything(db_session, shift):

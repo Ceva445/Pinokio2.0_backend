@@ -31,6 +31,40 @@ def _as_local(moment: datetime) -> datetime:
     """Час із форми — місцевий; уже зонований лишаємо як є."""
     return moment if moment.tzinfo else moment.replace(tzinfo=LOCAL_TZ)
 
+
+def _item(t: TransactionDB) -> dict:
+    """Wiersz historii — wyliczany polami, nie oddaniem obiektu ORM.
+
+    Oddawanie modelu wprost wysyłało do przeglądarki całego użytkownika razem
+    z password_hash: hasła wszystkich managerów widział każdy, kto miał wgląd
+    w rejestracje. Stąd jawna lista pól.
+    """
+    employee, device, manager = t.employee, t.device, t.manager
+
+    return {
+        "id": t.id,
+        "timestamp": t.timestamp,
+        "type": t.type.value,
+        "employee": {
+            "id": employee.id,
+            "wms_login": employee.wms_login,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "department": employee.department,
+        } if employee else None,
+        "device": {
+            "id": device.id,
+            "name": device.name,
+        } if device else None,
+        "manager": {
+            "id": manager.id,
+            "username": manager.username,
+            "first_name": manager.first_name,
+            "last_name": manager.last_name,
+        } if manager else None,
+    }
+
+
 @router.get("")
 async def get_transactions(
     page: int = Query(1, ge=1),
@@ -97,7 +131,7 @@ async def get_transactions(
     result = await db.execute(stmt)
 
     return {
-        "items": result.scalars().all(),
+        "items": [_item(t) for t in result.scalars().all()],
         "page": page,
         "pages": pages,
         "total": total
