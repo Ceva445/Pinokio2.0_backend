@@ -52,7 +52,7 @@ def _item(t: TransactionDB) -> dict:
             "wms_login": employee.wms_login,
             "first_name": employee.first_name,
             "last_name": employee.last_name,
-            "department": employee.department,
+            "site": employee.site.name if employee.site else None,
         } if employee else None,
         "device": {
             "id": device.id,
@@ -81,7 +81,7 @@ async def get_transactions(
     stmt = (
         select(TransactionDB)
         .options(
-            joinedload(TransactionDB.employee),
+            joinedload(TransactionDB.employee).joinedload(EmployeeDB.site),
             joinedload(TransactionDB.device),
             joinedload(TransactionDB.manager)
         )

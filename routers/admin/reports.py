@@ -23,6 +23,7 @@ from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_device import DeviceDB
 from models.db_employee import EmployeeDB
+from models.db_site import SiteDB
 from models.db_transaction import TRANSACTION_SOURCE_PANEL, TransactionDB
 
 router = APIRouter(
@@ -50,7 +51,7 @@ PREVIEW_LIMIT = 2000
 def _filtered(
     date_from: date | None,
     date_to: date | None,
-    department: str | None,
+    site: str | None,
     device_ids: list[int] | None,
 ):
     """Wspólny rdzeń raportu: te same warunki dla podglądu, liczby i pliku."""
@@ -71,8 +72,12 @@ def _filtered(
             TransactionDB.timestamp <= datetime.combine(date_to, time.max, tzinfo=REPORT_TZ)
         )
 
-    if department:
-        stmt = stmt.where(EmployeeDB.department == department)
+    if site:
+        # Site pracownika bierzemy ze słownika, nie z wpisanego tekstu — inaczej
+        # "Stock" i "STOCK" byłyby na liście dwiema różnymi pozycjami.
+        stmt = stmt.where(
+            EmployeeDB.site_id == select(SiteDB.id).where(SiteDB.name == site).scalar_subquery()
+        )
 
     if device_ids:
         stmt = stmt.where(DeviceDB.id.in_(device_ids))
@@ -188,12 +193,12 @@ async def registration_report_options(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
 ):
-    """Zawartość filtrów: działy pracowników i lista urządzeń do wyboru."""
-    departments = (await db.execute(
-        select(EmployeeDB.department)
-        .where(EmployeeDB.department.is_not(None))
+    """Zawartość filtrów: site pracowników i lista urządzeń do wyboru."""
+    sites = (await db.execute(
+        select(SiteDB.name)
+        .join(EmployeeDB, EmployeeDB.site_id == SiteDB.id)
         .distinct()
-        .order_by(EmployeeDB.department)
+        .order_by(SiteDB.name)
     )).scalars().all()
 
     devices = (await db.execute(
@@ -202,7 +207,7 @@ async def registration_report_options(
 
     return {
         "report_name": REPORT_NAME,
-        "departments": list(departments),
+        "sites": list(sites),
         "devices": [
             {"id": d.id, "name": d.name, "type": d.type.value, "enabled": d.enabled}
             for d in devices
@@ -214,7 +219,7 @@ async def registration_report_options(
 async def registration_report_preview(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
-    department: str | None = Query(default=None),
+    site: str | None = Query(default=None),
     device_ids: list[int] = Query(default=[]),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
@@ -224,7 +229,7 @@ async def registration_report_preview(
     filters = {
         "date_from": date_from,
         "date_to": date_to,
-        "department": department,
+        "site": site,
         "device_ids": device_ids,
     }
 
@@ -247,7 +252,7 @@ async def registration_report_preview(
 async def registration_report_xlsx(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
-    department: str | None = Query(default=None),
+    site: str | None = Query(default=None),
     device_ids: list[int] = Query(default=[]),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin)
@@ -257,7 +262,7 @@ async def registration_report_xlsx(
         db,
         date_from=date_from,
         date_to=date_to,
-        department=department,
+        site=site,
         device_ids=device_ids,
     )
 

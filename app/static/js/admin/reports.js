@@ -29,11 +29,11 @@ function reportParams() {
 
     const dateFrom = $r("reportDateFrom").value;
     const dateTo = $r("reportDateTo").value;
-    const department = $r("reportDepartment").value;
+    const site = $r("reportSite").value;
 
     if (dateFrom) params.append("date_from", dateFrom);
     if (dateTo) params.append("date_to", dateTo);
-    if (department) params.append("department", department);
+    if (site) params.append("site", site);
     for (const id of selectedDeviceIds) params.append("device_ids", id);
 
     return params;
@@ -239,12 +239,12 @@ async function initRegistrationsReport() {
         const options = await api("/admin/api/reports/registrations/options");
         allDevices = options.devices;
 
-        const departmentSelect = $r("reportDepartment");
-        for (const department of options.departments) {
+        const siteSelect = $r("reportSite");
+        for (const site of options.sites) {
             const option = document.createElement("option");
-            option.value = department;
-            option.textContent = department;
-            departmentSelect.appendChild(option);
+            option.value = site;
+            option.textContent = site;
+            siteSelect.appendChild(option);
         }
     } catch (err) {
         showError(err.message);
@@ -279,7 +279,7 @@ async function initRegistrationsReport() {
         refreshDevicePicker();
     });
 
-    for (const id of ["reportDateFrom", "reportDateTo", "reportDepartment"]) {
+    for (const id of ["reportDateFrom", "reportDateTo", "reportSite"]) {
         $r(id).addEventListener("change", schedulePreview);
     }
 
@@ -288,7 +288,7 @@ async function initRegistrationsReport() {
     $r("reportReset").addEventListener("click", () => {
         $r("reportDateFrom").value = "";
         $r("reportDateTo").value = "";
-        $r("reportDepartment").value = "";
+        $r("reportSite").value = "";
         selectedDeviceIds.clear();
         search.value = "";
         $r("devicePickerPasteInfo").classList.add("hidden");

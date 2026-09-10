@@ -12,6 +12,7 @@ from db.session import get_db
 from models.db_transaction import TransactionDB, TransactionType
 from models.db_employee import EmployeeDB
 from models.db_department_manager import DepartmentManagerDB
+from models.db_site import SiteDB
 from models.db_device import DeviceDB
 
 router = APIRouter(tags=["Email Agent"])
@@ -87,12 +88,13 @@ async def run_email_notifications(db: AsyncSession) -> dict:
         select(
             EmployeeDB.first_name,
             EmployeeDB.last_name,
-            EmployeeDB.department,
+            SiteDB.name.label("site"),
             DeviceDB.name,
             DeviceDB.type,
             last_registered_subq.c.last_ts
         )
         .join(DeviceDB, DeviceDB.employee_id == EmployeeDB.id)
+        .outerjoin(SiteDB, SiteDB.id == EmployeeDB.site_id)
         .join(last_registered_subq, last_registered_subq.c.device_id == DeviceDB.id)
         .where(
             DeviceDB.employee_id.is_not(None),
@@ -105,7 +107,7 @@ async def run_email_notifications(db: AsyncSession) -> dict:
 
     employees_devices: dict[str, list[str]] = {}
 
-    for first_name, last_name, department, device_name, device_type, timestamp in rows:
+    for first_name, last_name, site, device_name, device_type, timestamp in rows:
 
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -116,7 +118,10 @@ async def run_email_notifications(db: AsyncSession) -> dict:
 
         device_type_pl = DEVICE_TYPE_PL.get(device_type.value, device_type.value)
 
-        employees_devices.setdefault(department, []).append(
+        # Klucz to nazwa site ze słownika, nie wpisany ręcznie tekst. Wcześniej
+        # szedł tu department i wystarczyło "Stock" zamiast "STOCK", żeby nikt
+        # z tego działu nie znalazł swojego kierownika i mail nie poszedł.
+        employees_devices.setdefault(site, []).append(
             f"{first_name} {last_name} ({device_type_pl}: {device_name}) — {hours}h {minutes}min"
         )
 
@@ -142,9 +147,9 @@ async def run_email_notifications(db: AsyncSession) -> dict:
     all_emails = list({e.lower(): e for e in all_emails_raw}.values())
     all_lower = {e.lower() for e in all_emails_raw}
 
-    for department, employees in employees_devices.items():
+    for site, employees in employees_devices.items():
         managers_stmt = select(DepartmentManagerDB.email).where(
-            DepartmentManagerDB.department == department
+            DepartmentManagerDB.department == site
         )
 
         result = await db.execute(managers_stmt)
@@ -157,11 +162,11 @@ async def run_email_notifications(db: AsyncSession) -> dict:
             continue
 
         message = (
-            f"Pracownicy w Twoim dziale '{department}' {time_text}\n\n"
+            f"Pracownicy w Twoim dziale '{site}' {time_text}\n\n"
             + "\n".join(employees)
         )
 
-        subject = f"Alert zwrotu urządzenia - {department}"
+        subject = f"Alert zwrotu urządzenia - {site}"
 
         notifications.append({
             "emails": manager_emails,
@@ -172,8 +177,8 @@ async def run_email_notifications(db: AsyncSession) -> dict:
     # 🔹 Один зведений лист для ALL-менеджерів: усі інциденти з усіх відділів
     if employees_devices and all_emails:
         sections = [
-            f"[{department}]\n" + "\n".join(employees)
-            for department, employees in employees_devices.items()
+            f"[{site}]\n" + "\n".join(employees)
+            for site, employees in employees_devices.items()
         ]
         combined_message = (
             f"Zestawienie wszystkich działów — pracownicy {time_text}\n\n"

@@ -56,7 +56,7 @@ async def get_devices(
         select(DeviceDB)
         .outerjoin(DeviceDB.employee)
         .options(
-            selectinload(DeviceDB.employee),
+            selectinload(DeviceDB.employee).selectinload(EmployeeDB.site),
             selectinload(DeviceDB.status),
             selectinload(DeviceDB.site),
         )
@@ -104,7 +104,7 @@ async def get_devices(
                 "wms_login": d.employee.wms_login,
                 "first_name": d.employee.first_name,
                 "last_name": d.employee.last_name,
-                "department": d.employee.department,
+                "site": d.employee.site.name if d.employee.site else None,
             } if d.employee else None,
         }
         for d in devices

@@ -154,8 +154,8 @@ function employeeDrill(label, params) {
 }
 
 function drillQuery(drill) {
-    // Puste wartości zostają w zapytaniu: "department=" to u nas pracownicy
-    // bez działu, a pominięty parametr znaczy "bez filtra".
+    // Puste wartości zostają w zapytaniu: "site=" to u nas pracownicy bez
+    // site, a pominięty parametr znaczy "bez filtra".
     return new URLSearchParams(drill.params).toString();
 }
 
@@ -268,7 +268,7 @@ function renderDeviceDrill(devices, label) {
             <td>${d.employee
                 ? drillTarget(`/admin/employees/${d.employee.id}`, employeeName(d.employee))
                 : `<span class="drill-muted">nieprzypisane</span>`}</td>
-            <td>${esc(d.employee?.department ?? "—")}</td>
+            <td>${esc(d.employee?.site ?? "—")}</td>
         </tr>`).join("");
 
     return drillPanel(label, devices.length, `
@@ -278,11 +278,11 @@ function renderDeviceDrill(devices, label) {
                     <th>Nazwa</th>
                     <th>Typ</th>
                     <th>Nr seryjny</th>
-                    <th>Site</th>
+                    <th>Site urządzenia</th>
                     <th>Status</th>
                     <th>Aktywne</th>
                     <th>Przypisany do</th>
-                    <th>Dział</th>
+                    <th>Site osoby</th>
                 </tr>
             </thead>
             <tbody>${body}</tbody>
@@ -297,7 +297,6 @@ function renderEmployeeDrill(employees, label) {
     const body = employees.map((e) => `
         <tr>
             <td>${drillTarget(`/admin/employees/${e.id}`, employeeName(e))}</td>
-            <td>${esc(e.department ?? "—")}</td>
             <td>${esc(e.site ?? "—")}</td>
             <td>${esc(e.company ?? "—")}</td>
             <td>
@@ -318,7 +317,6 @@ function renderEmployeeDrill(employees, label) {
             <thead>
                 <tr>
                     <th>Pracownik</th>
-                    <th>Dział</th>
                     <th>Site</th>
                     <th>Kompania</th>
                     <th>Sprzęt</th>
@@ -389,34 +387,34 @@ async function loadDashboard() {
             deviceDrill("Cały sprzęt", {}));
 
         // =========================
-        // DEPARTMENTS
+        // UŻYCIE PER SITE
         // =========================
         if (!tbody) return;
 
         tbody.innerHTML = "";
 
-        if (!data.departments || data.departments.length === 0) {
+        if (!data.sites || data.sites.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5">Brak danych</td></tr>`;
             return;
         }
 
-        for (const d of data.departments) {
+        for (const d of data.sites) {
             const tr = document.createElement("tr");
-            const label = d.department ?? "Brak";
+            const label = d.site ?? "Brak";
 
-            // Wiersz "Brak" to pracownicy bez działu; API rozpoznaje ich po
+            // Wiersz "Brak" to pracownicy bez site; API rozpoznaje ich po
             // pustym parametrze, nie po etykiecie z tabeli.
-            const department = d.department_filter ?? "";
+            const site = d.site_filter ?? "";
 
-            // Liczby per dział dotyczą wyłącznie sprzętu wydanego i dostępnego —
+            // Liczby per site dotyczą wyłącznie sprzętu wydanego i dostępnego —
             // dokładnie tak, jak liczy je get_dashboard.
-            const scope = { department, enabled: "true", assigned: "true" };
+            const scope = { site, enabled: "true", assigned: "true" };
 
             tr.innerHTML = `<td>${esc(label)}</td><td></td><td></td><td></td><td></td>`;
             const [, employeesCell, devicesCell, scannersCell, printersCell] = tr.children;
 
             setDashboardCount(employeesCell, d.employees ?? 0,
-                employeeDrill(`Pracownicy — ${label}`, { department }));
+                employeeDrill(`Pracownicy — ${label}`, { site }));
             setDashboardCount(devicesCell, d.devices ?? 0,
                 deviceDrill(`Urządzenia — ${label}`, scope));
             setDashboardCount(scannersCell, d.scanners ?? 0,
@@ -476,7 +474,6 @@ async function loadEmployees() {
                 <td>${e.last_name}</td>
                 <td>${e.company}</td>
                 <td>${e.rfid}</td>
-                <td>${e.department ?? ""}</td>
                 <td>${siteNames.get(e.site_id) ?? ""}</td>
                 <td>${e.expired ? "✅" : ""}</td>
                 <td><a href="/admin/employees/${e.id}">✏️</a></td>
@@ -504,7 +501,6 @@ async function loadEmployeeDetail(employeeId) {
         form.last_name.value = employee.last_name ?? "";
         form.company.value = employee.company ?? "";
         form.rfid.value = employee.rfid ?? "";
-        form.department.value = employee.department ?? "";
         form.expired.checked = employee.expired ?? false;
         await loadSiteOptionsById("employeeSiteSelect", employee.site_id ?? null);
     } catch (err) {
@@ -523,7 +519,6 @@ async function loadEmployeeDetail(employeeId) {
                     last_name: form.last_name.value,
                     company: form.company.value,
                     rfid: form.rfid.value,
-                    department: form.department.value || null,
                     expired: form.expired.checked,
                     site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
@@ -574,7 +569,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     last_name: form.last_name.value,
                     company: form.company.value,
                     rfid: form.rfid.value,
-                    department: form.department.value || null,
                     site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
             });

@@ -88,7 +88,6 @@ async def create_employee(
             company=payload["company"].strip(),
             rfid=payload["rfid"].strip(),
             wms_login=payload.get("wms_login", "").strip(),
-            department=payload.get("department", "").strip(),
             site_id=await resolve_site_id(db, payload)
         )
 
@@ -196,7 +195,7 @@ async def update_employee(
             payload["site_id"] = await resolve_site_id(db, payload)
 
         do_unexpire = False
-        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "department", "expired", "site_id"]:
+        for field in ["wms_login", "first_name", "last_name", "company", "rfid", "expired", "site_id"]:
             if field in payload:
                 value = payload[field]
 
@@ -511,7 +510,6 @@ async def create_temporary_employee(
             company=payload["company"].strip(),
             rfid=guest.rfid,
             wms_login=payload.get("wms_login", "").strip(),
-            department=payload.get("department", "").strip(),
             site_id=await resolve_site_id(db, payload)
         )
         
@@ -1337,11 +1335,11 @@ async def get_dashboard(
         disabled_types[t.value] = count
 
     # =========================
-    # DEPARTMENTS (FULL DATA)
+    # UŻYCIE PER SITE
     # =========================
-    dept_stmt = (
+    site_usage_stmt = (
         select(
-            EmployeeDB.department,
+            SiteDB.name.label("site"),
 
             func.count(func.distinct(EmployeeDB.id)).label("employees"),
             func.count(DeviceDB.id).label("devices"),
@@ -1350,30 +1348,31 @@ async def get_dashboard(
             func.count().filter(DeviceDB.type == DeviceType.printer).label("printers"),
         )
         .join(DeviceDB, DeviceDB.employee_id == EmployeeDB.id)
+        .outerjoin(SiteDB, SiteDB.id == EmployeeDB.site_id)
         .where(
             DeviceDB.enabled == True,
             DeviceDB.employee_id.is_not(None)
         )
-        .group_by(EmployeeDB.department)
+        .group_by(SiteDB.name)
     )
 
-    dept_result = await db.execute(dept_stmt)
+    site_usage_result = await db.execute(site_usage_stmt)
 
-    departments = [
+    sites_usage = [
         {
-            "department": row.department or "Brak",
+            "site": row.site or "Brak",
 
             # Etykieta wyżej jest dla oka ("Brak" zamiast pustego); rozwinięcie
             # potrzebuje wartości, którą da się odesłać do API — pusty ciąg
-            # oznacza tam właśnie pracowników bez działu.
-            "department_filter": row.department or "",
+            # oznacza tam właśnie pracowników bez site.
+            "site_filter": row.site or "",
 
             "employees": row.employees or 0,
             "devices": row.devices or 0,
             "scanners": row.scanners or 0,
             "printers": row.printers or 0,
         }
-        for row in dept_result
+        for row in site_usage_result
     ]
 
     return {
@@ -1383,7 +1382,7 @@ async def get_dashboard(
             "by_type": types,
             "disabled_by_type": disabled_types
         },
-        "departments": departments
+        "sites": sites_usage
     }
 
 # ===============================
@@ -1412,7 +1411,7 @@ def _dashboard_device_row(device: DeviceDB) -> dict:
             "wms_login": employee.wms_login,
             "first_name": employee.first_name,
             "last_name": employee.last_name,
-            "department": employee.department,
+            "site": employee.site.name if employee.site else None,
         } if employee else None,
     }
 
@@ -1424,9 +1423,9 @@ async def get_dashboard_devices(
     ),
     enabled: bool | None = Query(default=None, description="brak = i dostępne, i niedostępne"),
     assigned: bool | None = Query(default=None, description="true = tylko wydane, false = tylko wolne"),
-    department: str | None = Query(
+    site: str | None = Query(
         default=None,
-        description="Dział posiadacza. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
+        description="Site posiadacza. Pominięty = bez filtra, pusty = pracownicy bez site ('Brak')",
     ),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_dashboard_viewer)
@@ -1439,7 +1438,7 @@ async def get_dashboard_devices(
         select(DeviceDB)
         .outerjoin(EmployeeDB, DeviceDB.employee_id == EmployeeDB.id)
         .options(
-            selectinload(DeviceDB.employee),
+            selectinload(DeviceDB.employee).selectinload(EmployeeDB.site),
             selectinload(DeviceDB.status),
             selectinload(DeviceDB.site)
         )
@@ -1456,13 +1455,15 @@ async def get_dashboard_devices(
             DeviceDB.employee_id.is_not(None) if assigned else DeviceDB.employee_id.is_(None)
         )
 
-    if department is not None:
-        # Pusty ciąg to wiersz "Brak" z tabeli per dział: pracownik istnieje,
-        # ale nie ma działu. Samo department IS NULL złapałoby przy outerjoin
-        # także urządzenia bez posiadacza — stąd dodatkowy warunek na EmployeeDB.id.
-        stmt = stmt.where(
-            EmployeeDB.id.is_not(None),
-            EmployeeDB.department.is_(None) if department == "" else EmployeeDB.department == department
+    if site is not None:
+        # Pusty ciąg to wiersz "Brak" z tabeli per site: pracownik istnieje,
+        # ale site nie ma. Samo site_id IS NULL złapałoby przy outerjoin także
+        # urządzenia bez posiadacza — stąd dodatkowy warunek na EmployeeDB.id.
+        stmt = stmt.where(EmployeeDB.id.is_not(None))
+        stmt = (
+            stmt.where(EmployeeDB.site_id.is_(None))
+            if site == ""
+            else stmt.join(SiteDB, SiteDB.id == EmployeeDB.site_id).where(SiteDB.name == site)
         )
 
     # Alfabetycznie po nazwie urządzenia — tak się tej listy szuka wzrokiem.
@@ -1476,9 +1477,9 @@ async def get_dashboard_devices(
 
 @router.get("/dashboard/employees")
 async def get_dashboard_employees(
-    department: str | None = Query(
+    site: str | None = Query(
         default=None,
-        description="Dział. Pominięty = bez filtra, pusty = pracownicy bez działu ('Brak')",
+        description="Site. Pominięty = bez filtra, pusty = pracownicy bez site ('Brak')",
     ),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_dashboard_viewer)
@@ -1498,9 +1499,11 @@ async def get_dashboard_employees(
         .order_by(EmployeeDB.wms_login)
     )
 
-    if department is not None:
-        stmt = stmt.where(
-            EmployeeDB.department.is_(None) if department == "" else EmployeeDB.department == department
+    if site is not None:
+        stmt = (
+            stmt.where(EmployeeDB.site_id.is_(None))
+            if site == ""
+            else stmt.join(SiteDB, SiteDB.id == EmployeeDB.site_id).where(SiteDB.name == site)
         )
 
     employees = (await db.execute(stmt)).scalars().all()
@@ -1512,7 +1515,6 @@ async def get_dashboard_employees(
             "first_name": e.first_name,
             "last_name": e.last_name,
             "company": e.company,
-            "department": e.department,
             "site": e.site.name if e.site else None,
 
             # Cały sprzęt przypisany do osoby, także niedostępny — fizycznie

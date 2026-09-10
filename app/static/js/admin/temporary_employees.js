@@ -224,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     first_name: form.first_name.value,
                     last_name: form.last_name.value,
                     company: form.company.value,
-                    department: form.department.value || null,
                     site_id: form.site_id.value ? parseInt(form.site_id.value) : null
                 })
             });

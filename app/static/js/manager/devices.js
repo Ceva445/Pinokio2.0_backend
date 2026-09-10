@@ -100,7 +100,7 @@ async function loadDevices() {
                 <td>${device.employee
                     ? escape(personLabel(device.employee))
                     : `<span class="drill-muted">wolne</span>`}</td>
-                <td>${escape(device.employee?.department ?? "—")}</td>
+                <td>${escape(device.employee?.site ?? "—")}</td>
             `;
             tbody.appendChild(tr);
         }

@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from models.db_device import DeviceDB, DeviceType
 from models.db_device_status import DeviceStatusDB
 from models.db_employee import EmployeeDB
+from models.db_site import SiteDB
 from routers.manager import api_devices
 from routers.manager.api_devices import get_device_statuses, get_devices
 
@@ -31,10 +32,15 @@ async def warehouse(db_session):
     db_session.add_all([work_status, test_status])
     await db_session.commit()
 
+    stock = SiteDB(name="STOCK")
+    emag = SiteDB(name="EMAG")
+    db_session.add_all([stock, emag])
+    await db_session.commit()
+
     anna = EmployeeDB(last_name="Nowak", first_name="Anna", rfid="r-anna",
-                      company="Demo", wms_login="A-NOWAK", department="STOCK")
+                      company="Demo", wms_login="A-NOWAK", site_id=stock.id)
     bartek = EmployeeDB(last_name="Wójcik", first_name="Bartek", rfid="r-bartek",
-                        company="Demo", wms_login="B-WOJCIK", department="ECOM")
+                        company="Demo", wms_login="B-WOJCIK", site_id=emag.id)
     db_session.add_all([anna, bartek])
     await db_session.commit()
 
@@ -142,7 +148,7 @@ async def test_row_says_who_holds_the_device(db_session, warehouse):
     rows = {d["name"]: d for d in await _call(db_session)}
 
     assert rows["TERM003"]["employee"]["wms_login"] == "A-NOWAK"
-    assert rows["TERM003"]["employee"]["department"] == "STOCK"
+    assert rows["TERM003"]["employee"]["site"] == "STOCK"
     assert rows["TERM005"]["employee"] is None
     assert rows["TERM005"]["enabled"] is False
 

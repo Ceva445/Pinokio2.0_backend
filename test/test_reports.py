@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
+from models.db_site import SiteDB
 from models.db_transaction import (
     TRANSACTION_SOURCE_PANEL,
     TransactionDB,
@@ -44,15 +45,20 @@ async def history(db_session):
         first_name="Ola", last_name="Zima", username="ozima",
         password_hash="x", role="admin", is_active=True,
     )
+    stock = SiteDB(name="STOCK")
+    emag = SiteDB(name="EMAG")
+    db_session.add_all([manager, stock, emag])
+    await db_session.commit()
+
     anna = EmployeeDB(
         last_name="Nowak", first_name="Anna", rfid="rfid-anna",
-        company="ACME", wms_login="A-NOWAK", department="STOCK",
+        company="ACME", wms_login="A-NOWAK", site_id=stock.id,
     )
     bartek = EmployeeDB(
         last_name="Wojcik", first_name="Bartek", rfid="rfid-bartek",
-        company="ACME", wms_login="B-WOJCIK", department="ECOM",
+        company="ACME", wms_login="B-WOJCIK", site_id=emag.id,
     )
-    db_session.add_all([manager, anna, bartek])
+    db_session.add_all([anna, bartek])
     await db_session.commit()
 
     scanner = DeviceDB(
@@ -80,7 +86,7 @@ async def history(db_session):
 
 
 async def _preview(db, **filters):
-    params = {"date_from": None, "date_to": None, "department": None, "device_ids": []}
+    params = {"date_from": None, "date_to": None, "site": None, "device_ids": []}
     params.update(filters)
     return await registration_report_preview(db=db, user=None, **params)
 
@@ -107,8 +113,8 @@ async def test_date_bounds_are_inclusive(db_session, history):
     assert all(row[0].startswith(("2026-03-11", "2026-03-12")) for row in report["rows"])
 
 
-async def test_department_filter_follows_the_employee(db_session, history):
-    report = await _preview(db_session, department="STOCK")
+async def test_site_filter_follows_the_employee(db_session, history):
+    report = await _preview(db_session, site="STOCK")
 
     assert report["total"] == 2
     assert all("A-NOWAK" in row[2] for row in report["rows"])
@@ -130,7 +136,7 @@ async def test_filters_stack(db_session, history):
         db_session,
         date_from=date(2026, 3, 10),
         date_to=date(2026, 3, 10),
-        department="STOCK",
+        site="STOCK",
         device_ids=[history["scanner"].id],
     )
 
@@ -187,7 +193,7 @@ async def test_reader_return_keeps_the_dash(db_session, history):
 async def test_options_feed_the_dropdowns(db_session, history):
     options = await registration_report_options(db=db_session, user=None)
 
-    assert options["departments"] == ["ECOM", "STOCK"]
+    assert options["sites"] == ["EMAG", "STOCK"]
     assert [d["name"] for d in options["devices"]] == ["TERM003", "ZEBRAMOB44506"]
 
 
@@ -199,10 +205,10 @@ async def test_file_name_is_report_name_plus_generation_date():
 
 
 async def test_workbook_matches_what_the_preview_showed(db_session, history):
-    preview = await _preview(db_session, department="STOCK")
+    preview = await _preview(db_session, site="STOCK")
     response = await registration_report_xlsx(
         db=db_session, user=None,
-        date_from=None, date_to=None, department="STOCK", device_ids=[],
+        date_from=None, date_to=None, site="STOCK", device_ids=[],
     )
 
     sheet = load_workbook(BytesIO(response.body)).active
@@ -219,7 +225,7 @@ async def test_workbook_matches_what_the_preview_showed(db_session, history):
 async def test_workbook_has_headers_even_when_nothing_matches(db_session, history):
     response = await registration_report_xlsx(
         db=db_session, user=None,
-        date_from=date(2030, 1, 1), date_to=None, department=None, device_ids=[],
+        date_from=date(2030, 1, 1), date_to=None, site=None, device_ids=[],
     )
 
     sheet = load_workbook(BytesIO(response.body)).active
@@ -229,7 +235,7 @@ async def test_workbook_has_headers_even_when_nothing_matches(db_session, histor
 async def test_response_carries_the_file_name(db_session, history):
     response = await registration_report_xlsx(
         db=db_session, user=None,
-        date_from=None, date_to=None, department=None, device_ids=[],
+        date_from=None, date_to=None, site=None, device_ids=[],
     )
 
     today = datetime.now(REPORT_TZ).date()

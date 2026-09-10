@@ -9,6 +9,8 @@ from fastapi import HTTPException
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
+from models.db_site import SiteDB
+from sqlalchemy import select
 from routers.admin.api import (
     get_dashboard,
     get_dashboard_devices,
@@ -18,10 +20,23 @@ from routers.admin.api import (
 pytestmark = pytest.mark.asyncio
 
 
-async def _employee(db, wms_login, department, last_name="Kowalski"):
+async def _site(db, name):
+    """Site ze słownika — pracownik trzyma FK, nie wpisany ręcznie tekst."""
+    site = (await db.execute(select(SiteDB).where(SiteDB.name == name))).scalar_one_or_none()
+    if site is None:
+        site = SiteDB(name=name)
+        db.add(site)
+        await db.commit()
+        await db.refresh(site)
+    return site
+
+
+async def _employee(db, wms_login, site_name, last_name="Kowalski"):
+    site = await _site(db, site_name) if site_name else None
     e = EmployeeDB(
         last_name=last_name, first_name="Jan", rfid=f"rfid-{wms_login}",
-        company="ACME", wms_login=wms_login, department=department,
+        company="ACME", wms_login=wms_login,
+        site_id=site.id if site else None,
     )
     db.add(e)
     await db.commit()
@@ -63,7 +78,7 @@ async def warehouse(db_session):
 async def _devices(db, **kwargs):
     """get_dashboard_devices із повним набором аргументів — при прямому виклику
     FastAPI не підставляє дефолти з Query()."""
-    params = {"device_type": None, "enabled": None, "assigned": None, "department": None}
+    params = {"device_type": None, "enabled": None, "assigned": None, "site": None}
     params.update(kwargs)
     return await get_dashboard_devices(db=db, user=None, **params)
 
@@ -98,8 +113,8 @@ async def test_drilldown_says_who_holds_the_device(db_session, warehouse):
     rows = {d["name"]: d for d in await _devices(db_session, device_type="scanner", enabled=True)}
 
     assert rows["SCAN-A1"]["employee"]["wms_login"] == "A-NOWAK"
-    assert rows["SCAN-A1"]["employee"]["department"] == "STOCK"
-    assert rows["SCAN-C1"]["employee"]["department"] is None
+    assert rows["SCAN-A1"]["employee"]["site"] == "STOCK"
+    assert rows["SCAN-C1"]["employee"]["site"] is None
 
 
 async def test_devices_come_back_alphabetically(db_session, warehouse):
@@ -120,7 +135,7 @@ async def test_employees_come_back_by_wms_login(db_session):
     await _device(db_session, "SCAN-Z1", DeviceType.scanner, zoll.id)
     await _device(db_session, "SCAN-Z2", DeviceType.scanner, adam.id)
 
-    rows = await get_dashboard_employees(db=db_session, user=None, department=None)
+    rows = await get_dashboard_employees(db=db_session, user=None, site=None)
     logins = [e["wms_login"] for e in rows]
 
     assert logins == sorted(logins)
@@ -143,19 +158,19 @@ async def test_unknown_type_is_rejected(db_session):
 # ---------------------------------------------------------------------------
 # Таблиця per dział
 # ---------------------------------------------------------------------------
-async def _department_row(db, name):
+async def _site_row(db, name):
     board = await get_dashboard(db=db, user=None)
-    return next(row for row in board["departments"] if row["department"] == name)
+    return next(row for row in board["sites"] if row["site"] == name)
 
 
-async def test_department_counts_match_their_drilldown(db_session, warehouse):
-    row = await _department_row(db_session, "STOCK")
-    scope = {"department": row["department_filter"], "enabled": True, "assigned": True}
+async def test_site_counts_match_their_drilldown(db_session, warehouse):
+    row = await _site_row(db_session, "STOCK")
+    scope = {"site": row["site_filter"], "enabled": True, "assigned": True}
 
     devices = await _devices(db_session, **scope)
     scanners = await _devices(db_session, device_type="scanner", **scope)
     printers = await _devices(db_session, device_type="printer", **scope)
-    employees = await get_dashboard_employees(department=row["department_filter"], db=db_session, user=None)
+    employees = await get_dashboard_employees(site=row["site_filter"], db=db_session, user=None)
 
     assert len(devices) == row["devices"] == 3
     assert len(scanners) == row["scanners"] == 1
@@ -165,7 +180,7 @@ async def test_department_counts_match_their_drilldown(db_session, warehouse):
 
 async def test_employee_drilldown_lists_the_gear_each_person_has(db_session, warehouse):
     people = {e["wms_login"]: e for e in
-              await get_dashboard_employees(department="STOCK", db=db_session, user=None)}
+              await get_dashboard_employees(site="STOCK", db=db_session, user=None)}
 
     assert [d["name"] for d in people["A-NOWAK"]["devices"]] == ["PRINT-A2", "SCAN-A1"]
 
@@ -174,7 +189,7 @@ async def test_employee_drilldown_keeps_withdrawn_gear(db_session, warehouse):
     """Несправний пристрій фізично лишається на працівнику, тому має бути в
     списку — але позначений, бо в число на дашборді він не входить."""
     people = {e["wms_login"]: e for e in
-              await get_dashboard_employees(department="STOCK", db=db_session, user=None)}
+              await get_dashboard_employees(site="STOCK", db=db_session, user=None)}
 
     bartek = {d["name"]: d for d in people["B-WOJCIK"]["devices"]}
     assert sorted(bartek) == ["PRINT-B1", "SCAN-B2"]
@@ -182,13 +197,13 @@ async def test_employee_drilldown_keeps_withdrawn_gear(db_session, warehouse):
     assert bartek["PRINT-B1"]["enabled"] is True
 
 
-async def test_row_without_department_is_reachable(db_session, warehouse):
+async def test_row_without_site_is_reachable(db_session, warehouse):
     """Рядок "Brak" — це порожній параметр, а не літерал з таблиці."""
-    row = await _department_row(db_session, "Brak")
-    assert row["department_filter"] == ""
+    row = await _site_row(db_session, "Brak")
+    assert row["site_filter"] == ""
 
-    devices = await _devices(db_session, department="", enabled=True, assigned=True)
-    employees = await get_dashboard_employees(department="", db=db_session, user=None)
+    devices = await _devices(db_session, site="", enabled=True, assigned=True)
+    employees = await get_dashboard_employees(site="", db=db_session, user=None)
 
     assert [d["name"] for d in devices] == ["SCAN-C1"]
     assert [e["wms_login"] for e in employees] == ["C-ZAJAC"]
@@ -196,10 +211,10 @@ async def test_row_without_department_is_reachable(db_session, warehouse):
     assert len(employees) == row["employees"]
 
 
-async def test_empty_department_does_not_pick_up_free_devices(db_session, warehouse):
+async def test_empty_site_does_not_pick_up_free_devices(db_session, warehouse):
     """Пристрій без власника теж дає NULL у колонці відділу після outerjoin —
     він не має потрапити до рядка "Brak"."""
-    names = [d["name"] for d in await _devices(db_session, department="")]
+    names = [d["name"] for d in await _devices(db_session, site="")]
 
     assert "PRINT-FREE" not in names
     assert "PRINT-BROKEN" not in names
