@@ -87,6 +87,20 @@ def get_current_user(required: bool = True):
                 )
             return None
 
+        # Administrator wyrzucił tego użytkownika: wszystko, co wystawiono
+        # wcześniej, jest martwe. Zbiór revoked_tokens żyje tylko w pamięci
+        # procesu, więc po restarcie backendu został już tylko ten warunek.
+        if user.sessions_valid_from:
+            issued_at = payload.get("iat")
+            cutoff = user.sessions_valid_from.timestamp()
+            if issued_at is None or issued_at < cutoff:
+                if required:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Session revoked",
+                    )
+                return None
+
         user_dict = {
             "id": user.id,
             "username": user.username,
@@ -226,13 +240,27 @@ async def login_form(
 async def logout(
     request: Request,
     response: Response,
-    current_user: dict = Depends(get_current_user()),
+    current_user: dict | None = Depends(get_current_user(False)),
     token: str = Depends(oauth2_scheme)
 ):
-    from app.main import remove_user_from_all_esps, remove_user_ws_subscriptions, revoked_tokens
-    user_id = current_user["id"]
-    remove_user_from_all_esps(user_id)
-    remove_user_ws_subscriptions(user_id)
+    """Wylogowanie działa również wtedy, gdy sesja już nie żyje.
+
+    Wcześniej stał tu wymagany użytkownik, więc token wygasły albo unieważniony
+    kończył się na 401: przycisk mówił "Nie udało się wylogować", a ciasteczko
+    zostawało w przeglądarce. Człowiek widział ekran zalogowanego i nie miał jak
+    z niego wyjść. Wylogowanie to sprzątanie — nie może wymagać tego, co właśnie
+    zniknęło.
+    """
+    from app.main import (
+        release_esp_for_token,
+        remove_user_from_all_esps,
+        remove_user_ws_subscriptions,
+        revoked_tokens,
+    )
+
+    if current_user:
+        remove_user_from_all_esps(current_user["id"])
+        remove_user_ws_subscriptions(current_user["id"])
 
     # Logowanie działa na ciasteczku, więc nagłówka Authorization zwykle nie ma
     # i token z oauth2_scheme jest pusty. Bez sięgnięcia do ciasteczka sesja
@@ -242,6 +270,9 @@ async def logout(
     if token:
         auth_manager.remove_session(token)
         revoked_tokens.add(token)
+        # Gdy użytkownika nie da się już rozpoznać, czytnik zwalniamy po samym
+        # tokenie — inaczej zostałby zajęty przez nieistniejącą sesję.
+        release_esp_for_token(token)
 
     response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
