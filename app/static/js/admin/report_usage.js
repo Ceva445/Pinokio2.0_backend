@@ -11,11 +11,13 @@
 
 "use strict";
 
-const USAGE_STEP = 20;
+/* Ile wierszy widać na start. Przycisk rozwija od razu całą resztę — klikanie
+   po dwadzieścia przy stu pięćdziesięciu urządzeniach to nie jest przeglądanie. */
+const USAGE_COLLAPSED = 10;
 
 let usageDevices = [];
-let usageShownInUse = 10;
-let usageShownFree = 10;
+let usageShownInUse = USAGE_COLLAPSED;
+let usageShownFree = USAGE_COLLAPSED;
 
 const $u = (id) => document.getElementById(id);
 
@@ -185,10 +187,10 @@ function usageRender() {
     [["usageMoreInUse", inUse.length, usageShownInUse],
      ["usageMoreFree", free.length, usageShownFree]].forEach(([id, total, shown]) => {
         const button = $u(id);
-        button.style.display = total > 10 ? "" : "none";
+        button.style.display = total > USAGE_COLLAPSED ? "" : "none";
         button.textContent = shown >= total
-            ? `Wszystkie ${total}`
-            : `Pokaż więcej (${total - shown})`;
+            ? `Zwiń do ${USAGE_COLLAPSED}`
+            : `Pokaż wszystkie (${total - shown} więcej)`;
     });
 }
 
@@ -225,18 +227,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ["usageType", "usageSite", "usageSearch"].forEach((id) =>
         $u(id).addEventListener("input", () => {
-            usageShownInUse = 10;
-            usageShownFree = 10;
+            usageShownInUse = USAGE_COLLAPSED;
+            usageShownFree = USAGE_COLLAPSED;
             usageRender();
         }));
 
     $u("usageReset").addEventListener("click", () => {
         ["usageType", "usageSite", "usageSearch"].forEach((id) => { $u(id).value = ""; });
-        usageShownInUse = 10;
-        usageShownFree = 10;
+        usageShownInUse = USAGE_COLLAPSED;
+        usageShownFree = USAGE_COLLAPSED;
         usageRender();
     });
 
-    $u("usageMoreInUse").addEventListener("click", () => { usageShownInUse += USAGE_STEP; usageRender(); });
-    $u("usageMoreFree").addEventListener("click", () => { usageShownFree += USAGE_STEP; usageRender(); });
+    // Jedno kliknięcie pokazuje resztę, drugie zwija z powrotem.
+    $u("usageMoreInUse").addEventListener("click", () => {
+        usageShownInUse = usageShownInUse === USAGE_COLLAPSED ? Infinity : USAGE_COLLAPSED;
+        usageRender();
+    });
+    $u("usageMoreFree").addEventListener("click", () => {
+        usageShownFree = usageShownFree === USAGE_COLLAPSED ? Infinity : USAGE_COLLAPSED;
+        usageRender();
+    });
 });
