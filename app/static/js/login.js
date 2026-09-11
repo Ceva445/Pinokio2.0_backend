@@ -13,6 +13,9 @@
         expired: "Sesja wygasła — zaloguj się ponownie.",
         revoked: "Sesja została zamknięta — zaloguj się ponownie.",
         inactive: "To konto jest nieaktywne. Skontaktuj się z administratorem.",
+        forbidden: "Ta strona nie jest dostępna dla Twojego konta.",
+        notfound: "Nie ma takiej strony.",
+        error: "Coś poszło nie tak. Spróbuj ponownie.",
     };
 
     el.textContent = notices[reason] ?? "Zostałeś wylogowany.";

@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from config import STATIC_DIR, LOG_CONFIG
+from config import STATIC_DIR, LOG_CONFIG, templates
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
 from routers import api, email_agent, pages, websocket, auth, firmware
@@ -451,29 +451,75 @@ _LOGOUT_REASONS = {
 }
 
 
+# Z czym trafiamy na ekran logowania. Login pokazuje to jako komunikat, więc
+# powód jedzie w ?reason=, a nie w surowym JSON-ie.
+_LOGOUT_REASONS = {
+    "Session revoked": "revoked",
+    "Invalid authentication credentials": "expired",
+    "Not authenticated": "expired",
+    "User not found or inactive": "inactive",
+}
+
+_ERROR_REASONS = {
+    403: "forbidden",
+    404: "notfound",
+}
+
+
+def _wants_a_page(request: Request) -> bool:
+    """Czy to wejście na stronę, czy zapytanie skryptu.
+
+    Panel odpytuje API fetch-em i sam pokazuje błąd w tabeli; gdyby dostał
+    przekierowanie, rozbierałby stronę logowania jako dane.
+    """
+    return (
+        "text/html" in request.headers.get("accept", "")
+        and request.headers.get("x-requested-with") != "XMLHttpRequest"
+    )
+
+
+def _to_login(request: Request, reason: str):
+    """Przekierowanie na logowanie — chyba że to samo logowanie się wysypało;
+    wtedy pętla byłaby gorsza od błędu."""
+    if request.url.path.startswith("/login"):
+        return None
+    return RedirectResponse(url=f"/login?reason={reason}", status_code=303)
+
+
 @app.exception_handler(StarletteHTTPException)
-async def unauthorized_goes_to_login(request: Request, exc: StarletteHTTPException):
-    """401 na otwartej stronie ma wysłać na logowanie, a nie pokazać JSON.
+async def page_error_goes_to_login(request: Request, exc: StarletteHTTPException):
+    """Błąd na otwartej stronie ma prowadzić na logowanie, a nie zostawiać JSON.
 
     Token żyje 12 godzin, a sesja kierownika ginie też przy zamknięciu zakładki
     monitora i po czasie bezczynności. Kiedy to trafiało w otwartą kartę, na
-    ekranie lądowało samo {"detail": "Session revoked"} — komunikat prawdziwy,
-    ale dla człowieka przy wózku bezużyteczny.
+    ekranie lądowało samo {"detail": "Session revoked"} na białym tle —
+    komunikat prawdziwy, ale dla człowieka przy wózku wyglądający jak awaria.
 
-    Rozróżniamy po tym, czego żąda przeglądarka: wejście na stronę prosi o HTML
-    i dostaje przekierowanie, a fetch z panelu prosi o JSON i dostaje 401 jak
-    dotąd — inaczej skrypty zobaczyłyby stronę logowania zamiast błędu.
+    Skrypty panelu dostają swój status i treść tak jak dotąd.
     """
+    if not _wants_a_page(request):
+        return await http_exception_handler(request, exc)
+
     if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-        accept = request.headers.get("accept", "")
-        wants_html = "text/html" in accept
-        is_fetch = request.headers.get("x-requested-with") == "XMLHttpRequest"
+        reason = _LOGOUT_REASONS.get(str(exc.detail), "expired")
+    else:
+        reason = _ERROR_REASONS.get(exc.status_code, "error")
 
-        if wants_html and not is_fetch:
-            reason = _LOGOUT_REASONS.get(str(exc.detail), "expired")
-            return RedirectResponse(url=f"/login?reason={reason}", status_code=303)
+    return _to_login(request, reason) or await http_exception_handler(request, exc)
 
-    return await http_exception_handler(request, exc)
+
+@app.exception_handler(Exception)
+async def unhandled_error_goes_to_login(request: Request, exc: Exception):
+    """Nieprzewidziany błąd: w logu pełny ślad, na ekranie ekran logowania."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+
+    if not _wants_a_page(request):
+        raise exc
+
+    redirect = _to_login(request, "error")
+    if redirect is None:
+        raise exc
+    return redirect
 
 
 @app.middleware("http")

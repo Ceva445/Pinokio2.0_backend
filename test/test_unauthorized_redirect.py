@@ -11,24 +11,31 @@ import pytest
 from fastapi import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.main import _LOGOUT_REASONS, unauthorized_goes_to_login
+from app.main import _ERROR_REASONS, _LOGOUT_REASONS, page_error_goes_to_login
 
 pytestmark = pytest.mark.asyncio
+
+
+class _Url:
+    def __init__(self, path):
+        self.path = path
 
 
 class _Request:
     """Мінімум, якого торкається хендлер."""
 
-    def __init__(self, **headers):
+    def __init__(self, path="/admin/transactions", **headers):
         self.headers = {k.replace("_", "-"): v for k, v in headers.items()}
+        self.url = _Url(path)
+        self.method = "GET"
 
 
 HTML = {"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
 JSON = {"accept": "application/json"}
 
 
-async def _handle(exc, **headers):
-    return await unauthorized_goes_to_login(_Request(**headers), exc)
+async def _handle(exc, path="/admin/transactions", **headers):
+    return await page_error_goes_to_login(_Request(path=path, **headers), exc)
 
 
 def _unauthorized(detail):
@@ -91,13 +98,39 @@ async def test_xhr_marked_request_gets_json_even_asking_for_html():
 
 
 # ---------------------------------------------------------------------------
-# Решта помилок не змінюється
+# Решта помилок — теж на логін, бо йшлося саме про білий екран
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("code", [403, 404, 400, 409, 500])
-async def test_other_statuses_are_untouched(code):
-    """403 обсерватора чи 404 сторінки не мають раптом вести на логін."""
+@pytest.mark.parametrize("code, reason", [
+    (403, "forbidden"),
+    (404, "notfound"),
+    (400, "error"),
+    (409, "error"),
+    (500, "error"),
+])
+async def test_any_page_error_lands_on_login(code, reason):
+    """Білий екран із JSON не має лишитись у жодному коді помилки."""
     exc = StarletteHTTPException(status_code=code, detail="cokolwiek")
 
     response = await _handle(exc, **HTML)
 
-    assert response.status_code == code
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/login?reason={reason}"
+
+
+async def test_login_itself_does_not_loop():
+    """Якби посипалась сама сторінка логіну, редирект на неї ж крутив би
+    браузер по колу — тоді краще віддати помилку як є."""
+    exc = StarletteHTTPException(status_code=500, detail="cokolwiek")
+
+    response = await _handle(exc, path="/login", **HTML)
+
+    assert response.status_code == 500
+
+
+async def test_error_reasons_are_known_to_the_login_screen():
+    from pathlib import Path
+
+    login_js = Path("app/static/js/login.js").read_text(encoding="utf-8")
+
+    for reason in set(_ERROR_REASONS.values()) | {"error"}:
+        assert f"{reason}:" in login_js, reason
