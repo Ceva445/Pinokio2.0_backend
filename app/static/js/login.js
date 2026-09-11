@@ -4,9 +4,18 @@
     if (!el) return;
     const reason = new URLSearchParams(location.search).get("reason");
     if (!reason) return;
-    el.textContent = reason === "idle"
-        ? "Zostałeś wylogowany z powodu bezczynności."
-        : "Zostałeś wylogowany.";
+
+    // "expired" i "revoked" przychodzą z przekierowania po 401: ktoś miał
+    // otwartą stronę, a sesja skończyła się pod ręką. Bez tego wyjaśnienia
+    // ekran logowania wygląda, jakby system się zepsuł.
+    const notices = {
+        idle: "Zostałeś wylogowany z powodu bezczynności.",
+        expired: "Sesja wygasła — zaloguj się ponownie.",
+        revoked: "Sesja została zamknięta — zaloguj się ponownie.",
+        inactive: "To konto jest nieaktywne. Skontaktuj się z administratorem.",
+    };
+
+    el.textContent = notices[reason] ?? "Zostałeś wylogowany.";
     el.style.display = "block";
 })();
 

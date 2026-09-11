@@ -1,7 +1,10 @@
 """Головний файл додатку"""
 import logging
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
@@ -436,6 +439,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Powody, dla których sesja znika użytkownikowi pod ręką. Login pokazuje je
+# jako komunikat, więc niosą je w ?reason=, a nie w surowym JSON-ie.
+_LOGOUT_REASONS = {
+    "Session revoked": "revoked",
+    "Invalid authentication credentials": "expired",
+    "Not authenticated": "expired",
+    "User not found or inactive": "inactive",
+}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def unauthorized_goes_to_login(request: Request, exc: StarletteHTTPException):
+    """401 na otwartej stronie ma wysłać na logowanie, a nie pokazać JSON.
+
+    Token żyje 12 godzin, a sesja kierownika ginie też przy zamknięciu zakładki
+    monitora i po czasie bezczynności. Kiedy to trafiało w otwartą kartę, na
+    ekranie lądowało samo {"detail": "Session revoked"} — komunikat prawdziwy,
+    ale dla człowieka przy wózku bezużyteczny.
+
+    Rozróżniamy po tym, czego żąda przeglądarka: wejście na stronę prosi o HTML
+    i dostaje przekierowanie, a fetch z panelu prosi o JSON i dostaje 401 jak
+    dotąd — inaczej skrypty zobaczyłyby stronę logowania zamiast błędu.
+    """
+    if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+        accept = request.headers.get("accept", "")
+        wants_html = "text/html" in accept
+        is_fetch = request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+        if wants_html and not is_fetch:
+            reason = _LOGOUT_REASONS.get(str(exc.detail), "expired")
+            return RedirectResponse(url=f"/login?reason={reason}", status_code=303)
+
+    return await http_exception_handler(request, exc)
 
 
 @app.middleware("http")
