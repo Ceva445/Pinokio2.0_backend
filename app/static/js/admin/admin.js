@@ -914,7 +914,14 @@ async function loadUsers() {
                         : "—"}</td>
                 <td>
                     <a href="/admin/users/${u.id}" title="Edytuj">✏️</a>
-                    ${u.is_logged_in ? `<button type="button" class="btn" style="margin-left:8px" onclick="forceLogout(${u.id}, '${u.username}')" title="Wyloguj z systemu">🚪</button>` : ""}
+                    ${/* Przycisk stoi zawsze, nie tylko przy zielonej kropce.
+                          Kropkę widać z pamięci procesu, a ta znika przy każdym
+                          restarcie backendu — token w przeglądarce żyje dalej,
+                          więc "niezalogowany" bywał nieprawdą i admin nie miał
+                          kogo wyrzucić. */""}
+                    <button type="button" class="btn" style="margin-left:8px"
+                            onclick="forceLogout(${u.id}, '${u.username}')"
+                            title="Wyloguj z systemu">🚪</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -930,6 +937,8 @@ async function forceLogout(userId, username) {
     try {
         await api(`/admin/api/users/${userId}/force-logout`, { method: "POST" });
         showSuccess(`Menedżer ${username} został wylogowany ✅`);
+        // Zielona kropka ma zgasnąć od razu, bez odświeżania strony ręcznie.
+        await loadUsers();
     } catch (err) {
         showError(err.message);
     }

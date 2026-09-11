@@ -1,4 +1,6 @@
-from sqlalchemy import String, Enum
+from datetime import datetime
+
+from sqlalchemy import DateTime, String, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
 import enum
@@ -28,6 +30,13 @@ class UserDB(Base):
     # Wymuś zmianę hasła przy pierwszym logowaniu: użytkownik loguje się
     # hasłem od admina, po czym musi ustawić własne.
     must_change_password: Mapped[bool] = mapped_column(default=False)
+
+    # Granica ważności sesji. Token wystawiony przed tą chwilą jest martwy,
+    # nawet jeśli backend zdążył się w międzyczasie zrestartować i nie pamięta
+    # już żadnych sesji. Ustawia ją administrator, wyrzucając użytkownika.
+    sessions_valid_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     device_change_transactions = relationship(
         "models.device_transaction.DeviceChangeTransaction",

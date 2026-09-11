@@ -47,7 +47,9 @@ class AuthManager:
         else:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
-        to_encode.update({"exp": expire})
+        # iat jest potrzebny, żeby dało się unieważnić wszystkie tokeny
+        # użytkownika jedną datą (users.sessions_valid_from).
+        to_encode.update({"exp": expire, "iat": datetime.utcnow()})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return encoded_jwt
     

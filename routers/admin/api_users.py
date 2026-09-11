@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -177,12 +179,30 @@ async def delete_user(
 @router.post("/users/{user_id:int}/force-logout")
 async def force_logout_user(
     user_id: int,
+    db: AsyncSession = Depends(get_db),
     user=Depends(require_admin),
 ):
-    """Примусовий вилог: revoke усіх токенів користувача, звільнення його ESP,
-    розрив його монітор-WS. Наступний запит цього користувача → 401 (на логін)."""
+    """Примусовий вилог: unieważnienie tokenów, zwolnienie ESP, zerwanie WS.
+
+    Sama pamięć procesu tu nie wystarcza. Zbiór revoked_tokens i lista sesji
+    znikają przy każdym restarcie backendu, a token w przeglądarce żyje swoje
+    dwanaście godzin — po deployu wyrzucony użytkownik wracał sam z siebie,
+    a panel pokazywał go jako niezalogowanego. Dlatego granica ważności jego
+    sesji idzie do bazy.
+    """
     from app.main import remove_user_from_all_esps, manager, revoked_tokens
     from managers.auth_manager import auth_manager
+
+    db_user = (await db.execute(
+        select(UserDB).where(UserDB.id == user_id)
+    )).scalar_one_or_none()
+
+    if not db_user:
+        raise HTTPException(404, "User not found")
+
+    # Granica przeżywa restart: każdy token wystawiony wcześniej jest martwy.
+    db_user.sessions_valid_from = datetime.now(timezone.utc)
+    await db.commit()
 
     revoked = 0
     # 1) revoke токенів із кешу сесій
