@@ -24,6 +24,10 @@
 {% block content %}{% endblock %}
 
 <script>
+// Gość nigdy nie był zalogowany, więc odmowa to dla niego stan normalny —
+// bez tego strona główna wyrzucałaby na logowanie każdego, kto tylko patrzy.
+let sessionWasAlive = false;
+
 async function checkAuth() {
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
@@ -56,6 +60,7 @@ async function checkAuth() {
     }
 
     const user = await res.json();
+    sessionWasAlive = true;
 
     // Wymuszona zmiana hasła: dopóki flaga jest ustawiona, użytkownik
     // trafia na ekran zmiany hasła z każdej innej strony.
@@ -126,17 +131,17 @@ checkAuth();
  * Pilnowanie sesji na ekranach bez monitora.
  *
  * Zakładka monitora dostaje po WebSocket wiadomość "force_logout" i sama idzie
- * na logowanie. Reszta paneli takiego kanału nie ma, więc po wyrzuceniu przez
+ * na logowanie. Reszta stron takiego kanału nie ma, więc po wyrzuceniu przez
  * administratora człowiek zostawał na obrazku sprzed chwili — sesja martwa,
  * ekran ten sam, dopóki czegoś nie kliknął.
  *
- * Pytamy więc o siebie co pół minuty i przy pierwszej odmowie idziemy tam,
- * gdzie i tak trzeba trafić.
+ * Pytamy więc o siebie co kilka sekund i przy pierwszej odmowie idziemy tam,
+ * gdzie i tak trzeba trafić. Pytanie jest tanie: serwer odpowiada z pamięci.
  */
-const SESSION_CHECK_MS = 30000;
+const SESSION_CHECK_MS = 5000;
 
-setInterval(async () => {
-    // Ekran logowania nie ma czego pilnować, a monitor robi to po swojemu.
+async function watchSession() {
+    if (!sessionWasAlive) return;
     if (location.pathname.startsWith("/login")) return;
 
     try {
@@ -146,12 +151,35 @@ setInterval(async () => {
         });
 
         if (res.status === 401) {
-            location.href = "/login?reason=expired";
+            sessionWasAlive = false;
+
+            // Serwer mówi, co się stało — przepisujemy to na powód, który
+            // ekran logowania umie nazwać. Inaczej sesja zamknięta przez
+            // administratora meldowałaby się jako "wygasła".
+            let powod = "expired";
+            try {
+                const detail = (await res.json()).detail;
+                if (detail === "Session revoked") powod = "revoked";
+                if (detail === "User not found or inactive") powod = "inactive";
+            } catch (err) {
+                /* odpowiedź bez JSON — zostaje "expired" */
+            }
+
+            location.href = "/login?reason=" + powod;
         }
     } catch (err) {
         // Zerwana sieć to nie wylogowanie — przy następnej próbie się okaże.
     }
-}, SESSION_CHECK_MS);
+}
+
+setInterval(watchSession, SESSION_CHECK_MS);
+
+// Wracając do zakładki człowiek patrzy na obrazek sprzed przerwy — wtedy
+// pytamy od razu, nie czekając na kolejny takt.
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) watchSession();
+});
+window.addEventListener("focus", watchSession);
 </script>
 
 

@@ -273,7 +273,7 @@ async def test_the_reason_has_its_own_wording():
 
 
 async def test_pages_without_a_monitor_watch_their_session():
-    """Панелі без WebSocket мусять питати про себе самі, інакше виштовхування
+    """Сторінки без WebSocket мусять питати про себе самі, інакше виштовхування
     дійшло б тільки до вкладки монітора."""
     from pathlib import Path
 
@@ -281,4 +281,23 @@ async def test_pages_without_a_monitor_watch_their_session():
 
     assert "SESSION_CHECK_MS" in base_html
     assert "/auth/me" in base_html
-    assert 'location.href = "/login?reason=expired"' in base_html
+    assert 'location.href = "/login?reason=" + powod' in base_html
+    # Powód bierzemy z odpowiedzi serwera, żeby zamknięta sesja nie meldowała
+    # się jako wygasła.
+    assert '"Session revoked"' in base_html
+    # Повертаючись до вкладки людина дивиться на картинку з минулого —
+    # тоді питаємо одразу, не чекаючи такту.
+    assert "visibilitychange" in base_html
+
+
+async def test_a_guest_is_never_pushed_to_login():
+    """Головна і монітор відкриті й без входу. Вартовий не має права виганяти
+    того, хто взагалі не заходив, — інакше сторінка сама себе замикає."""
+    from pathlib import Path
+
+    base_html = Path("app/templates/base.html").read_text(encoding="utf-8")
+
+    assert "let sessionWasAlive = false;" in base_html
+    assert "if (!sessionWasAlive) return;" in base_html
+    # Прапорець ставиться лише після вдалого /auth/me.
+    assert base_html.index("sessionWasAlive = true;") < base_html.index("async function watchSession")
