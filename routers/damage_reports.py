@@ -65,7 +65,7 @@ def _message(report: DamageReportDB) -> tuple[str, str]:
 
     holder_line = (
         f"{holder.wms_login} ({holder.first_name} {holder.last_name})"
-        if holder else "sprzęt nie był do nikogo przypisany"
+        if holder else "nieprzypisany"
     )
     author_line = (
         f"{author.first_name} {author.last_name} ({author.username})"
@@ -78,7 +78,7 @@ def _message(report: DamageReportDB) -> tuple[str, str]:
         f"Zgłoszono uszkodzenie sprzętu.\n\n"
         f"Urządzenie: {device_type} {device.name}\n"
         f"Nr seryjny: {device.serial_number}\n"
-        f"W rękach:   {holder_line}\n"
+        f"Pracownik:  {holder_line}\n"
         f"Zgłosił:    {author_line}\n"
         f"Data:       {when}\n\n"
         f"Opis uszkodzenia:\n{report.description}\n"

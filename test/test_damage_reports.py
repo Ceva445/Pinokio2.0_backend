@@ -118,7 +118,8 @@ async def test_free_device_can_be_reported_too(db_session, warehouse, wyslane):
     result = await _create(db_session, warehouse["free"].id, "Nie drukuje")
 
     assert result["report"]["employee"] is None
-    assert "nie był do nikogo przypisany" in wyslane[0]["message"]
+    # Kierownik prosił wprost: puste pole ma brzmieć "nieprzypisany".
+    assert "Pracownik:  nieprzypisany" in wyslane[0]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +147,7 @@ async def test_letter_carries_the_whole_protocol(db_session, warehouse, wyslane)
 
     letter = wyslane[0]
     assert letter["subject"] == "Protokół uszkodzenia sprzętu — TERM003"
-    for fragment in ("skaner TERM003", "sn-t3", "A-NOWAK",
+    for fragment in ("skaner TERM003", "sn-t3", "Pracownik:  A-NOWAK",
                      "Maria Kowalska (P-KOWALSKAM)", "Zalany klawiaturą kawą"):
         assert fragment in letter["message"], fragment
 
