@@ -49,6 +49,10 @@ async def get_device_transactions(
     page: int = Query(1, ge=1),
     user_q: str | None = Query(None),
     device_q: str | None = Query(None),
+    description_q: str | None = Query(
+        None,
+        description="Fragment opisu zmiany — tak znajduje się stare numery seryjne",
+    ),
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -79,6 +83,17 @@ async def get_device_transactions(
     if device_q:
         stmt = stmt.where(
             DeviceDB.name.ilike(f"%{device_q}%")
+        )
+
+    # 🔍 фільтр по опису зміни
+    #
+    # Opis niesie zdanie w rodzaju "changed device serial number XXRBJ231900180
+    # to XXRBN245103077", więc stary numer seryjny żyje wyłącznie tutaj — w
+    # samym urządzeniu stoi już nowy. Bez tego filtra nie dało się odpowiedzieć
+    # na pytanie "co to był za sprzęt", mając na ręku stary SN z faktury.
+    if description_q:
+        stmt = stmt.where(
+            DeviceChangeTransaction.description.ilike(f"%{description_q}%")
         )
 
     # 📅 дата ВІД

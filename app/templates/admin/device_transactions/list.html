@@ -6,6 +6,8 @@
 <div style="margin-bottom:10px">
     <input id="deviceTransactionUserSearch" placeholder="Korzystnik" style="width:220px">
     <input id="deviceTransactionDeviceSearch" placeholder="Urządzenie" style="width:220px">
+    <input id="deviceTransactionDescriptionSearch"
+           placeholder="Opis zmiany — np. stary numer seryjny" style="width:300px">
     <input id="deviceTransactionDateFrom" type="date" style="width:160px">
     <input id="deviceTransactionDateTo" type="date" style="width:160px">
 </div>
@@ -36,7 +38,9 @@ async function loadDeviceTransactions(page = 1) {
     const deviceInput = document.getElementById("deviceTransactionDeviceSearch");
     const dateFromInput = document.getElementById("deviceTransactionDateFrom");
     const dateToInput = document.getElementById("deviceTransactionDateTo");
+    const descriptionInput = document.getElementById("deviceTransactionDescriptionSearch");
 
+    const description_q = descriptionInput?.value ?? "";
     const user_q = userInput?.value ?? "";
     const device_q = deviceInput?.value ?? "";
     const date_from = dateFromInput?.value ?? "";
@@ -49,6 +53,7 @@ async function loadDeviceTransactions(page = 1) {
 
     if (user_q) params.append("user_q", user_q);
     if (device_q) params.append("device_q", device_q);
+    if (description_q) params.append("description_q", description_q);
     if (date_from) params.append("date_from", date_from);
     if (date_to) params.append("date_to", date_to);
 
@@ -290,9 +295,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const deviceInput = document.getElementById("deviceTransactionDeviceSearch");
     const dateFromInput = document.getElementById("deviceTransactionDateFrom");
     const dateToInput = document.getElementById("deviceTransactionDateTo");
+    const descriptionInput = document.getElementById("deviceTransactionDescriptionSearch");
 
     let timeout;
-    [userInput, deviceInput].forEach(input => {
+    [userInput, deviceInput, descriptionInput].forEach(input => {
         if (!input) return;
         input.addEventListener("input", () => {
             clearTimeout(timeout);
