@@ -4,11 +4,14 @@
 рядки, які це число порахувало. Тому кожен тест зіставляє drill-down із
 самим get_dashboard, а не з константою.
 """
+from datetime import datetime, timezone
+
 import pytest
 from fastapi import HTTPException
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
+from models.db_transaction import TransactionDB, TransactionType
 from models.db_site import SiteDB
 from sqlalchemy import select
 from routers.admin.api import (
@@ -156,6 +159,51 @@ async def test_unknown_type_is_rejected(db_session):
 
 
 # ---------------------------------------------------------------------------
+# Нові колонки: Wydane / Wolne
+# ---------------------------------------------------------------------------
+async def test_wydane_liczy_kazdy_sprzet_z_loginem(db_session, warehouse):
+    """«Wydane» — усе, що закріплене за людиною, разом із заблокованим: воно
+    фізично в неї на руках, хай навіть у системі позначене недоступним."""
+    board = await get_dashboard(db=db_session, user=None)
+
+    # SCAN-B2 у фікстурі саме такий: закріплений і enabled=False.
+    assert board["devices"]["assigned_by_type"]["scanner"] == 3
+    assert board["devices"]["assigned_by_type"]["printer"] == 2
+
+
+async def test_wolne_liczy_tylko_dostepne(db_session, warehouse):
+    """«Wolne» — те, по що хтось прийде. Заблокований у шафі не рахується."""
+    board = await get_dashboard(db=db_session, user=None)
+
+    # PRINT-FREE так, PRINT-BROKEN (enabled=False) ні.
+    assert board["devices"]["free_by_type"]["printer"] == 1
+    assert board["devices"]["free_by_type"]["scanner"] == 0
+
+
+async def test_wydane_i_wolne_maja_swoje_rozwiniecia(db_session, warehouse):
+    """Кожне число мусить розгортатись рівно в те, що його склало."""
+    board = await get_dashboard(db=db_session, user=None)
+
+    wydane = await _devices(db_session, assigned=True)
+    wolne = await _devices(db_session, assigned=False, enabled=True)
+
+    assert len(wydane) == sum(board["devices"]["assigned_by_type"].values())
+    assert len(wolne) == sum(board["devices"]["free_by_type"].values())
+
+
+async def test_wydane_plus_wolne_nie_musi_dac_dostepnych(db_session, warehouse):
+    """Świadoma różnica, nie błąd rachunku: sprzęt zablokowany i wydany wpada
+    do "Wydane", a do "Dostępne" nie."""
+    board = await get_dashboard(db=db_session, user=None)
+    d = board["devices"]
+
+    wydane = sum(d["assigned_by_type"].values())
+    wolne = sum(d["free_by_type"].values())
+
+    assert wydane + wolne == d["available"] + 1        # SCAN-B2
+
+
+# ---------------------------------------------------------------------------
 # Таблиця per dział
 # ---------------------------------------------------------------------------
 async def _site_row(db, name):
@@ -218,3 +266,70 @@ async def test_empty_site_does_not_pick_up_free_devices(db_session, warehouse):
 
     assert "PRINT-FREE" not in names
     assert "PRINT-BROKEN" not in names
+
+
+# ---------------------------------------------------------------------------
+# Ostatnie wypożyczenie i wiersz RAZEM
+# ---------------------------------------------------------------------------
+@pytest.fixture
+async def historia(db_session, warehouse):
+    """Дві реєстрації того самого сканера і одне повернення після них."""
+    anna = warehouse["anna"]
+    scanner = (await db_session.execute(
+        select(DeviceDB).where(DeviceDB.name == "SCAN-A1")
+    )).scalar_one()
+
+    db_session.add_all([
+        TransactionDB(timestamp=datetime(2026, 3, 10, 6, 0, tzinfo=timezone.utc),
+                      type=TransactionType.registered,
+                      employee_id=anna.id, device_id=scanner.id),
+        TransactionDB(timestamp=datetime(2026, 3, 11, 14, 30, tzinfo=timezone.utc),
+                      type=TransactionType.registered,
+                      employee_id=anna.id, device_id=scanner.id),
+        # Zwrot nie jest wypożyczeniem i nie może przebić daty.
+        TransactionDB(timestamp=datetime(2026, 3, 12, 8, 0, tzinfo=timezone.utc),
+                      type=TransactionType.unregistered,
+                      employee_id=anna.id, device_id=scanner.id),
+    ])
+    await db_session.commit()
+    return {"anna": anna, "scanner": scanner}
+
+
+async def test_rozwiniecie_urzadzen_pokazuje_ostatnie_wypozyczenie(db_session, historia):
+    """Колонка живе в розгорнутому списку — саме там, де на неї дивляться."""
+    rows = {d["name"]: d for d in await _devices(db_session)}
+
+    # 14:30 UTC to 15:30 w Polsce — magazyn czyta swój zegar, nie serwerowy.
+    assert rows["SCAN-A1"]["last_rental"] == "2026-03-11 15:30"
+
+
+async def test_rozwiniecie_pracownikow_tez_ma_te_kolumne(db_session, historia):
+    rows = {e["wms_login"]: e for e in
+            await get_dashboard_employees(db=db_session, user=None, site=None)}
+
+    assert rows["A-NOWAK"]["last_rental"] == "2026-03-11 15:30"
+
+
+async def test_sprzet_bez_historii_ma_pusto(db_session, historia):
+    """Ніколи не виданий пристрій — це не «давно», це «ніколи»."""
+    rows = {d["name"]: d for d in await _devices(db_session)}
+
+    assert rows["PRINT-FREE"]["last_rental"] is None
+
+
+async def test_podsumowanie_sumuje_to_co_widac(db_session, warehouse):
+    """Wiersz RAZEM liczy się z kolumn tabeli, nie osobnym zapytaniem — dwie
+    liczby na jednym ekranie nie mają prawa się rozjechać."""
+    board = await get_dashboard(db=db_session, user=None)
+    sites = board["sites"]
+
+    for klucz in ("employees", "devices", "scanners", "printers"):
+        assert sum(s[klucz] for s in sites) == sum(s[klucz] or 0 for s in sites)
+
+    # To samo robi renderSiteTotals w przeglądarce.
+    from pathlib import Path
+    admin_js = Path("app/static/js/admin/admin.js").read_text(encoding="utf-8")
+    assert "function renderSiteTotals" in admin_js
+    assert "sites.reduce" in admin_js
+    # Kolumna z czasem należy do rozwinięcia, nie do tabeli per site.
+    assert "Ostatnie wypożyczenie" in admin_js

@@ -269,6 +269,7 @@ function renderDeviceDrill(devices, label) {
                 ? drillTarget(`/admin/employees/${d.employee.id}`, employeeName(d.employee))
                 : `<span class="drill-muted">nieprzypisane</span>`}</td>
             <td>${esc(d.employee?.site ?? "—")}</td>
+            <td class="drill-muted">${esc(d.last_rental ?? "—")}</td>
         </tr>`).join("");
 
     return drillPanel(label, devices.length, `
@@ -283,6 +284,7 @@ function renderDeviceDrill(devices, label) {
                     <th>Aktywne</th>
                     <th>Przypisany do</th>
                     <th>Site osoby</th>
+                    <th>Ostatnie wypożyczenie</th>
                 </tr>
             </thead>
             <tbody>${body}</tbody>
@@ -299,6 +301,7 @@ function renderEmployeeDrill(employees, label) {
             <td>${drillTarget(`/admin/employees/${e.id}`, employeeName(e))}</td>
             <td>${esc(e.site ?? "—")}</td>
             <td>${esc(e.company ?? "—")}</td>
+            <td class="drill-muted">${esc(e.last_rental ?? "—")}</td>
             <td>
                 ${e.devices.length
                     ? `<ul class="drill-devices">${e.devices.map((d) => `
@@ -319,12 +322,42 @@ function renderEmployeeDrill(employees, label) {
                     <th>Pracownik</th>
                     <th>Site</th>
                     <th>Kompania</th>
+                    <th>Ostatnie wypożyczenie</th>
                     <th>Sprzęt</th>
                 </tr>
             </thead>
             <tbody>${body}</tbody>
         </table>`);
 }
+
+/**
+ * Wiersz RAZEM pod tabelą per site.
+ *
+ * Sumujemy to, co widać w kolumnach, a nie liczymy od nowa — inaczej dwie
+ * liczby na jednym ekranie mogłyby się rozejść. Pracowników wolno dodawać,
+ * bo każdy należy do jednego site.
+ */
+function renderSiteTotals(sites) {
+    const tfoot = document.querySelector("#deptTable tfoot");
+    if (!tfoot) return;
+
+    if (!sites || !sites.length) {
+        tfoot.innerHTML = "";
+        return;
+    }
+
+    const suma = (klucz) => sites.reduce((acc, s) => acc + (s[klucz] ?? 0), 0);
+
+    tfoot.innerHTML = `
+        <tr class="total-row">
+            <td>RAZEM</td>
+            <td class="text-bold">${suma("employees")}</td>
+            <td class="text-bold">${suma("devices")}</td>
+            <td class="text-bold">${suma("scanners")}</td>
+            <td class="text-bold">${suma("printers")}</td>
+        </tr>`;
+}
+
 
 async function loadDashboard() {
     console.log("🚀 Dashboard init");
@@ -335,6 +368,12 @@ async function loadDashboard() {
     const disabledPrinterEl = document.getElementById("disabledPrinterDevices");
     const totalScannersEl = document.getElementById("totalScanners");
     const totalPrintersEl = document.getElementById("totalPrinters");
+    const assignedScannersEl = document.getElementById("assignedScanners");
+    const assignedPrintersEl = document.getElementById("assignedPrinters");
+    const freeScannersEl = document.getElementById("freeScanners");
+    const freePrintersEl = document.getElementById("freePrinters");
+    const totalAssignedEl = document.getElementById("totalAssigned");
+    const totalFreeEl = document.getElementById("totalFree");
     const totalAvailableEl = document.getElementById("totalAvailable");
     const totalDisabledEl = document.getElementById("totalDisabled");
     const grandTotalEl = document.getElementById("grandTotal");
@@ -360,6 +399,15 @@ async function loadDashboard() {
         const disabledScanners = data.devices?.disabled_by_type?.scanner ?? 0;
         const disabledPrinters = data.devices?.disabled_by_type?.printer ?? 0;
 
+        // "Wydane" liczy sprzęt z przypisanym loginem — także ten zablokowany,
+        // bo fizycznie i tak jest u człowieka. "Wolne" tylko dostępny, bo po
+        // zablokowany nikt nie przyjdzie. Suma tych dwóch nie musi więc równać
+        // się kolumnie "Dostępne".
+        const assignedScanners = data.devices?.assigned_by_type?.scanner ?? 0;
+        const assignedPrinters = data.devices?.assigned_by_type?.printer ?? 0;
+        const freeScanners = data.devices?.free_by_type?.scanner ?? 0;
+        const freePrinters = data.devices?.free_by_type?.printer ?? 0;
+
         // Populate cells. Każdy filtr powtarza warunek, którym policzono liczbę.
         setDashboardCount(scannerEl, enabledScanners,
             deviceDrill("Skanery dostępne", { type: "scanner", enabled: "true" }));
@@ -369,6 +417,15 @@ async function loadDashboard() {
             deviceDrill("Skanery niedostępne", { type: "scanner", enabled: "false" }));
         setDashboardCount(disabledPrinterEl, disabledPrinters,
             deviceDrill("Drukarki niedostępne", { type: "printer", enabled: "false" }));
+
+        setDashboardCount(assignedScannersEl, assignedScanners,
+            deviceDrill("Skanery wydane", { type: "scanner", assigned: "true" }));
+        setDashboardCount(assignedPrintersEl, assignedPrinters,
+            deviceDrill("Drukarki wydane", { type: "printer", assigned: "true" }));
+        setDashboardCount(freeScannersEl, freeScanners,
+            deviceDrill("Skanery wolne", { type: "scanner", assigned: "false", enabled: "true" }));
+        setDashboardCount(freePrintersEl, freePrinters,
+            deviceDrill("Drukarki wolne", { type: "printer", assigned: "false", enabled: "true" }));
 
         // Calculate totals
         const totalAvailable = enabledScanners + enabledPrinters;
@@ -381,6 +438,10 @@ async function loadDashboard() {
             deviceDrill("Drukarki razem", { type: "printer" }));
         setDashboardCount(totalAvailableEl, totalAvailable,
             deviceDrill("Sprzęt dostępny", { enabled: "true" }));
+        setDashboardCount(totalAssignedEl, assignedScanners + assignedPrinters,
+            deviceDrill("Sprzęt wydany", { assigned: "true" }));
+        setDashboardCount(totalFreeEl, freeScanners + freePrinters,
+            deviceDrill("Sprzęt wolny", { assigned: "false", enabled: "true" }));
         setDashboardCount(totalDisabledEl, totalDisabled,
             deviceDrill("Sprzęt niedostępny", { enabled: "false" }));
         setDashboardCount(grandTotalEl, grandTotal,
@@ -395,6 +456,7 @@ async function loadDashboard() {
 
         if (!data.sites || data.sites.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5">Brak danych</td></tr>`;
+            document.querySelector("#deptTable tfoot").innerHTML = "";
             return;
         }
 
@@ -424,6 +486,8 @@ async function loadDashboard() {
 
             tbody.appendChild(tr);
         }
+
+        renderSiteTotals(data.sites);
 
     } catch (err) {
         console.error("❌ Dashboard error:", err);

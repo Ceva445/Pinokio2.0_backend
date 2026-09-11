@@ -7,6 +7,9 @@ from models.device_transaction import DeviceChangeTransaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, or_, and_
 
+from datetime import timezone
+from zoneinfo import ZoneInfo
+
 from db.session import get_db
 from app.dependencies.admin import (
     require_admin,
@@ -1276,6 +1279,19 @@ async def delete_department_manager(
 #================================
 # Dashboard report
 #================================
+# Magazyn stoi w Polsce, a sesja bazy pracuje w UTC — bez tej zamiany
+# "ostatnie wypożyczenie" pokazywałoby godzinę sprzed dwóch.
+DASHBOARD_TZ = ZoneInfo("Europe/Warsaw")
+
+
+def _as_local_stamp(moment) -> str | None:
+    if moment is None:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(DASHBOARD_TZ).strftime("%Y-%m-%d %H:%M")
+
+
 @router.get("/dashboard")
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
@@ -1335,6 +1351,33 @@ async def get_dashboard(
         disabled_types[t.value] = count
 
     # =========================
+    # WYDANE / WOLNE (per typ)
+    # =========================
+    # "Wydane" to sprzęt z przypisanym loginem — bez względu na dostępność,
+    # bo fizycznie jest u człowieka nawet wtedy, gdy w systemie go zablokowano.
+    # "Wolne" liczy tylko dostępne: zablokowany sprzęt leżący w szafie nie jest
+    # tym, po co ktoś przyjdzie. Te dwie kolumny nie muszą więc sumować się do
+    # kolumny "Dostępne" i świadomie tak zostają.
+    assigned_stmt = (
+        select(DeviceDB.type, func.count())
+        .where(DeviceDB.employee_id.is_not(None))
+        .group_by(DeviceDB.type)
+    )
+    free_stmt = (
+        select(DeviceDB.type, func.count())
+        .where(DeviceDB.employee_id.is_(None), DeviceDB.enabled == True)
+        .group_by(DeviceDB.type)
+    )
+
+    assigned_types = {"scanner": 0, "printer": 0}
+    for t, count in (await db.execute(assigned_stmt)):
+        assigned_types[t.value] = count
+
+    free_types = {"scanner": 0, "printer": 0}
+    for t, count in (await db.execute(free_stmt)):
+        free_types[t.value] = count
+
+    # =========================
     # UŻYCIE PER SITE
     # =========================
     site_usage_stmt = (
@@ -1358,6 +1401,7 @@ async def get_dashboard(
 
     site_usage_result = await db.execute(site_usage_stmt)
 
+
     sites_usage = [
         {
             "site": row.site or "Brak",
@@ -1380,7 +1424,9 @@ async def get_dashboard(
             "available": available,
             "disabled": disabled,
             "by_type": types,
-            "disabled_by_type": disabled_types
+            "disabled_by_type": disabled_types,
+            "assigned_by_type": assigned_types,
+            "free_by_type": free_types
         },
         "sites": sites_usage
     }
@@ -1394,10 +1440,31 @@ async def get_dashboard(
 # zgadzałoby się z liczbą, spod której je otwarto.
 
 
-def _dashboard_device_row(device: DeviceDB) -> dict:
+async def _last_rentals(db: AsyncSession, column) -> dict[int, str]:
+    """Ostatnia rejestracja w rozbiciu na urządzenia albo na pracowników.
+
+    Jedno zapytanie na całe rozwinięcie, nie jedno na wiersz — inaczej otwarcie
+    listy stu urządzeń to sto zapytań do bazy.
+    """
+    stmt = (
+        select(column, func.max(TransactionDB.timestamp))
+        .where(TransactionDB.type == TransactionType.registered)
+        .group_by(column)
+    )
+    return {
+        key: _as_local_stamp(moment)
+        for key, moment in (await db.execute(stmt))
+        if key is not None
+    }
+
+
+def _dashboard_device_row(device: DeviceDB, last_rental: dict[int, str]) -> dict:
     """Urządzenie razem z osobą, która je ma."""
     employee = device.employee
     return {
+        # Kiedy ten sprzęt ostatnio komuś wydano. Dla wolnego to data poprzedniego
+        # wypożyczenia, nie zwrotu — pytanie brzmi "kiedy ostatnio pracował".
+        "last_rental": last_rental.get(device.id),
         "id": device.id,
         "name": device.name,
         "serial_number": device.serial_number,
@@ -1471,8 +1538,9 @@ async def get_dashboard_devices(
     stmt = stmt.order_by(DeviceDB.name)
 
     devices = (await db.execute(stmt)).scalars().all()
+    last_rental = await _last_rentals(db, TransactionDB.device_id)
 
-    return [_dashboard_device_row(d) for d in devices]
+    return [_dashboard_device_row(d, last_rental) for d in devices]
 
 
 @router.get("/dashboard/employees")
@@ -1507,11 +1575,14 @@ async def get_dashboard_employees(
         )
 
     employees = (await db.execute(stmt)).scalars().all()
+    last_rental = await _last_rentals(db, TransactionDB.employee_id)
 
     return [
         {
             "id": e.id,
             "wms_login": e.wms_login,
+            # Kiedy ta osoba ostatnio coś pobrała.
+            "last_rental": last_rental.get(e.id),
             "first_name": e.first_name,
             "last_name": e.last_name,
             "company": e.company,

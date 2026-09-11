@@ -8,6 +8,8 @@
             <tr>
                 <th>Typ Urządzenia</th>
                 <th class="text-center">📦 Dostępne</th>
+                <th class="text-center">👤 Wydane</th>
+                <th class="text-center">🟢 Wolne</th>
                 <th class="text-center">❌ Niedostępne</th>
                 <th class="text-center">📊 Razem</th>
             </tr>
@@ -16,18 +18,24 @@
             <tr>
                 <td>📦 Skanery</td>
                 <td class="text-center" id="scannerDevices">0</td>
+                <td class="text-center" id="assignedScanners">0</td>
+                <td class="text-center" id="freeScanners">0</td>
                 <td class="text-center" id="disabledScannerDevices">0</td>
                 <td class="text-center text-bold" id="totalScanners">0</td>
             </tr>
             <tr>
                 <td>🖨 Drukarki</td>
                 <td class="text-center" id="printerDevices">0</td>
+                <td class="text-center" id="assignedPrinters">0</td>
+                <td class="text-center" id="freePrinters">0</td>
                 <td class="text-center" id="disabledPrinterDevices">0</td>
                 <td class="text-center text-bold" id="totalPrinters">0</td>
             </tr>
             <tr class="total-row">
                 <td>RAZEM</td>
                 <td class="text-center" id="totalAvailable">0</td>
+                <td class="text-center" id="totalAssigned">0</td>
+                <td class="text-center" id="totalFree">0</td>
                 <td class="text-center" id="totalDisabled">0</td>
                 <td class="text-center" id="grandTotal">0</td>
             </tr>
@@ -47,6 +55,7 @@
         </tr>
     </thead>
     <tbody></tbody>
+    <tfoot></tfoot>
 </table>
 
 <script src="{{ url_for('static', path='js/admin/admin.js') }}"></script>{% endblock %}

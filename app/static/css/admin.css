@@ -220,10 +220,18 @@
     background: rgba(59, 130, 246, 0.12);
 }
 
-.dashboard-table tbody tr.total-row {
+/* Podsumowanie wygląda tak samo w obu tabelach dashboardu — w górnej stoi
+   w tbody, w dolnej w tfoot, bo dopisujemy je po wszystkich wierszach. */
+.dashboard-table tbody tr.total-row,
+#deptTable tfoot tr.total-row {
     background: linear-gradient(135deg, rgba(22, 20, 110, 0.6), rgba(59, 130, 246, 0.15));
     font-weight: 600;
     border-top: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+#deptTable tfoot td {
+    padding: 12px 14px;
+    color: var(--text-primary);
 }
 
 .dashboard-table td {
