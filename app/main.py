@@ -29,6 +29,7 @@ from routers.admin.reports import router as admin_reports_router
 from routers.manager.pages import router as manager_pages_router
 from routers.manager.api_transactions import router as manager_transactions_router
 from routers.manager.api_devices import router as manager_devices_router
+from routers.damage_reports import router as damage_reports_router
 
 
 
@@ -468,6 +469,7 @@ app.include_router(admin_reports_router)
 app.include_router(manager_pages_router)
 app.include_router(manager_transactions_router)
 app.include_router(manager_devices_router)
+app.include_router(damage_reports_router)
 app.include_router(websocket.router)
 app.include_router(pages.router)
 app.include_router(email_agent.router)

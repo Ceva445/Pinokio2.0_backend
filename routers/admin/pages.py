@@ -276,6 +276,22 @@ async def firmware_page(
     )
 
 # ===============================
+# PROTOKÓŁ USZKODZENIA
+# ===============================
+
+@router.get("/damage-reports", response_class=HTMLResponse)
+async def admin_damage_reports(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    """Ten sam formularz, co u kierownika — admin też zgłasza uszkodzenia."""
+    return templates.TemplateResponse(
+        "admin/damage_reports.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # REPORTS PAGES
 # ===============================
 

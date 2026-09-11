@@ -1,0 +1,55 @@
+{# Jeden formularz dla obu paneli — kierownik i administrator zgłaszają to samo,
+   więc szablon jest wspólny, a różni się tylko menu dookoła. #}
+<h2>🔧 Protokół uszkodzenia sprzętu</h2>
+
+<p class="tx-hint">
+    Wybierz urządzenie i opisz, co się stało. Protokół zostaje w systemie,
+    a jego treść idzie mailem do grupy ALL.
+</p>
+
+<form id="damageForm" class="admin-form">
+    <div class="form-group">
+        <label>Urządzenie *</label>
+        <input id="damageDeviceSearch" placeholder="Szukaj: nazwa, nr seryjny, osoba">
+        <select name="device_id" id="damageDeviceSelect" size="8" required></select>
+        <small id="damageDeviceHint" class="drill-muted"></small>
+    </div>
+
+    <div class="form-group">
+        <label>Komentarz — opis uszkodzenia *</label>
+        <textarea name="description" id="damageDescription" rows="5" required
+                  placeholder="Co się stało, kiedy, w jakich okolicznościach"></textarea>
+        <small class="drill-muted">Trafia w całości do maila. Pole wymagane.</small>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="damageSubmit">
+            📨 Zapisz protokół i wyślij
+        </button>
+    </div>
+
+    <div id="damageResult" class="tx-hint"></div>
+</form>
+
+{# Historia to widok administratora. Kierownik zgłasza swoje uszkodzenie i nie
+   ogląda cudzych zgłoszeń z całego magazynu. #}
+{% if user and user.role == "admin" %}
+<h3>Ostatnie protokoły</h3>
+
+<div class="table-scroll">
+<table id="damageTable">
+    <thead>
+        <tr>
+            <th>Data / czas</th>
+            <th>Urządzenie</th>
+            <th>W rękach</th>
+            <th>Zgłosił</th>
+            <th>Komentarz</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', path='js/damage_reports.js') }}?v=2"></script>

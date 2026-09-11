@@ -708,3 +708,25 @@
 .row-actions a + a {
     margin-left: 8px;
 }
+
+/* Komunikat pod formularzem. Zapis i wysyłka to dwie osobne rzeczy, więc kolor
+   mówi o całości: zielony, gdy protokół zapisany i mail poszedł do wszystkich. */
+.form-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    font-size: 13px;
+}
+
+.form-note--ok {
+    border-left-color: #22c55e;
+    background: rgba(34, 197, 94, 0.10);
+    color: #bbf7d0;
+}
+
+.form-note--warn {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.10);
+    color: #fde68a;
+}

@@ -66,6 +66,21 @@ async def manager_devices(
 
 
 # ===============================
+# PROTOKÓŁ USZKODZENIA
+# ===============================
+
+@router.get("/damage-reports", response_class=HTMLResponse)
+async def manager_damage_reports(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    return templates.TemplateResponse(
+        "manager/damage_reports.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
 
