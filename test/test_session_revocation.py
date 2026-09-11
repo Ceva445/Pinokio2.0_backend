@@ -216,13 +216,15 @@ async def test_force_logout_on_a_stranger_is_refused(db_session, manager_user):
     assert exc.value.status_code == 404
 
 
-async def test_the_button_is_not_hidden_behind_a_green_dot():
-    """Кнопка мусить стояти завжди: зелена крапка береться з памʼяті процесу,
-    а вона бреше після кожного рестарту."""
+async def test_the_button_stays_next_to_logged_in_users_only():
+    """Kнопка належить рядкам із живою сесією — так було і так має лишитись.
+
+    Проблемою було не те, кому її видно, а те, що натискання нічого не давало:
+    відкликання жило в памʼяті процесу і зникало при рестарті. Це лікує межа в
+    базі, а не кнопка на кожному рядку."""
     from pathlib import Path
 
     admin_js = Path("app/static/js/admin/admin.js").read_text(encoding="utf-8")
-    button = admin_js[admin_js.index("forceLogout(${u.id}") - 400:]
 
-    assert "u.is_logged_in ? `<button" not in admin_js
-    assert "forceLogout" in button
+    assert "u.is_logged_in ? `<button" in admin_js
+    assert "forceLogout" in admin_js

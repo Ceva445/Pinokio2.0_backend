@@ -914,14 +914,7 @@ async function loadUsers() {
                         : "—"}</td>
                 <td>
                     <a href="/admin/users/${u.id}" title="Edytuj">✏️</a>
-                    ${/* Przycisk stoi zawsze, nie tylko przy zielonej kropce.
-                          Kropkę widać z pamięci procesu, a ta znika przy każdym
-                          restarcie backendu — token w przeglądarce żyje dalej,
-                          więc "niezalogowany" bywał nieprawdą i admin nie miał
-                          kogo wyrzucić. */""}
-                    <button type="button" class="btn" style="margin-left:8px"
-                            onclick="forceLogout(${u.id}, '${u.username}')"
-                            title="Wyloguj z systemu">🚪</button>
+                    ${u.is_logged_in ? `<button type="button" class="btn" style="margin-left:8px" onclick="forceLogout(${u.id}, '${u.username}')" title="Wyloguj z systemu">🚪</button>` : ""}
                 </td>
             `;
             tbody.appendChild(tr);
