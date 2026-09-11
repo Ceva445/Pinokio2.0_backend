@@ -2,7 +2,7 @@
 
 {% block styles %}
     <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=12">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=13">
 {% endblock %}
 
 {% block content %}
@@ -26,6 +26,7 @@
                 <a href="/admin/reports">📑 Raporty</a>
                 <ul class="admin-sidebar__sub">
                     <li><a href="/admin/reports/registrations">Historia rejestracji</a></li>
+                    <li><a href="/admin/reports/usage">Wykorzystanie sprzętu</a></li>
                 </ul>
             </li>
             <li><a href="/admin/department-managers">Kierownicy działów</a></li>

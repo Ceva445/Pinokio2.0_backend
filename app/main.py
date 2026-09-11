@@ -29,6 +29,7 @@ from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
 from routers.admin.admin_device_transactions import router as admin_device_transactions_router
 from routers.admin.reports import router as admin_reports_router
+from routers.admin.report_usage import router as admin_usage_report_router
 from routers.manager.pages import router as manager_pages_router
 from routers.manager.api_transactions import router as manager_transactions_router
 from routers.manager.api_devices import router as manager_devices_router
@@ -550,6 +551,7 @@ app.include_router(admin_pages_router)
 app.include_router(admin_transactions_router)
 app.include_router(admin_device_transactions_router)
 app.include_router(admin_reports_router)
+app.include_router(admin_usage_report_router)
 app.include_router(manager_pages_router)
 app.include_router(manager_transactions_router)
 app.include_router(manager_devices_router)

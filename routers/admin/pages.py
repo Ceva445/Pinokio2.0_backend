@@ -307,6 +307,17 @@ async def reports_index(
     )
 
 
+@router.get("/reports/usage", response_class=HTMLResponse)
+async def usage_report_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/reports/usage.html",
+        {"request": request, "user": current_user}
+    )
+
+
 @router.get("/reports/registrations", response_class=HTMLResponse)
 async def registrations_report_page(
     request: Request,

@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<h2>⏱ Wykorzystanie sprzętu</h2>
+<p class="tx-hint">
+    Kto trzyma sprzęt najdłużej i co najdłużej leży bez pracy.
+    Czas liczony od ostatniej rejestracji albo od ostatniego zwrotu.
+    <span id="usageStamp" class="drill-muted"></span>
+</p>
+
+<div id="usageTiles" class="usage-tiles"></div>
+
+<div class="tx-filters">
+    <label>
+        Typ
+        <select id="usageType">
+            <option value="">Wszystkie typy</option>
+            <option value="scanner">📦 Skanery</option>
+            <option value="printer">🖨 Drukarki</option>
+        </select>
+    </label>
+
+    <label>
+        Site
+        <select id="usageSite"><option value="">Wszystkie site</option></select>
+    </label>
+
+    <label>
+        Szukaj
+        <input id="usageSearch" placeholder="Urządzenie, login lub osoba">
+    </label>
+
+    <button type="button" id="usageReset" class="btn">Wyczyść filtry</button>
+    <a href="/admin/api/reports/usage.xlsx" class="btn btn-primary">⬇ Pobierz XLSX</a>
+</div>
+
+<div class="usage-columns">
+    <div class="usage-panel">
+        <h3><span class="usage-dot" style="background:var(--usage-inuse)"></span>
+            W użyciu — czas od rejestracji</h3>
+        <p class="usage-sub">Ile sprzęt jest u pracownika. Najdłużej trzymane na górze.</p>
+        <div class="usage-legend">
+            <span><i style="background:var(--usage-ok)"></i>do 8h</span>
+            <span><i style="background:var(--usage-warn)"></i>8–12h</span>
+            <span><i style="background:var(--usage-long)"></i>12–24h</span>
+            <span><i style="background:var(--usage-crit)"></i>ponad dobę</span>
+        </div>
+        <p class="usage-sub">Długość paska w skali pierwiastkowej — obok każdego stoi dokładny czas.</p>
+        <div id="usageListInUse"></div>
+        <button type="button" class="btn" id="usageMoreInUse" style="margin-top:12px"></button>
+    </div>
+
+    <div class="usage-panel">
+        <h3><span class="usage-dot" style="background:var(--usage-free)"></span>
+            Wolne — czas postoju</h3>
+        <p class="usage-sub">Ile leży bez pracy od ostatniego zwrotu. Ta sama skala progów.</p>
+        <div id="usageListFree"></div>
+        <button type="button" class="btn" id="usageMoreFree" style="margin-top:12px"></button>
+    </div>
+</div>
+
+<div id="usageTip" class="usage-tip"></div>
+
+<script src="{{ url_for('static', path='js/admin/report_usage.js') }}?v=1"></script>
+{% endblock %}

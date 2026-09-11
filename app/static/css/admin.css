@@ -730,3 +730,131 @@
     background: rgba(245, 158, 11, 0.10);
     color: #fde68a;
 }
+
+/* =========================================================
+   RAPORT: WYKORZYSTANIE SPRZĘTU
+   ========================================================= */
+
+/* Dwie serie to dwa sąsiednie sloty sprawdzonej palety, w krokach dla ciemnego
+   tła. Progi czasu noszą kolory statusu — zarezerwowane, nigdy jako "kolejna
+   seria". Każdy z nich ma na tle panelu co najmniej 3:1. */
+.usage-columns {
+    --usage-inuse: #3987e5;
+    --usage-free: #d95926;
+    --usage-ok: #0ca30c;
+    --usage-warn: #fab219;
+    --usage-long: #ec835a;
+    --usage-crit: #d03b3b;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+@media (max-width: 1100px) {
+    .usage-columns { grid-template-columns: 1fr; }
+}
+
+.usage-panel {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+}
+
+.usage-panel h3 {
+    margin: 0 0 2px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.usage-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.usage-sub { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
+
+.usage-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.usage-legend i {
+    width: 10px; height: 10px; border-radius: 3px;
+    display: inline-block; margin-right: 6px; vertical-align: -1px;
+}
+
+/* ---------- kafelki ---------- */
+.usage-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin: 0 0 18px;
+}
+
+@media (max-width: 900px) { .usage-tiles { grid-template-columns: 1fr 1fr; } }
+
+.usage-tile {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+}
+
+.usage-tile .k {
+    font-size: 11px; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--text-secondary);
+}
+.usage-tile .v { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.usage-tile .n { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.usage-tile.accent .v { color: #3987e5; }
+.usage-tile.warn .v { color: #fab219; }
+
+/* ---------- wiersz z paskiem ---------- */
+.usage-row {
+    display: grid;
+    grid-template-columns: 104px 1fr 92px;
+    gap: 10px;
+    align-items: center;
+    padding: 3px 0;
+}
+
+.usage-row:hover .usage-track { background: rgba(255, 255, 255, 0.09); }
+
+.usage-name {
+    font-size: 12px; font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.usage-track { background: rgba(255, 255, 255, 0.05); border-radius: 5px; height: 10px; }
+
+/* Zaokrąglony tylko koniec danych — początek trzyma się linii bazowej. */
+.usage-bar { height: 10px; border-radius: 0 5px 5px 0; min-width: 3px; }
+
+.usage-value {
+    font-size: 12px; text-align: right;
+    font-variant-numeric: tabular-nums; color: var(--text-secondary);
+}
+
+.usage-who {
+    font-size: 11px; color: var(--text-secondary);
+    margin: -2px 0 4px 104px; opacity: .75;
+}
+
+/* ---------- podpowiedź ---------- */
+.usage-tip {
+    position: fixed; z-index: 60; pointer-events: none; opacity: 0;
+    transition: opacity .12s;
+    background: #0b1220; color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px; padding: 10px 12px;
+    font-size: 12px; line-height: 1.5; max-width: 290px;
+    box-shadow: 0 12px 30px -8px rgba(0, 0, 0, .7);
+}
+
+.usage-tip b { font-size: 13px; }
+.usage-tip .m { color: var(--text-secondary); }
