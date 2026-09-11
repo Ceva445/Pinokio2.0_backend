@@ -747,12 +747,16 @@
     --usage-crit: #d03b3b;
 
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0,...) — bez tego zawartość rozpycha kolumnę i paski wychodzą
+       poza panel zamiast się kurczyć. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 18px;
 }
 
-@media (max-width: 1100px) {
-    .usage-columns { grid-template-columns: 1fr; }
+/* Dwie kolumny mają sens dopiero wtedy, gdy w każdej zostaje miejsce na pasek.
+   Przy węższym oknie lepiej jedna pod drugą niż dwie ściśnięte. */
+@media (max-width: 1400px) {
+    .usage-columns { grid-template-columns: minmax(0, 1fr); }
 }
 
 .usage-panel {
@@ -815,12 +819,18 @@
 .usage-tile.warn .v { color: #fab219; }
 
 /* ---------- wiersz z paskiem ---------- */
+/* Nazwa dostaje tyle, ile trzeba na najdłuższą z nich — "ZEBRAMOB445BX01"
+   ucinało się na "ZEBRAMOB445..." i dwie różne drukarki wyglądały tak samo. */
 .usage-row {
     display: grid;
-    grid-template-columns: 104px 1fr 92px;
+    grid-template-columns: 138px 1fr 92px;
     gap: 10px;
     align-items: center;
     padding: 3px 0;
+}
+
+@media (max-width: 1500px) {
+    .usage-row { grid-template-columns: 138px 1fr 86px; gap: 8px; }
 }
 
 .usage-row:hover .usage-track { background: rgba(255, 255, 255, 0.09); }
@@ -842,7 +852,18 @@
 
 .usage-who {
     font-size: 11px; color: var(--text-secondary);
-    margin: -2px 0 4px 104px; opacity: .75;
+    margin: -2px 0 4px 138px; opacity: .75;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Przyciski trzymają się razem przy prawej krawędzi, zamiast tłoczyć się tuż
+   przy polu wyszukiwania albo spadać pojedynczo do następnego wiersza. */
+.usage-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-left: auto;
+    margin-top: 18px;
 }
 
 /* ---------- podpowiedź ---------- */
