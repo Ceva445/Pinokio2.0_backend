@@ -121,6 +121,37 @@ document.getElementById("logoutBtn")?.addEventListener("click", async () => {
 });
 
 checkAuth();
+
+/**
+ * Pilnowanie sesji na ekranach bez monitora.
+ *
+ * Zakładka monitora dostaje po WebSocket wiadomość "force_logout" i sama idzie
+ * na logowanie. Reszta paneli takiego kanału nie ma, więc po wyrzuceniu przez
+ * administratora człowiek zostawał na obrazku sprzed chwili — sesja martwa,
+ * ekran ten sam, dopóki czegoś nie kliknął.
+ *
+ * Pytamy więc o siebie co pół minuty i przy pierwszej odmowie idziemy tam,
+ * gdzie i tak trzeba trafić.
+ */
+const SESSION_CHECK_MS = 30000;
+
+setInterval(async () => {
+    // Ekran logowania nie ma czego pilnować, a monitor robi to po swojemu.
+    if (location.pathname.startsWith("/login")) return;
+
+    try {
+        const res = await fetch("/auth/me", {
+            credentials: "include",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+        if (res.status === 401) {
+            location.href = "/login?reason=expired";
+        }
+    } catch (err) {
+        // Zerwana sieć to nie wylogowanie — przy następnej próbie się okaże.
+    }
+}, SESSION_CHECK_MS);
 </script>
 
 

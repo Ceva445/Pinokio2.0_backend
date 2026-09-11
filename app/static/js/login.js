@@ -10,6 +10,7 @@
     // ekran logowania wygląda, jakby system się zepsuł.
     const notices = {
         idle: "Zostałeś wylogowany z powodu bezczynności.",
+        admin: "Administrator zakończył Twoją sesję.",
         expired: "Sesja wygasła — zaloguj się ponownie.",
         revoked: "Sesja została zamknięta — zaloguj się ponownie.",
         inactive: "To konto jest nieaktywne. Skontaktuj się z administratorem.",

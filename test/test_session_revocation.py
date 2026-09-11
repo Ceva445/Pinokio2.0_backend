@@ -228,3 +228,57 @@ async def test_the_button_stays_next_to_logged_in_users_only():
 
     assert "u.is_logged_in ? `<button" in admin_js
     assert "forceLogout" in admin_js
+
+
+# ---------------------------------------------------------------------------
+# 4. Виштовхування з екрана
+# ---------------------------------------------------------------------------
+async def test_force_logout_tells_the_tab_to_leave(db_session, manager_user):
+    """Те саме, що робить вилогування за простій: вкладка має сама піти на
+    логін, а не лишатись на екрані, де людина була в ту мить."""
+    from app.main import manager
+
+    class _Ws:
+        def __init__(self, user_id):
+            self.user_id = user_id
+            self.token = "token-tej-osoby"
+            self.sent = []
+            self.closed = False
+
+        async def send_json(self, payload):
+            self.sent.append(payload)
+
+        async def close(self):
+            self.closed = True
+
+    ws = _Ws(manager_user.id)
+    manager.connections[ws] = None
+    try:
+        await force_logout_user(user_id=manager_user.id, db=db_session, user=None)
+    finally:
+        manager.connections.pop(ws, None)
+
+    # Po wyrzuceniu leci jeszcze zwykły broadcast listy urządzeń — liczy się to,
+    # że wiadomość o wyjściu poszła pierwsza, zanim gniazdo zostało zamknięte.
+    assert ws.sent[0] == {"type": "force_logout", "reason": "admin"}
+    assert ws.closed
+
+
+async def test_the_reason_has_its_own_wording():
+    from pathlib import Path
+
+    login_js = Path("app/static/js/login.js").read_text(encoding="utf-8")
+
+    assert "admin:" in login_js
+
+
+async def test_pages_without_a_monitor_watch_their_session():
+    """Панелі без WebSocket мусять питати про себе самі, інакше виштовхування
+    дійшло б тільки до вкладки монітора."""
+    from pathlib import Path
+
+    base_html = Path("app/templates/base.html").read_text(encoding="utf-8")
+
+    assert "SESSION_CHECK_MS" in base_html
+    assert "/auth/me" in base_html
+    assert 'location.href = "/login?reason=expired"' in base_html

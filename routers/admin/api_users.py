@@ -215,13 +215,21 @@ async def force_logout_user(
     # 2) звільнити прив'язку ESP (esp_watchers + esp_allowed_users)
     remove_user_from_all_esps(user_id)
 
-    # 3) розірвати монітор-WS цього користувача (+ revoke його токена, якщо є)
+    # 3) powiedzieć jego zakładce, żeby poszła na logowanie, i zerwać WS
+    #
+    # Bez tej wiadomości człowiek zostawał na ekranie, na którym akurat był:
+    # sesja martwa, a obraz ten sam, dopóki czegoś nie kliknął. Dokładnie tak
+    # samo robi wylogowanie za bezczynność — stąd ta sama wiadomość.
     for ws in list(manager.connections.keys()):
         if getattr(ws, "user_id", None) == user_id:
             tok = getattr(ws, "token", None)
             if tok:
                 revoked_tokens.add(tok)
                 auth_manager.remove_session(tok)
+            try:
+                await ws.send_json({"type": "force_logout", "reason": "admin"})
+            except Exception:
+                pass
             try:
                 await ws.close()
             except Exception:
