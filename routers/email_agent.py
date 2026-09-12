@@ -6,7 +6,9 @@ import asyncio
 import os
 import smtplib
 import logging
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 
 from db.session import get_db
 from models.db_transaction import TransactionDB, TransactionType
@@ -32,9 +34,22 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_FROM = os.getenv("SMTP_FROM")
 
 
-def send_email_sync(to_email: str, subject: str, message: str):
-    """Синхронна відправка одного листа (викликати через asyncio.to_thread)."""
-    msg = MIMEText(message)
+def send_email_sync(to_email: str, subject: str, message: str,
+                    html: str | None = None):
+    """Синхронна відправка одного листа (викликати через asyncio.to_thread).
+
+    Gdy jest wersja HTML, list idzie jako multipart/alternative: klient pokaże
+    HTML, a czysty tekst zostaje dla tych, które HTML-a nie pokazują. Bez tej
+    pary nie da się niczego pogrubić — czysty tekst pogrubienia nie zna.
+    """
+    if html:
+        msg = MIMEMultipart("alternative")
+        msg.attach(MIMEText(message, "plain", "utf-8"))
+        # Kolejność ma znaczenie: klient bierze ostatnią część, którą umie.
+        msg.attach(MIMEText(html, "html", "utf-8"))
+    else:
+        msg = MIMEText(message, "plain", "utf-8")
+
     msg["Subject"] = subject
     msg["From"] = SMTP_FROM
     msg["To"] = to_email
@@ -43,6 +58,13 @@ def send_email_sync(to_email: str, subject: str, message: str):
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_FROM, [to_email], msg.as_string())
+
+
+def _lista_html(wiersze: list[str]) -> str:
+    """Wiersze jako lista HTML. Treść idzie przez escape — imiona i nazwy
+    sprzętu wpisuje człowiek, a w mailu mają zostać tekstem."""
+    punkty = "".join(f"<li>{escape(w)}</li>" for w in wiersze)
+    return f'<ul style="margin:0 0 14px;padding-left:20px">{punkty}</ul>'
 
 
 def get_time_threshold(now: datetime, hours: int = 12) -> datetime:
@@ -69,6 +91,11 @@ async def run_email_notifications(db: AsyncSession) -> dict:
     config = await config_manager.get_config(db)
     hours = config.get("device_not_returned_hours", 12)
     
+    # Pod tą nazwą przeżyje pętlę niżej, gdzie "hours" jest nadpisywane
+    # godzinami pojedynczego wiersza. Napis w mailu ma mówić o tym progu,
+    # a nie o zaszytej dwunastce — próg zmienia się w panelu.
+    progowe_godziny = hours
+
     time_threshold = get_time_threshold(now, hours)
     is_instant_check = time_threshold == now
 
@@ -105,7 +132,9 @@ async def run_email_notifications(db: AsyncSession) -> dict:
     result = await db.execute(stmt)
     rows = result.all()
 
-    employees_devices: dict[str, list[str]] = {}
+    # Wiersz trzyma też liczbę minut, bo po niej sortujemy. Bez tego zostawał
+    # sam napis "3h 4min", a po napisie "27h" wypada przed "3h".
+    employees_devices: dict[str, list[tuple[int, str]]] = {}
 
     for first_name, last_name, site, device_name, device_type, timestamp in rows:
 
@@ -113,26 +142,40 @@ async def run_email_notifications(db: AsyncSession) -> dict:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
 
         delta = now - timestamp
-        hours = int(delta.total_seconds() // 3600)
-        minutes = int((delta.total_seconds() % 3600) // 60)
+        wszystkie_minuty = int(delta.total_seconds() // 60)
+        hours, minutes = divmod(wszystkie_minuty, 60)
 
         device_type_pl = DEVICE_TYPE_PL.get(device_type.value, device_type.value)
 
         # Klucz to nazwa site ze słownika, nie wpisany ręcznie tekst. Wcześniej
         # szedł tu department i wystarczyło "Stock" zamiast "STOCK", żeby nikt
         # z tego działu nie znalazł swojego kierownika i mail nie poszedł.
-        employees_devices.setdefault(site, []).append(
-            f"{first_name} {last_name} ({device_type_pl}: {device_name}) — {hours}h {minutes}min"
-        )
+        employees_devices.setdefault(site, []).append((
+            wszystkie_minuty,
+            f"{first_name} {last_name} ({device_type_pl}: {device_name}) — {hours}h {minutes}min",
+        ))
+
+    # Najdłużej trzymane na górze — tego się w tym mailu szuka. Działy też:
+    # pierwszy ten, który ma najgorszy przypadek.
+    for wiersze in employees_devices.values():
+        wiersze.sort(key=lambda w: w[0], reverse=True)
+
+    employees_devices = dict(sorted(
+        employees_devices.items(),
+        key=lambda para: para[1][0][0],
+        reverse=True,
+    ))
 
     # 🔹 email
     notifications = []
 
-    time_text = (
-        "nie zwrócili urządzenia (stan na teraz):"
-        if is_instant_check
-        else "nie zwrócili urządzenia przez ponad 12 godzin:"
-    )
+    # W sobotę próg to "teraz", więc list wylicza wszystkich, którzy mają sprzęt
+    # na rękach — nie tylko zaległych. Ten dopisek jest jedyną rzeczą, która
+    # odróżnia oba listy, dlatego w wersji HTML jest pogrubiony.
+    okres = ("(stan na teraz)" if is_instant_check
+             else f"przez ponad {progowe_godziny} godzin")
+    time_text = f"nie zwrócili urządzenia {okres}:"
+    time_html = f"nie zwrócili urządzenia <b>{escape(okres)}</b>:"
 
     # ALL-менеджери отримують ЛИШЕ зведений лист → виключаємо їх з відділових,
     # щоб не було дублю (реальні відділи — EMAG/STOCK/XD/…, "ALL" — сентинел)
@@ -161,9 +204,15 @@ async def run_email_notifications(db: AsyncSession) -> dict:
         if not manager_emails:
             continue
 
+        wiersze = [tekst for _, tekst in employees]
+
         message = (
             f"Pracownicy w Twoim dziale '{site}' {time_text}\n\n"
-            + "\n".join(employees)
+            + "\n".join(wiersze)
+        )
+        html = (
+            f"<p>Pracownicy w Twoim dziale '{escape(site or '')}' {time_html}</p>"
+            + _lista_html(wiersze)
         )
 
         subject = f"Alert zwrotu urządzenia - {site}"
@@ -171,23 +220,33 @@ async def run_email_notifications(db: AsyncSession) -> dict:
         notifications.append({
             "emails": manager_emails,
             "subject": subject,
-            "message": message
+            "message": message,
+            "html": html,
         })
 
     # 🔹 Один зведений лист для ALL-менеджерів: усі інциденти з усіх відділів
     if employees_devices and all_emails:
         sections = [
-            f"[{site}]\n" + "\n".join(employees)
+            f"[{site}]\n" + "\n".join(tekst for _, tekst in employees)
             for site, employees in employees_devices.items()
         ]
         combined_message = (
             f"Zestawienie wszystkich działów — pracownicy {time_text}\n\n"
             + "\n\n".join(sections)
         )
+        combined_html = (
+            f"<p>Zestawienie wszystkich działów — pracownicy {time_html}</p>"
+            + "".join(
+                f"<p><b>[{escape(site or '')}]</b></p>"
+                + _lista_html([tekst for _, tekst in employees])
+                for site, employees in employees_devices.items()
+            )
+        )
         notifications.append({
             "emails": sorted(all_emails),
             "subject": "Alert zwrotu urządzenia - wszystkie działy",
             "message": combined_message,
+            "html": combined_html,
         })
 
     # 🔹 Фактична відправка кожної підготовленої notification
@@ -197,7 +256,7 @@ async def run_email_notifications(db: AsyncSession) -> dict:
         for email in n["emails"]:
             try:
                 await asyncio.to_thread(
-                    send_email_sync, email, n["subject"], n["message"]
+                    send_email_sync, email, n["subject"], n["message"], n.get("html")
                 )
                 sent += 1
                 logger.info("Return-alert email sent to %s (%s)", email, n["subject"])
