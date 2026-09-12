@@ -22,7 +22,18 @@
 
     <label>
         Site
-        <select id="usageSite"><option value="">Wszystkie site</option></select>
+        <div class="multi" id="usageSiteFilter">
+            <button type="button" class="multi__toggle">Wszystkie site</button>
+            <div class="multi__panel" hidden></div>
+        </div>
+    </label>
+
+    <label>
+        Status urządzenia
+        <div class="multi" id="usageStatusFilter">
+            <button type="button" class="multi__toggle">Wszystkie statusy</button>
+            <div class="multi__panel" hidden></div>
+        </div>
     </label>
 
     <label>
@@ -32,7 +43,8 @@
 
     <div class="usage-actions">
         <button type="button" id="usageReset" class="btn">Wyczyść filtry</button>
-        <a href="/admin/api/reports/usage.xlsx" class="btn btn-primary">⬇ Pobierz XLSX</a>
+        <a href="/admin/api/reports/usage.xlsx" id="usageDownload"
+           class="btn btn-primary">⬇ Pobierz XLSX</a>
     </div>
 </div>
 
@@ -63,5 +75,5 @@
 
 <div id="usageTip" class="usage-tip"></div>
 
-<script src="{{ url_for('static', path='js/admin/report_usage.js') }}?v=2"></script>
+<script src="{{ url_for('static', path='js/admin/report_usage.js') }}?v=3"></script>
 {% endblock %}

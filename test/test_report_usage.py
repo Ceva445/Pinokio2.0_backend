@@ -20,6 +20,7 @@ from models.db_site import SiteDB
 from models.db_transaction import TransactionDB, TransactionType
 from routers.admin.report_usage import (
     build_workbook,
+    filtruj,
     content_disposition,
     format_czas,
     report_file_name,
@@ -191,3 +192,98 @@ async def test_odpowiedz_niesie_stan_na_kiedy(db_session, magazyn):
     assert dane["report_name"] == "Wykorzystanie sprzętu"
     assert len(dane["generated_at"]) == 16          # YYYY-MM-DD HH:MM
     assert len(dane["devices"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# Filtry: site i status wielokrotnego wyboru
+# ---------------------------------------------------------------------------
+@pytest.fixture
+async def magazyn_filtry(db_session):
+    """Trzy site i trzy statusy — dość, żeby sprawdzić wybór wielokrotny."""
+    stock, xd, emag = SiteDB(name="STOCK"), SiteDB(name="XD"), SiteDB(name="EMAG")
+    work, serwis = DeviceStatusDB(name="WORK"), DeviceStatusDB(name="SERWIS LM")
+    db_session.add_all([stock, xd, emag, work, serwis])
+    await db_session.commit()
+
+    db_session.add_all([
+        DeviceDB(name="TERM001", rfid="r1", serial_number="s1", type=DeviceType.scanner,
+                 site_id=stock.id, status_id=work.id),
+        DeviceDB(name="TERM002", rfid="r2", serial_number="s2", type=DeviceType.printer,
+                 site_id=xd.id, status_id=serwis.id),
+        DeviceDB(name="TERM003", rfid="r3", serial_number="s3", type=DeviceType.scanner,
+                 site_id=emag.id, status_id=work.id),
+        # Bez site i bez statusu — nie może wpaść pod żaden wybór.
+        DeviceDB(name="TERM004", rfid="r4", serial_number="s4", type=DeviceType.scanner),
+    ])
+    await db_session.commit()
+    return await zbierz(db_session)
+
+
+async def test_pusty_wybor_znaczy_wszystkie(magazyn_filtry):
+    """Nic nie zaznaczone to nie jest "żadne" — to brak filtra."""
+    assert len(filtruj(magazyn_filtry)) == 4
+    assert len(filtruj(magazyn_filtry, site=[], status=[])) == 4
+
+
+async def test_site_przyjmuje_wiecej_niz_jeden(magazyn_filtry):
+    nazwy = {d["name"] for d in filtruj(magazyn_filtry, site=["STOCK", "XD"])}
+
+    assert nazwy == {"TERM001", "TERM002"}
+
+
+async def test_status_przyjmuje_wiecej_niz_jeden(magazyn_filtry):
+    nazwy = {d["name"] for d in filtruj(magazyn_filtry, status=["WORK", "SERWIS LM"])}
+
+    assert nazwy == {"TERM001", "TERM002", "TERM003"}
+
+
+async def test_site_i_status_skladaja_sie(magazyn_filtry):
+    """Filtry mają się składać, a nie zastępować."""
+    nazwy = {d["name"] for d in
+             filtruj(magazyn_filtry, site=["STOCK", "XD"], status=["WORK"])}
+
+    assert nazwy == {"TERM001"}
+
+
+async def test_sprzet_bez_site_nie_wpada_pod_wybor(magazyn_filtry):
+    nazwy = {d["name"] for d in filtruj(magazyn_filtry, site=["STOCK", "XD", "EMAG"])}
+
+    assert "TERM004" not in nazwy
+
+
+async def test_filtry_lacza_sie_z_typem_i_szukajka(magazyn_filtry):
+    assert {d["name"] for d in
+            filtruj(magazyn_filtry, site=["STOCK", "XD"], device_type="printer")} == {"TERM002"}
+    assert {d["name"] for d in
+            filtruj(magazyn_filtry, q="term003")} == {"TERM003"}
+
+
+async def test_plik_zawiera_to_co_widac_na_ekranie(magazyn_filtry):
+    """Najważniejsze: pobrany XLSX nie może pokazywać czegoś innego niż lista,
+    z której go pobrano."""
+    wybrane = filtruj(magazyn_filtry, site=["STOCK", "XD"], status=["WORK"])
+    sheet = load_workbook(BytesIO(build_workbook(wybrane))).active
+
+    assert sheet.max_row == len(wybrane) + 1
+    assert sheet.cell(row=2, column=1).value == "TERM001"
+
+
+async def test_xlsx_przyjmuje_listy(db_session, magazyn_filtry):
+    """Endpoint musi brać site i status po wiele razy, nie jeden raz."""
+    parametry = inspect.signature(usage_report_xlsx).parameters
+
+    assert parametry["site"].annotation == list[str]
+    assert parametry["status"].annotation == list[str]
+
+
+async def test_ekran_ma_oba_multiselecty():
+    from pathlib import Path
+
+    strona = Path("app/templates/admin/reports/usage.html").read_text(encoding="utf-8")
+    skrypt = Path("app/static/js/admin/report_usage.js").read_text(encoding="utf-8")
+
+    assert 'id="usageSiteFilter"' in strona
+    assert 'id="usageStatusFilter"' in strona
+    # Filtry muszą jechać razem z prośbą o plik.
+    assert "usageSyncDownload" in skrypt
+    assert 'params.append("status"' in skrypt

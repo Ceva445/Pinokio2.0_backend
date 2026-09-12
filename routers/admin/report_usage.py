@@ -123,6 +123,45 @@ async def zbierz(db: AsyncSession) -> list[dict]:
     return wynik
 
 
+def filtruj(
+    devices: list[dict],
+    site: list[str] | None = None,
+    status: list[str] | None = None,
+    device_type: str | None = None,
+    q: str | None = None,
+) -> list[dict]:
+    """Te same warunki, co na ekranie.
+
+    Ekran filtruje u siebie — zbiór jest mały i nie ma po co wracać na serwer
+    przy każdym kliknięciu. Ale plik składa serwer, więc te same reguły muszą
+    istnieć i tutaj; inaczej pobrany XLSX pokazywałby co innego niż lista,
+    z której go pobrano.
+    """
+    site = [s for s in (site or []) if s]
+    status = [s for s in (status or []) if s]
+    needle = (q or "").strip().lower()
+
+    def pasuje(d: dict) -> bool:
+        if device_type and d["type"] != device_type:
+            return False
+        # Pusty wybór znaczy "wszystkie", nie "żadne".
+        if site and (d["site"] or "") not in site:
+            return False
+        if status and (d["status"] or "") not in status:
+            return False
+        if needle:
+            osoba = d["employee"] or {}
+            haystack = " ".join(filter(None, [
+                d["name"], osoba.get("wms_login"),
+                osoba.get("first_name"), osoba.get("last_name"),
+            ])).lower()
+            if needle not in haystack:
+                return False
+        return True
+
+    return [d for d in devices if pasuje(d)]
+
+
 @router.get("/usage")
 async def usage_report(
     db: AsyncSession = Depends(get_db),
@@ -199,10 +238,15 @@ def build_workbook(devices: list[dict]) -> bytes:
 
 @router.get("/usage.xlsx")
 async def usage_report_xlsx(
+    site: list[str] = Query(default=[]),
+    status: list[str] = Query(default=[]),
+    device_type: str | None = Query(default=None, alias="type"),
+    q: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_admin),
 ):
-    devices = await zbierz(db)
+    """Plik ma zawierać to, co widać na ekranie — stąd te same filtry."""
+    devices = filtruj(await zbierz(db), site, status, device_type, q)
     file_name = report_file_name(datetime.now(REPORT_TZ).date())
 
     return Response(

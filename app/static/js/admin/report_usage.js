@@ -59,19 +59,112 @@ function usageMedian(values) {
     return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
 }
 
+/**
+ * Mały multiselect: przycisk z podsumowaniem i lista checkboxów pod nim.
+ *
+ * Natywne <select multiple> wymaga trzymania Ctrl, żeby zaznaczyć drugą
+ * pozycję — na magazynie to pewny sposób na zgubienie filtra. Checkboxy
+ * mówią wprost, co jest zaznaczone.
+ */
+function usageMulti(rootId, labelAll) {
+    const root = $u(rootId);
+    const toggle = root.querySelector(".multi__toggle");
+    const panel = root.querySelector(".multi__panel");
+    const wybrane = new Set();
+    let opcje = [];
+
+    function opisz() {
+        if (!wybrane.size) return labelAll;
+        if (wybrane.size === 1) return [...wybrane][0];
+        return `Wybrano: ${wybrane.size}`;
+    }
+
+    function narysuj() {
+        toggle.textContent = opisz();
+        toggle.classList.toggle("multi__toggle--active", wybrane.size > 0);
+        panel.innerHTML = opcje.map((o) => `
+            <label class="multi__row">
+                <input type="checkbox" value="${usageEscape(o)}"
+                       ${wybrane.has(o) ? "checked" : ""}>
+                <span>${usageEscape(o)}</span>
+            </label>`).join("") +
+            `<button type="button" class="multi__clear">Wyczyść zaznaczenie</button>`;
+    }
+
+    panel.addEventListener("change", (event) => {
+        const pole = event.target;
+        if (pole.type !== "checkbox") return;
+        pole.checked ? wybrane.add(pole.value) : wybrane.delete(pole.value);
+        toggle.textContent = opisz();
+        toggle.classList.toggle("multi__toggle--active", wybrane.size > 0);
+        root.dispatchEvent(new CustomEvent("multi:change"));
+    });
+
+    panel.addEventListener("click", (event) => {
+        if (!event.target.classList.contains("multi__clear")) return;
+        wybrane.clear();
+        narysuj();
+        root.dispatchEvent(new CustomEvent("multi:change"));
+    });
+
+    toggle.addEventListener("click", () => {
+        // Tylko jedna lista otwarta naraz — dwie nachodziłyby na siebie.
+        document.querySelectorAll(".multi__panel").forEach((p) => {
+            if (p !== panel) p.hidden = true;
+        });
+        panel.hidden = !panel.hidden;
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!root.contains(event.target)) panel.hidden = true;
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") panel.hidden = true;
+    });
+
+    return {
+        ustawOpcje(lista) { opcje = lista; narysuj(); },
+        wybrane() { return [...wybrane]; },
+        wyczysc() { wybrane.clear(); narysuj(); },
+    };
+}
+
+let usageSiteFilter = null;
+let usageStatusFilter = null;
+
+
 function usageFiltered() {
     const type = $u("usageType").value;
-    const site = $u("usageSite").value;
+    const sites = usageSiteFilter.wybrane();
+    const statuses = usageStatusFilter.wybrane();
     const needle = $u("usageSearch").value.trim().toLowerCase();
 
     return usageDevices.filter((d) => {
         if (type && d.type !== type) return false;
-        if (site && d.site !== site) return false;
+        // Nic nie zaznaczone znaczy "wszystkie", nie "żadne".
+        if (sites.length && !sites.includes(d.site ?? "")) return false;
+        if (statuses.length && !statuses.includes(d.status ?? "")) return false;
         if (!needle) return true;
         const haystack = [d.name, d.employee?.wms_login, d.employee?.first_name,
                           d.employee?.last_name].filter(Boolean).join(" ").toLowerCase();
         return haystack.includes(needle);
     });
+}
+
+/* Plik składa serwer, więc filtry z ekranu muszą pojechać razem z prośbą —
+   inaczej pobrany XLSX pokazywałby co innego niż lista, z której go pobrano. */
+function usageSyncDownload() {
+    const params = new URLSearchParams();
+    const type = $u("usageType").value;
+    const needle = $u("usageSearch").value.trim();
+
+    if (type) params.append("type", type);
+    if (needle) params.append("q", needle);
+    usageSiteFilter.wybrane().forEach((s) => params.append("site", s));
+    usageStatusFilter.wybrane().forEach((s) => params.append("status", s));
+
+    const query = params.toString();
+    $u("usageDownload").href = "/admin/api/reports/usage.xlsx" + (query ? "?" + query : "");
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +268,7 @@ function usageRenderTiles(devices) {
 function usageRender() {
     const devices = usageFiltered();
     usageRenderTiles(devices);
+    usageSyncDownload();
 
     const inUse = devices.filter((d) => d.in_use)
         .sort((a, b) => (b.minutes ?? 0) - (a.minutes ?? 0));
@@ -209,9 +303,12 @@ async function usageLoad() {
         usageDevices = data.devices;
 
         $u("usageStamp").textContent = `Stan na ${data.generated_at}.`;
-        $u("usageSite").innerHTML = '<option value="">Wszystkie site</option>' +
-            [...new Set(usageDevices.map((d) => d.site).filter(Boolean))].sort()
-                .map((s) => `<option>${usageEscape(s)}</option>`).join("");
+
+        const unikalne = (klucz) =>
+            [...new Set(usageDevices.map((d) => d[klucz]).filter(Boolean))].sort();
+
+        usageSiteFilter.ustawOpcje(unikalne("site"));
+        usageStatusFilter.ustawOpcje(unikalne("status"));
 
         usageRender();
 
@@ -223,9 +320,19 @@ async function usageLoad() {
 document.addEventListener("DOMContentLoaded", () => {
     if (!$u("usageListInUse")) return;
 
+    usageSiteFilter = usageMulti("usageSiteFilter", "Wszystkie site");
+    usageStatusFilter = usageMulti("usageStatusFilter", "Wszystkie statusy");
+
     usageLoad();
 
-    ["usageType", "usageSite", "usageSearch"].forEach((id) =>
+    ["usageSiteFilter", "usageStatusFilter"].forEach((id) =>
+        $u(id).addEventListener("multi:change", () => {
+            usageShownInUse = USAGE_COLLAPSED;
+            usageShownFree = USAGE_COLLAPSED;
+            usageRender();
+        }));
+
+    ["usageType", "usageSearch"].forEach((id) =>
         $u(id).addEventListener("input", () => {
             usageShownInUse = USAGE_COLLAPSED;
             usageShownFree = USAGE_COLLAPSED;
@@ -233,7 +340,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }));
 
     $u("usageReset").addEventListener("click", () => {
-        ["usageType", "usageSite", "usageSearch"].forEach((id) => { $u(id).value = ""; });
+        ["usageType", "usageSearch"].forEach((id) => { $u(id).value = ""; });
+        usageSiteFilter.wyczysc();
+        usageStatusFilter.wyczysc();
         usageShownInUse = USAGE_COLLAPSED;
         usageShownFree = USAGE_COLLAPSED;
         usageRender();
