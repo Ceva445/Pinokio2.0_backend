@@ -310,8 +310,10 @@ async def reports_index(
 @router.get("/reports/usage", response_class=HTMLResponse)
 async def usage_report_page(
     request: Request,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_or_observer)
 ):
+    """Ten sam raport widzi kierownik pod /manager/reports/usage — nikt tu nic
+    nie zmienia, więc obserwator też ma po co wejść."""
     return templates.TemplateResponse(
         "admin/reports/usage.html",
         {"request": request, "user": current_user}

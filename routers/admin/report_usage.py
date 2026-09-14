@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies.admin import require_admin
+from app.dependencies.admin import require_dashboard_viewer
 from db.session import get_db
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
@@ -165,10 +165,13 @@ def filtruj(
 @router.get("/usage")
 async def usage_report(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_admin),
+    user=Depends(require_dashboard_viewer),
 ):
     """Dane pod mini-dashboard. Filtrowanie zostaje po stronie ekranu —
-    zbiór jest mały, a każdy klik w filtr nie musi wracać na serwer."""
+    zbiór jest mały, a każdy klik w filtr nie musi wracać na serwer.
+
+    Czyta administrator, kierownik i obserwator — raport tylko pokazuje liczby,
+    nic w nim nie da się zmienić."""
     return {
         "report_name": REPORT_NAME,
         "generated_at": datetime.now(tz=REPORT_TZ).strftime("%Y-%m-%d %H:%M"),
@@ -243,7 +246,7 @@ async def usage_report_xlsx(
     device_type: str | None = Query(default=None, alias="type"),
     q: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_admin),
+    user=Depends(require_dashboard_viewer),
 ):
     """Plik ma zawierać to, co widać na ekranie — stąd te same filtry."""
     devices = filtruj(await zbierz(db), site, status, device_type, q)

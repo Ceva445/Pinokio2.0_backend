@@ -12,7 +12,11 @@ import pytest
 from openpyxl import load_workbook
 from io import BytesIO
 
-from app.dependencies.admin import require_admin
+from app.dependencies.admin import (
+    require_admin_or_observer,
+    require_dashboard_viewer,
+    require_manager_or_admin,
+)
 from models.db_device import DeviceDB, DeviceType
 from models.db_device_status import DeviceStatusDB
 from models.db_employee import EmployeeDB
@@ -180,10 +184,39 @@ async def test_sprzet_bez_historii_nie_udaje_zera_w_pliku(db_session, magazyn):
 # ---------------------------------------------------------------------------
 # Dostęp
 # ---------------------------------------------------------------------------
-async def test_raport_tylko_dla_admina():
+async def test_raport_czytaja_wszystkie_trzy_role():
+    """Raport nic nie zmienia — czyta go admin, kierownik i obserwator."""
     for endpoint in (usage_report, usage_report_xlsx):
         guard = inspect.signature(endpoint).parameters["user"].default.dependency
-        assert guard is require_admin, endpoint.__name__
+        assert guard is require_dashboard_viewer, endpoint.__name__
+
+
+async def test_kazda_rola_ma_swoja_strone():
+    """Kierownik nie może wejść w panel admina (menu oddałoby mu same 403),
+    więc ten sam raport wisi pod dwoma adresami, każdy w swoim panelu."""
+    from routers.admin.pages import usage_report_page
+    from routers.manager.pages import manager_usage_report
+
+    admin_guard = (inspect.signature(usage_report_page)
+                   .parameters["current_user"].default.dependency)
+    manager_guard = (inspect.signature(manager_usage_report)
+                     .parameters["current_user"].default.dependency)
+
+    assert admin_guard is require_admin_or_observer
+    assert manager_guard is require_manager_or_admin
+
+
+async def test_oba_panele_rysuja_ten_sam_ekran():
+    """Jeden szablon z treścią, dwa opakowania — inaczej menu kierownika
+    zostałoby w tyle po każdej zmianie raportu."""
+    from pathlib import Path
+
+    for strona in ("app/templates/admin/reports/usage.html",
+                   "app/templates/manager/reports/usage.html"):
+        assert "reports/usage_body.html" in Path(strona).read_text(encoding="utf-8")
+
+    menu = Path("app/templates/manager/base_manager.html").read_text(encoding="utf-8")
+    assert "/manager/reports/usage" in menu
 
 
 async def test_odpowiedz_niesie_stan_na_kiedy(db_session, magazyn):
@@ -279,7 +312,7 @@ async def test_xlsx_przyjmuje_listy(db_session, magazyn_filtry):
 async def test_ekran_ma_oba_multiselecty():
     from pathlib import Path
 
-    strona = Path("app/templates/admin/reports/usage.html").read_text(encoding="utf-8")
+    strona = Path("app/templates/reports/usage_body.html").read_text(encoding="utf-8")
     skrypt = Path("app/static/js/admin/report_usage.js").read_text(encoding="utf-8")
 
     assert 'id="usageSiteFilter"' in strona

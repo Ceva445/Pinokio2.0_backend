@@ -34,6 +34,10 @@
             <li><a href="/admin/sites">Site (magazyny)</a></li>
             <li><a href="/admin/firmware">📡 Firmware (OTA)</a></li>
             <li><a href="/admin/system-config">⚙️ Konfiguracja systemu</a></li>
+            {% else %}
+            {# Raport wykorzystania niczego nie zmienia, więc obserwator ma do
+               niego wejście — reszta zakładek dalej oddaje mu 403. #}
+            <li><a href="/admin/reports/usage">⏱ Wykorzystanie sprzętu</a></li>
             {% endif %}
         </ul>
     </aside>

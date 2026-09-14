@@ -81,6 +81,23 @@ async def manager_damage_reports(
 
 
 # ===============================
+# RAPORTY
+# ===============================
+
+@router.get("/reports/usage", response_class=HTMLResponse)
+async def manager_usage_report(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    """Ten sam raport, co u admina — tylko w menu kierownika. Nic tu nie da
+    się zmienić, a kierownik i tak pilnuje zwrotów w swoim dziale."""
+    return templates.TemplateResponse(
+        "manager/reports/usage.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
 
