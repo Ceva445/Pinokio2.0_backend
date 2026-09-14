@@ -134,9 +134,14 @@ def przechwycone(monkeypatch):
 
 
 @pytest.fixture
-async def zalegle(db_session, warehouse):
+async def zalegle(db_session, warehouse, monkeypatch):
     """Trzy osoby z jednego site i jedna z drugiego, każda trzyma sprzęt od
-    innego czasu — dość, żeby sprawdzić kolejność."""
+    innego czasu — dość, żeby sprawdzić kolejność.
+
+    Próg przybijamy na dwie godziny, bo prawdziwy zależy od dnia tygodnia: w
+    sobotę agent wypisuje wszystkich, w tygodniu tylko zaległych. Bez tego
+    test o kolejności przechodził w sobotę i wywracał się w poniedziałek.
+    """
     from datetime import datetime, timedelta, timezone
 
     from models.db_department_manager import DepartmentManagerDB
@@ -163,6 +168,11 @@ async def zalegle(db_session, warehouse):
     ])
     db_session.add(DepartmentManagerDB(department="ALL", email="szef@example.com"))
     await db_session.commit()
+
+    import routers.email_agent as ea
+    monkeypatch.setattr(ea, "get_time_threshold",
+                        lambda now, hours=12: now - timedelta(hours=2))
+
     return warehouse
 
 
