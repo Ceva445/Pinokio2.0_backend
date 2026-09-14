@@ -229,6 +229,46 @@ async def test_T2_6_session_same_type_already_owned(db_session, devices, manager
     assert d_new.employee_id is None  # не привʼязано
 
 
+async def test_T2_6a_message_names_the_device_the_employee_holds(
+    db_session, devices, manager, reg_manager, set_can_register
+):
+    """Повідомлення має назвати сканер, який працівник ТРИМАЄ, а не той, що
+    його щойно піднесли — бо саме перший треба знайти й повернути."""
+    set_can_register(True)
+    e = await make_employee(db_session, "EMP9c", wms_login="own2")
+    await make_device(db_session, "DEV9c", "Scan-TRZYMA", DeviceType.scanner, "S9c",
+                      employee_id=e.id)
+    await process_rfid("dev-o2", {"rfid": "EMP9c"}, devices, manager, db_session,
+                       event_suffix=SUFFIX)
+    await make_device(db_session, "DEV9d", "Scan-SKANOWANY", DeviceType.scanner, "S9d",
+                      employee_id=None)
+    await process_rfid("dev-o2", {"rfid": "DEV9d"}, devices, manager, db_session,
+                       event_suffix=SUFFIX)
+
+    p = _status(manager)
+    assert "Scan-TRZYMA" in p["message"]
+    assert "Scan-SKANOWANY" not in p["message"]
+
+
+async def test_T2_6b_the_very_same_device_is_named_by_itself(
+    db_session, devices, manager, reg_manager, set_can_register
+):
+    """Другий раз піднесли той самий сканер — тоді в повідомленні стоїть саме
+    його назва, бо це той, який працівник тримає."""
+    set_can_register(True)
+    e = await make_employee(db_session, "EMP9e", wms_login="own3")
+    await make_device(db_session, "DEV9e", "Scan-TEN-SAM", DeviceType.scanner, "S9e",
+                      employee_id=e.id)
+    await process_rfid("dev-o3", {"rfid": "EMP9e"}, devices, manager, db_session,
+                       event_suffix=SUFFIX)
+    await process_rfid("dev-o3", {"rfid": "DEV9e"}, devices, manager, db_session,
+                       event_suffix=SUFFIX)
+
+    p = _status(manager)
+    assert p["status"] == "error"
+    assert "Scan-TEN-SAM" in p["message"]
+
+
 async def test_T2_7_session_completed_with_both_devices(db_session, devices, manager, reg_manager, set_can_register):
     set_can_register(True)
     e = await make_employee(db_session, "EMP10", wms_login="done")

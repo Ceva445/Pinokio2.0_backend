@@ -258,11 +258,16 @@ async def process_rfid(
                         select(DeviceDB).where(DeviceDB.employee_id == employee.id)
                     )
                     user_devices = result.scalars().all()
-                    owned_types = {d.type for d in user_devices}
+                    # Sprzęt tego typu, który pracownik ma w rękach. W komunikacie
+                    # ma stać jego nazwa — wcześniej szła nazwa właśnie
+                    # zeskanowanego, czyli tego jednego, którego pracownik NIE ma.
+                    posiadany = next(
+                        (d for d in user_devices if d.type == device_db.type), None
+                    )
 
-                    if device_db.type in owned_types:
+                    if posiadany is not None:
                         ui_message = (
-                            f"Pracownik już posiada {device_db.type.value} {device_db.name}"
+                            f"Pracownik już posiada {posiadany.type.value} {posiadany.name}"
                         )
                         ui_status = "error"
                     else:
@@ -487,11 +492,16 @@ async def receive_esp32_data(
                         select(DeviceDB).where(DeviceDB.employee_id == employee.id)
                     )
                     user_devices = result.scalars().all()
-                    owned_types = {d.type for d in user_devices}
+                    # Sprzęt tego typu, który pracownik ma w rękach. W komunikacie
+                    # ma stać jego nazwa — wcześniej szła nazwa właśnie
+                    # zeskanowanego, czyli tego jednego, którego pracownik NIE ma.
+                    posiadany = next(
+                        (d for d in user_devices if d.type == device_db.type), None
+                    )
 
-                    if device_db.type in owned_types:               
+                    if posiadany is not None:
                         ui_message = (
-                            f"Pracownik już posiada {device_db.type.value} {device_db.name}"
+                            f"Pracownik już posiada {posiadany.type.value} {posiadany.name}"
                         )
                         ui_status = "error"
                     else:
