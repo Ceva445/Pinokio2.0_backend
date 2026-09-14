@@ -27,12 +27,12 @@ function usageEscape(value) {
     })[ch]);
 }
 
-/* Godziny i minuty. Powyżej trzech dób same godziny przestają cokolwiek
-   znaczyć, więc wtedy dochodzą dni — tak samo liczy to plik XLSX. */
+/* Minuty, godziny, a od doby w górę dni z godzinami — tak samo liczy to plik
+   XLSX. "65h 48min" wymaga liczenia na palcach, żeby wyszło "prawie trzy dni". */
 function usageTime(minutes) {
     if (minutes == null) return "—";
     const h = Math.floor(minutes / 60), m = Math.round(minutes % 60);
-    if (h >= 72) return `${Math.floor(h / 24)}d ${h % 24}h`;
+    if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
     return h ? `${h}h ${String(m).padStart(2, "0")}min` : `${m}min`;
 }
 

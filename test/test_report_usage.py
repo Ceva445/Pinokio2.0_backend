@@ -128,12 +128,22 @@ async def test_sprzet_bez_historii_nie_ma_zera(db_session, magazyn):
     (45, "45min"),
     (60, "1h 00min"),
     (614, "10h 14min"),
-    (1876, "31h 16min"),
-    (4320, "3d 0h"),        # powyżej trzech dób same godziny nic nie mówią
+    (1439, "23h 59min"),    # ostatnia chwila przed dobą
+    (1440, "1d 0h"),        # od doby w górę liczymy dniami
+    (1876, "1d 7h"),
+    (3948, "2d 17h"),       # to samo, co kiedyś stało jako "65h 48min"
+    (4320, "3d 0h"),
     (88086, "61d 4h"),
 ])
 async def test_czas_po_ludzku(minuty, oczekiwane):
     assert format_czas(minuty) == oczekiwane
+
+
+async def test_powyzej_doby_nie_pokazujemy_samych_godzin():
+    """Sedno zmiany: nikt nie czyta "65h" jako "prawie trzy dni"."""
+    dlugie = [format_czas(m) for m in (1440, 3948, 10000)]
+
+    assert all("d " in czas for czas in dlugie)
 
 
 # ---------------------------------------------------------------------------

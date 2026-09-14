@@ -41,13 +41,18 @@ TYP_PL = {"scanner": "skaner", "printer": "drukarka"}
 
 
 def format_czas(minuty: int | None) -> str:
-    """Godziny i minuty — tak magazyn mówi o czasie. Powyżej trzech dób same
-    godziny przestają cokolwiek znaczyć, więc wtedy dochodzą dni."""
+    """Czas po ludzku: minuty, godziny, a od doby w górę dni z godzinami.
+
+    "65h 48min" nikomu nic nie mówi — dopóki nie policzy na palcach, że to
+    prawie trzy dni. Powyżej doby minuty i tak są szumem, więc zostają dni
+    i godziny; dokładne minuty są w ostatniej kolumnie pliku.
+    """
     if minuty is None:
         return "—"
     godziny, minuta = divmod(int(minuty), 60)
-    if godziny >= 72:
-        return f"{godziny // 24}d {godziny % 24}h"
+    if godziny >= 24:
+        dni, reszta = divmod(godziny, 24)
+        return f"{dni}d {reszta}h"
     return f"{godziny}h {minuta:02d}min" if godziny else f"{minuta}min"
 
 
