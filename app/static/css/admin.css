@@ -973,3 +973,15 @@
 }
 
 .multi__clear:hover { color: var(--text-primary); }
+
+/* Karta gościa już przypisana do pracownika tymczasowego: widoczna, ale nie
+   do wybrania. Własne tło, bo sama szarość tekstu ginie na ciemnej liście. */
+#guestSelect option {
+    background: #0f172a;
+    color: #f1f5f9;
+}
+
+#guestSelect option.guest-option--used {
+    background: #3b1d24;
+    color: #94a3b8;
+}

@@ -133,11 +133,19 @@ async function loadGuests() {
             guestSelect.remove(1);
         }
 
-        // Add guest options
+        // Zajęte karty zostają na liście — widać, że istnieją i że są w użyciu —
+        // ale nie da się ich wybrać. Serwer i tak odrzuciłby je ("Gość został
+        // już użyty"), tylko dopiero po wypełnieniu całego formularza.
         for (const guest of guests) {
             const option = document.createElement("option");
             option.value = guest.id;
+            option.dataset.rfid = guest.rfid ?? "";
             option.textContent = `${guest.name} (RFID: ${guest.rfid})`;
+            if (guest.used) {
+                option.disabled = true;
+                option.className = "guest-option--used";
+                option.textContent += " — zajęta";
+            }
             guestSelect.appendChild(option);
         }
 
@@ -195,11 +203,9 @@ document.addEventListener("DOMContentLoaded", () => {
         guestSelect.addEventListener("change", () => {
             const selectedOption = guestSelect.options[guestSelect.selectedIndex];
             if (selectedOption.value) {
-                // Extract RFID from the option text: "name (RFID: value)"
-                const rfidMatch = selectedOption.textContent.match(/RFID: (.+)\)$/);
-                if (rfidMatch) {
-                    rfidDisplay.value = rfidMatch[1];
-                }
+                // RFID z atrybutu, a nie z napisu — napis ma teraz dopisek
+                // " — zajęta" i wyrażenie regularne przestałoby pasować.
+                rfidDisplay.value = selectedOption.dataset.rfid ?? "";
             } else {
                 rfidDisplay.value = "";
             }

@@ -44,3 +44,29 @@ async def test_kierownik_nie_trafia_na_strone_admina():
     guard = inspect.signature(manager_dashboard).parameters["current_user"].default.dependency
     assert guard is require_manager_or_admin
 
+
+# ---------------------------------------------------------------------------
+# Zajęte karty gościa na liście wyboru
+# ---------------------------------------------------------------------------
+async def test_zajeta_karta_jest_widoczna_ale_niewybieralna():
+    """Serwer i tak odrzuca użytą kartę ("Gość został już użyty"), ale dopiero
+    po wypełnieniu całego formularza. Lista ma to powiedzieć od razu."""
+    skrypt = SKRYPT.read_text(encoding="utf-8")
+
+    assert "if (guest.used)" in skrypt
+    assert "option.disabled = true" in skrypt
+    assert 'option.className = "guest-option--used"' in skrypt
+
+
+async def test_rfid_nie_zalezy_od_napisu_opcji():
+    """Napis dostał dopisek " — zajęta"; RFID bierze się z atrybutu."""
+    skrypt = SKRYPT.read_text(encoding="utf-8")
+
+    assert "option.dataset.rfid" in skrypt
+    assert "selectedOption.dataset.rfid" in skrypt
+
+
+async def test_zajeta_karta_ma_wlasne_tlo():
+    css = Path("app/static/css/admin.css").read_text(encoding="utf-8")
+
+    assert "#guestSelect option.guest-option--used" in css
