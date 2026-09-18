@@ -9,6 +9,7 @@ from app.dependencies.admin import require_admin
 from models.db_user import UserDB, UserRole
 from schemas.user import UserCreate, UserUpdate
 from managers.auth_manager import auth_manager
+from managers import session_log
 
 router = APIRouter(
     prefix="/admin/api",
@@ -208,6 +209,8 @@ async def force_logout_user(
     # 1) revoke токенів із кешу сесій
     for token, sess in list(auth_manager.active_sessions.items()):
         if (sess.get("user") or {}).get("id") == user_id:
+            session_log.event("revoke", token, reason="admin_force_logout",
+                              by=(user or {}).get("username"))
             revoked_tokens.add(token)
             auth_manager.remove_session(token)
             revoked += 1

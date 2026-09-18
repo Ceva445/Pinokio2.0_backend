@@ -337,6 +337,15 @@ async def force_logout_watcher(device_id: str, reason: str = "idle"):
     token = watcher.get("token")
     username = watcher.get("username")
 
+    # Ile minęło od ostatniego skanu — przy "idle" to jedyny argument, że
+    # człowiek naprawdę nic nie robił na czytniku.
+    from datetime import datetime, timezone
+    from managers import session_log
+    last = esp_last_activity.get(device_id)
+    idle_s = int((datetime.now(timezone.utc) - last).total_seconds()) if last else None
+    session_log.event("revoke", token, user=username, reason=reason, esp=device_id,
+                      idle_s=idle_s)
+
     # повідомити вкладку менеджера, щоб вона показала причину і пішла на /login
     for ws, _sub in list(manager.connections.items()):
         if getattr(ws, "token", None) == token:

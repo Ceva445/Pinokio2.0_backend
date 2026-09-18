@@ -11,6 +11,7 @@ from schemas.user import UserCreate, UserOut, Token, UserUpdate
 from schemas.user import PasswordChange
 from models.db_user import UserDB, UserRole
 from managers.auth_manager import auth_manager
+from managers import session_log
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -41,6 +42,8 @@ def get_current_user(required: bool = True):
         # 🔹 Токен «виловлений» (менеджер закрив вкладку → WS-розрив) → недійсний
         from app.main import revoked_tokens
         if token in revoked_tokens:
+            session_log.event("reject", token, reason="revoked_token",
+                              path=session_log.path(request))
             if required:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -57,6 +60,8 @@ def get_current_user(required: bool = True):
 
         payload = auth_manager.decode_token(token)
         if not payload:
+            session_log.event("reject", token, user="?", reason="invalid_or_expired",
+                              path=session_log.path(request))
             if required:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,6 +85,8 @@ def get_current_user(required: bool = True):
         user = result.scalar_one_or_none()
 
         if not user or not user.is_active:
+            session_log.event("reject", token, user=username, reason="user_missing_or_inactive",
+                              path=session_log.path(request))
             if required:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,6 +101,9 @@ def get_current_user(required: bool = True):
             issued_at = payload.get("iat")
             cutoff = user.sessions_valid_from.timestamp()
             if issued_at is None or issued_at < cutoff:
+                session_log.event("reject", token, user=username,
+                                  reason="issued_before_admin_logout",
+                                  path=session_log.path(request))
                 if required:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -226,6 +236,9 @@ async def login_form(
     if binds_reader:
         bind_esp(device_id, user_dict, access_token)
 
+    session_log.event("login", access_token, user=user.username,
+                      role=user.role.value, esp=device_id or None)
+
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -268,6 +281,7 @@ async def logout(
     # dalej był ważny po stronie serwera.
     token = token or get_token_from_cookie(request)
     if token:
+        session_log.event("logout", token, reason="user_clicked_logout")
         auth_manager.remove_session(token)
         revoked_tokens.add(token)
         # Gdy użytkownika nie da się już rozpoznać, czytnik zwalniamy po samym

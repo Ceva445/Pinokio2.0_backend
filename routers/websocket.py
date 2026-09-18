@@ -2,6 +2,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from managers.connection_manager import ConnectionManager
 from managers.device_manager import DeviceManager
+from managers import session_log
 
 router = APIRouter()
 
@@ -37,11 +38,15 @@ async def websocket_endpoint(
 
     # Перепідключився той самий токен (reload / повернення на вкладку) →
     # скасовуємо відкладений логаут: вкладку не закривали.
+    if user:
+        session_log.event("ws_open", token, role=user.get("role"))
+
     if token:
         from app.main import pending_logouts
         _task = pending_logouts.pop(token, None)
         if _task is not None:
             _task.cancel()
+            session_log.event("ws_reconnect", token, note="pending_logout_cancelled")
 
     # Менеджер: авто-підписка на його прив'язаний ESP (без перемикання)
     if user and not is_admin:
@@ -106,6 +111,8 @@ async def websocket_endpoint(
                     except asyncio.CancelledError:
                         return          # встиг перепідключитись — залишаємо залогіненим
                     pending_logouts.pop(t, None)
+                    session_log.event("revoke", t, reason="ws_closed_no_reconnect",
+                                      after_s=LOGOUT_GRACE_SECONDS)
                     release_esp_for_token(t)
                     revoked_tokens.add(t)
                     auth_manager.remove_session(t)
@@ -114,6 +121,11 @@ async def websocket_endpoint(
                 old = pending_logouts.pop(tok, None)
                 if old is not None:
                     old.cancel()
+                # Od tej chwili liczy się 15 s: jeśli ten sam token nie otworzy
+                # gniazda ponownie (np. przejście z monitora na stronę panelu,
+                # która gniazda nie ma), sesja zostanie unieważniona.
+                session_log.event("ws_close", tok, role=_u.get("role"),
+                                  logout_in_s=LOGOUT_GRACE_SECONDS)
                 pending_logouts[tok] = asyncio.create_task(_delayed_logout())
 
 
