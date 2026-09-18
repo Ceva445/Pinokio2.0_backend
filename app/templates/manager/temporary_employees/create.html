@@ -3,7 +3,10 @@
 {% block manager_content %}
 <h2>👤 Utwórz pracownika tymczasowego</h2>
 
-<form id="temporaryEmployeeCreateForm" class="admin-form">
+{# Kierownik nie ma listy pracowników — /admin/employees oddałoby mu 403,
+   a to odsyła na logowanie. Po zapisie wraca do swojego dashboardu. #}
+<form id="temporaryEmployeeCreateForm" class="admin-form"
+      data-after-create="/manager">
     <div class="form-group">
         <label>Gość *</label>
         <select name="guest_id" id="guestSelect" required>
@@ -49,5 +52,5 @@
     </div>
 </form>
 
-<script src="{{ url_for('static', path='js/admin/temporary_employees.js') }}"></script>
+<script src="{{ url_for('static', path='js/admin/temporary_employees.js') }}?v=3"></script>
 {% endblock %}

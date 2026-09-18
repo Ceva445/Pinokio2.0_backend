@@ -3,7 +3,8 @@
 {% block admin_content %}
 <h2>👤 Utwórz pracownika tymczasowego</h2>
 
-<form id="temporaryEmployeeCreateForm" class="admin-form">
+<form id="temporaryEmployeeCreateForm" class="admin-form"
+      data-after-create="/admin/employees">
     <div class="form-group">
         <label>Gość *</label>
         <select name="guest_id" id="guestSelect" required>
@@ -49,5 +50,5 @@
     </div>
 </form>
 
-<script src="{{ url_for('static', path='js/admin/temporary_employees.js') }}"></script>
+<script src="{{ url_for('static', path='js/admin/temporary_employees.js') }}?v=3"></script>
 {% endblock %}

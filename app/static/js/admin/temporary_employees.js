@@ -229,8 +229,12 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             showSuccess("Pracownik tymczasowy został utworzony ✅");
+            // Ten skrypt obsługuje formularz i u admina, i u kierownika. Stały
+            // adres /admin/employees wyrzucał kierownika na logowanie (403),
+            // więc dokąd wrócić, mówi sama strona.
+            const dokad = form.dataset.afterCreate || "/admin/employees";
             setTimeout(() => {
-                window.location.href = "/admin/employees";
+                window.location.href = dokad;
             }, 1500);
         } catch (err) {
             showError(err.message);
