@@ -55,6 +55,7 @@ def get_current_user(required: bool = True):
         user_data = auth_manager.get_user_from_token(token)
         if user_data:
             if auth_manager.decode_token(token) is not None:
+                _note_user_request(token, request)
                 return user_data
             auth_manager.remove_session(token)  # токен протух → знімаємо сесію
 
@@ -122,9 +123,23 @@ def get_current_user(required: bool = True):
         }
 
         auth_manager.add_session(token, user_dict)
+        _note_user_request(token, request)
         return user_dict
 
     return _get_current_user
+
+
+def _note_user_request(token: str, request: Request) -> None:
+    """Zapytanie przeszło — zaznacz, że człowiek pracuje (automaty pomijamy).
+
+    Tu trafia każde zapytanie z sesją, więc to jedyne miejsce, które widzi
+    pracę w panelu. Błąd tej notatki nie może nikomu odebrać odpowiedzi.
+    """
+    try:
+        from app.main import note_user_request
+        note_user_request(token, session_log.path(request))
+    except Exception:  # noqa: BLE001
+        pass
 
 def require_role(required_role: UserRole):
     def role_checker(current_user: dict = Depends(get_current_user())):

@@ -92,18 +92,22 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        # WS розірвався. Це може бути і reload/перехід на іншу вкладку, і закриття.
-        # Тому логаут — відкладений: якщо токен не повернувся за grace-період,
-        # значить вкладку закрили → звільняємо ESP + гасимо токен.
+        # WS розірвався. Це може бути і reload/перехід у панель, і закриття.
+        # Тому логаут — відкладений: якщо за grace-період токен не повернувся
+        # на монітор І не працює в панелі — вкладку закрили → звільняємо ESP.
         _u = getattr(websocket, "app_user", None)
         if _u and _u.get("role") != "admin":
             tok = getattr(websocket, "token", None)
             if tok:
                 import asyncio
+                from datetime import datetime, timezone
                 from app.main import (
                     release_esp_for_token, revoked_tokens,
                     pending_logouts, LOGOUT_GRACE_SECONDS,
+                    still_working_after_ws_close,
                 )
+
+                closed_at = datetime.now(timezone.utc)
 
                 async def _delayed_logout(t=tok):
                     try:
@@ -111,6 +115,16 @@ async def websocket_endpoint(
                     except asyncio.CancelledError:
                         return          # встиг перепідключитись — залишаємо залогіненим
                     pending_logouts.pop(t, None)
+
+                    # Gniazdo mają tylko monitory, więc przejście z monitora do
+                    # panelu wygląda dla serwera jak zamknięcie karty. Różnica:
+                    # z panelu przychodzą zapytania. Kto dalej pracuje, ten
+                    # zostaje — a gdy odejdzie naprawdę, zdejmie go licznik
+                    # bezczynności, który te same zapytania teraz odświeżają.
+                    if still_working_after_ws_close(t, closed_at):
+                        session_log.event("ws_close_kept", t, reason="working_in_panel")
+                        return
+
                     session_log.event("revoke", t, reason="ws_closed_no_reconnect",
                                       after_s=LOGOUT_GRACE_SECONDS)
                     release_esp_for_token(t)
@@ -121,9 +135,8 @@ async def websocket_endpoint(
                 old = pending_logouts.pop(tok, None)
                 if old is not None:
                     old.cancel()
-                # Od tej chwili liczy się 15 s: jeśli ten sam token nie otworzy
-                # gniazda ponownie (np. przejście z monitora na stronę panelu,
-                # która gniazda nie ma), sesja zostanie unieważniona.
+                # Za 15 s decyzja: sesja zostaje, jeśli token wrócił na monitor
+                # albo pracuje w panelu; znika, jeśli karty naprawdę nie ma.
                 session_log.event("ws_close", tok, role=_u.get("role"),
                                   logout_in_s=LOGOUT_GRACE_SECONDS)
                 pending_logouts[tok] = asyncio.create_task(_delayed_logout())

@@ -58,6 +58,21 @@ pending_logouts: dict[str, object] = {}   # token → asyncio.Task відкла�
 # Час у хвилинах налаштовується в адмінці (manager_idle_logout_minutes, 0 = вимкнено).
 esp_last_activity: dict[str, "datetime"] = {}   # device_id → datetime (aware, UTC)
 
+# Kiedy człowiek ostatnio coś zrobił danym tokenem — otworzył stronę, szukał,
+# zapisał. Gniazdo /ws mają tylko monitory, więc przejście z monitora do panelu
+# rwie je tak samo jak zamknięcie karty. Po tym rozróżniamy jedno od drugiego:
+# kto dalej klika w panelu, ten karty nie zamknął.
+token_last_user_request: dict[str, "datetime"] = {}   # token → datetime (aware, UTC)
+
+# Zapytania, które strona wysyła sama, bez udziału człowieka. base.html co 5 s
+# sprawdza /auth/me — gdyby to się liczyło, zapomniana karta trzymałaby sesję
+# i czytnik w nieskończoność.
+AUTOMATIC_PATHS = frozenset({"/auth/me"})
+
+# Nowa strona potrafi dojść do serwera ułamek sekundy PRZED zerwaniem gniazda
+# starej — przeglądarka najpierw pyta o nową, potem zamyka poprzednią.
+NAVIGATION_OVERLAP_SECONDS = 5
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -305,6 +320,7 @@ def bind_esp(device_id: str, user: dict, token: str):
 
 def release_esp_for_token(token: str) -> str | None:
     """Зняти прив'язку за токеном (при виловлюванні/розриві). Повертає device_id."""
+    token_last_user_request.pop(token, None)
     for device_id, w in list(esp_watchers.items()):
         if w.get("token") == token:
             esp_watchers.pop(device_id, None)
@@ -320,6 +336,36 @@ def release_esp_for_token(token: str) -> str | None:
 
 def esp_watcher_of(device_id: str) -> dict | None:
     return esp_watchers.get(device_id)
+
+
+def note_user_request(token: str | None, path: str | None) -> None:
+    """Zapytanie od człowieka: sesja żyje, a jego czytnik nie stoi bezczynnie.
+
+    Wcześniej licznik bezczynności kasowały tylko skany. Kierownik, który
+    kwadrans pisał protokół albo przeglądał raporty, wylatywał w trakcie pracy.
+    """
+    if not token or path in AUTOMATIC_PATHS:
+        return
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    token_last_user_request[token] = now
+    for device_id, watcher in esp_watchers.items():
+        if watcher.get("token") == token:
+            esp_last_activity[device_id] = now
+            break
+
+
+def still_working_after_ws_close(token: str, closed_at) -> bool:
+    """Czy po zerwaniu gniazda ten sam człowiek dalej pracuje — tylko w panelu.
+
+    Tak, jeśli od chwili zerwania (z zapasem na kolejność nawigacji) przyszło
+    od niego choć jedno zapytanie, które sam wywołał.
+    """
+    from datetime import timedelta
+
+    last = token_last_user_request.get(token)
+    return last is not None and last >= closed_at - timedelta(seconds=NAVIGATION_OVERLAP_SECONDS)
 
 
 def touch_esp_activity(device_id: str):
