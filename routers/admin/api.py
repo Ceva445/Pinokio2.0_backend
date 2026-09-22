@@ -273,6 +273,18 @@ async def delete_employee(
         if not employee:
             raise HTTPException(status_code=404, detail="Pracownik nie znaleziony")
 
+        # Pracownik tymczasowy nosi kartę gościa. Bez zwolnienia jej tutaj
+        # karta zostawała "zajęta" na zawsze: nikt jej nie miał, a formularz
+        # nie pozwalał jej wybrać, i nie było ekranu, na którym dałoby się to
+        # odkręcić (pole "used" w edycji gościa jest tylko do odczytu).
+        if employee.rfid:
+            karta = (await db.execute(
+                select(DBGuest).where(DBGuest.rfid == employee.rfid)
+            )).scalar_one_or_none()
+            if karta is not None:
+                karta.used = False
+                karta.last_used_at = None
+
         await db.delete(employee)
         await db.commit()
         return {"message": "Pracownik został usunięty ✅"}
