@@ -8,6 +8,9 @@ Za pracującego "u nas" uznajemy tego, kto w chwili swojego ruchu miał
 wydany sprzęt — także wzięty przed początkiem pliku, bo zmiana nocna pobiera
 skanery wieczorem.
 
+Raport jest tylko dla administratora: zestawia pracę całego magazynu, nie
+jednego działu.
+
 Plik z WMS wgrywa człowiek — eksport w formacie JSON:
 
     [{"login": "P-PARPIEVN", "CODE": "Pick",
@@ -32,7 +35,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies.admin import require_manager_or_admin
+from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_transaction import TransactionDB, TransactionType
@@ -415,7 +418,7 @@ async def _wczytaj(plik: UploadFile) -> list[Ruch]:
 async def wms_report(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_manager_or_admin),
+    user=Depends(require_admin),
 ):
     """Analiza wgranego eksportu z WMS. Okres wynika z pliku."""
     return await zbierz(db, await _wczytaj(file))
@@ -425,7 +428,7 @@ async def wms_report(
 async def wms_report_xlsx(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_manager_or_admin),
+    user=Depends(require_admin),
 ):
     """Ten sam wynik w pliku. Plik źródłowy wraca z przeglądarki drugi raz —
     nic nie trzymamy na serwerze, więc nie ma czego czyścić ani pilnować."""

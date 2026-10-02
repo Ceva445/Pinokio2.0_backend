@@ -13,7 +13,7 @@ import pytest
 from fastapi import HTTPException
 from openpyxl import load_workbook
 
-from app.dependencies.admin import require_manager_or_admin
+from app.dependencies.admin import require_admin
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
 from models.db_site import SiteDB
@@ -315,18 +315,28 @@ async def test_plik_pisze_ze_ktos_nigdy_nie_bral_sprzetu(db_session, magazyn, ru
 # ---------------------------------------------------------------------------
 # Dostęp
 # ---------------------------------------------------------------------------
-async def test_raport_dla_kierownika_i_admina():
+async def test_raport_tylko_dla_admina():
+    """Zestawia pracę całego magazynu, nie jednego działu."""
     for endpoint in (wms_report, wms_report_xlsx):
         guard = inspect.signature(endpoint).parameters["user"].default.dependency
-        assert guard is require_manager_or_admin, endpoint.__name__
+        assert guard is require_admin, endpoint.__name__
+
+    from routers.admin.pages import wms_report_page
+
+    strona = inspect.signature(wms_report_page).parameters["current_user"].default.dependency
+    assert strona is require_admin
 
 
-async def test_oba_panele_rysuja_ten_sam_ekran():
+async def test_kierownik_nie_ma_tego_ekranu():
+    """Ani strony, ani pozycji w swoim menu — martwy link wygląda jak awaria."""
     from pathlib import Path
 
-    for strona in ("app/templates/admin/reports/wms.html",
-                   "app/templates/manager/reports/wms.html"):
-        assert "reports/wms_body.html" in Path(strona).read_text(encoding="utf-8")
+    import routers.manager.pages as strony_kierownika
+
+    assert not hasattr(strony_kierownika, "manager_wms_report")
+    assert not Path("app/templates/manager/reports/wms.html").exists()
+    menu = Path("app/templates/manager/base_manager.html").read_text(encoding="utf-8")
+    assert "/manager/reports/wms" not in menu
 
 
 async def test_raport_mowi_jaki_okres_opisuje(db_session, magazyn, ruchy):
