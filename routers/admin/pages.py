@@ -320,6 +320,19 @@ async def usage_report_page(
     )
 
 
+@router.get("/reports/wms", response_class=HTMLResponse)
+async def wms_report_page(
+    request: Request,
+    current_user: dict = Depends(require_admin)
+):
+    """Porównanie ruchów z WMS z naszymi rejestracjami. Plik wgrywa człowiek,
+    więc ekran jest ten sam, co u kierownika — tylko w innym menu."""
+    return templates.TemplateResponse(
+        "admin/reports/wms.html",
+        {"request": request, "user": current_user}
+    )
+
+
 @router.get("/reports/registrations", response_class=HTMLResponse)
 async def registrations_report_page(
     request: Request,

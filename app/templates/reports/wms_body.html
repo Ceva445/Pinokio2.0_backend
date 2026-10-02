@@ -1,0 +1,49 @@
+{# Ekran raportu bez własnego menu — ten sam kod czytają administrator
+   i kierownik, każdy w swoim panelu. #}
+<h2>🔍 Praca w WMS bez pobranego sprzętu</h2>
+<p class="tx-hint">
+    Kto pracował w WMS, a sprzętu u nas nie pobrał. Wgraj eksport z WMS
+    (JSON z polami <code>login</code>, <code>code</code>, <code>dstamp</code>).
+    Okres bierze się z samego pliku: od pierwszego do ostatniego ruchu.
+    <span id="wmsStamp" class="drill-muted"></span>
+</p>
+
+<div class="tx-filters">
+    <label>
+        Plik z WMS
+        <input type="file" id="wmsFile" accept=".json,application/json">
+    </label>
+
+    <div class="usage-actions">
+        <button type="button" id="wmsRun" class="btn btn-primary">Analizuj</button>
+        <button type="button" id="wmsDownload" class="btn" disabled>⬇ Pobierz XLSX</button>
+    </div>
+</div>
+
+<div id="wmsMessage" class="tx-hint"></div>
+<div id="wmsTiles" class="usage-tiles"></div>
+
+<div class="usage-columns">
+    <div class="usage-panel">
+        <h3><span class="usage-dot" style="background:var(--usage-crit)"></span>
+            Pracowali bez sprzętu</h3>
+        <p class="usage-sub">
+            W chwili swojego ruchu w WMS nie mieli u nas wydanego żadnego
+            urządzenia. Sprzęt pobrany wcześniej, jeszcze przed początkiem
+            pliku, liczy się normalnie. Najwięcej takich ruchów na górze.
+        </p>
+        <div id="wmsListMissing"></div>
+    </div>
+
+    <div class="usage-panel">
+        <h3><span class="usage-dot" style="background:var(--usage-warn)"></span>
+            Nieznane loginy</h3>
+        <p class="usage-sub">
+            Loginy z pliku, których nie ma w naszej bazie pracowników: konta
+            systemowe albo ludzie, których nikt nie wprowadził do Pinokio.
+        </p>
+        <div id="wmsListUnknown"></div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', path='js/admin/report_wms.js') }}?v=6"></script>

@@ -97,6 +97,19 @@ async def manager_usage_report(
     )
 
 
+@router.get("/reports/wms", response_class=HTMLResponse)
+async def manager_wms_report(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    """Kierownik pyta o to najczęściej: kto na jego zmianie pracował w WMS,
+    a skanera nie pobrał."""
+    return templates.TemplateResponse(
+        "manager/reports/wms.html",
+        {"request": request, "user": current_user}
+    )
+
+
 # ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
