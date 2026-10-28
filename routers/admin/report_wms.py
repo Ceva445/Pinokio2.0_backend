@@ -11,7 +11,9 @@ skanery wieczorem.
 Raport jest tylko dla administratora: zestawia pracę całego magazynu, nie
 jednego działu.
 
-Plik z WMS wgrywa człowiek — eksport w formacie JSON:
+Dane przychodzą dwiema drogami: skrypt z maszyny przy WMS sam wysyła je na
+/api/wms-import (ekran bierze wtedy najnowszą paczkę), albo człowiek wgrywa
+plik ręcznie. Format jest ten sam:
 
     [{"login": "P-PARPIEVN", "CODE": "Pick",
       "DSTAMP": "2026-10-01 04:00:58.000000 UTC"}, …]
@@ -38,6 +40,7 @@ from sqlalchemy.orm import selectinload
 from app.dependencies.admin import require_admin
 from db.session import get_db
 from models.db_employee import EmployeeDB
+from models.db_wms_import import WmsImportDB
 from models.db_transaction import TransactionDB, TransactionType
 from routers.admin.report_usage import content_disposition
 
@@ -412,6 +415,58 @@ async def _wczytaj(plik: UploadFile) -> list[Ruch]:
     if len(raw) > MAX_FILE_BYTES:
         raise HTTPException(400, "Plik jest za duży (limit 25 MB)")
     return parse_wms(raw)
+
+
+@router.get("/wms/latest")
+async def wms_report_latest(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Najnowsza paczka przysłana przez skrypt — bez wgrywania czegokolwiek.
+
+    Zestawienie liczymy teraz, a nie w chwili odbioru: wydania sprzętu doszły
+    od tamtej pory i raport ma pokazywać aktualny obraz.
+    """
+    paczka = (await db.execute(
+        select(WmsImportDB).order_by(WmsImportDB.received_at.desc()).limit(1)
+    )).scalars().first()
+
+    if paczka is None:
+        raise HTTPException(404, "Nie ma jeszcze żadnego importu z WMS")
+
+    raport = await zbierz(db, _ruchy_z_paczki(paczka))
+    raport["import"] = {
+        "received_at": _lokalnie(_aware(paczka.received_at)),
+        "source": paczka.source,
+        "origin": paczka.origin,
+    }
+    return raport
+
+
+def _ruchy_z_paczki(paczka: WmsImportDB) -> list[Ruch]:
+    """Zapisane wiersze z powrotem na ruchy. Znaczniki leżą w ISO, bo w tej
+    postaci nie trzeba zgadywać strefy drugi raz."""
+    return [
+        Ruch(login=w["login"], code=w.get("code") or "—",
+             moment=datetime.fromisoformat(w["dstamp"]))
+        for w in (paczka.payload or [])
+    ]
+
+
+@router.get("/wms/latest.xlsx")
+async def wms_report_latest_xlsx(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Ten sam plik, co przy wgrywaniu ręcznym — tylko z ostatniego importu."""
+    raport = await wms_report_latest(db=db, user=user)
+    nazwa = report_file_name(datetime.now(REPORT_TZ).date())
+
+    return Response(
+        content=build_workbook(raport),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": content_disposition(nazwa)},
+    )
 
 
 @router.post("/wms")

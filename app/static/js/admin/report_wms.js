@@ -1,10 +1,12 @@
 /*************************************************
  * RAPORT: PRACA W WMS BEZ POBRANEGO SPRZĘTU
  *
- * Plik z WMS zostaje w przeglądarce. Przy analizie i przy pobieraniu jedzie
- * na serwer jako multipart — nic nie jest przechowywane między żądaniami.
+ * Dane przysyła skrypt z maszyny przy WMS, a ekran bierze najnowszą paczkę.
+ * Wgranie pliku ręcznie zostaje jako druga droga — wtedy plik jedzie na serwer
+ * jako multipart i nic nie jest przechowywane między żądaniami.
  *
  * Pracuje z:
+ *  - GET  /admin/api/reports/wms/latest
  *  - POST /admin/api/reports/wms
  *  - POST /admin/api/reports/wms.xlsx
  *************************************************/
@@ -92,8 +94,12 @@ function wmsWierszNieznany(w) {
 function wmsRysuj(raport) {
     const t = raport.totals;
 
+    const skad = raport.import
+        ? `Import ze skryptu ${raport.import.received_at}` +
+          `${raport.import.origin ? " (" + raport.import.origin + ")" : ""}`
+        : "Plik wgrany ręcznie";
     $w("wmsStamp").textContent =
-        `Okres z pliku: ${raport.from} – ${raport.to} (${raport.hours} h).`;
+        `${skad}. Okres: ${raport.from} – ${raport.to} (${raport.hours} h).`;
 
     $w("wmsTiles").innerHTML = `
         <div class="usage-tile warn">
@@ -120,6 +126,30 @@ function wmsRysuj(raport) {
     $w("wmsListUnknown").innerHTML = raport.unknown.length
         ? raport.unknown.map(wmsWierszNieznany).join("")
         : `<div class="drill-muted">Wszystkie loginy z pliku są w naszej bazie.</div>`;
+}
+
+/* Ostatnia paczka przysłana przez skrypt — to jest zwykłe wejście na ekran. */
+async function wmsOstatni(cicho = false) {
+    $w("wmsRefresh").disabled = true;
+    if (!cicho) wmsKomunikat("Pobieram ostatni import…");
+
+    try {
+        const odpowiedz = await fetch("/admin/api/reports/wms/latest", {
+            credentials: "include",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+        const tresc = await odpowiedz.json();
+        if (!odpowiedz.ok) throw new Error(tresc.detail ?? odpowiedz.statusText);
+
+        wmsRaport = tresc;
+        wmsKomunikat("");
+        wmsRysuj(tresc);
+        $w("wmsDownload").disabled = false;
+    } catch (err) {
+        wmsKomunikat(err.message, true);
+    } finally {
+        $w("wmsRefresh").disabled = false;
+    }
 }
 
 async function wmsAnalizuj() {
@@ -155,6 +185,12 @@ async function wmsAnalizuj() {
 /* Plik składa serwer z tego samego wsadu, więc wysyłamy go drugi raz —
    inaczej XLSX pokazywałby co innego niż ekran. */
 async function wmsPobierz() {
+    // Dane ze skryptu leżą na serwerze — nie ma czego wysyłać drugi raz.
+    if (wmsRaport && wmsRaport.import) {
+        window.location = "/admin/api/reports/wms/latest.xlsx";
+        return;
+    }
+
     const dane = wmsFormData();
     if (!dane) return;
 
@@ -190,6 +226,7 @@ async function wmsPobierz() {
 document.addEventListener("DOMContentLoaded", () => {
     if (!$w("wmsRun")) return;
 
+    $w("wmsRefresh").addEventListener("click", () => wmsOstatni());
     $w("wmsRun").addEventListener("click", wmsAnalizuj);
     $w("wmsDownload").addEventListener("click", wmsPobierz);
 
@@ -198,6 +235,10 @@ document.addEventListener("DOMContentLoaded", () => {
     $w("wmsFile").addEventListener("change", () => {
         wmsRaport = null;
         $w("wmsDownload").disabled = true;
-        wmsKomunikat("Plik wybrany. Kliknij „Analizuj”.");
+        wmsKomunikat("Plik wybrany. Kliknij „Analizuj wgrany plik”.");
     });
+
+    // Wejście na ekran pokazuje to, co przysłał skrypt. Brak importu to nie
+    // błąd — po prostu jeszcze nic nie przyszło.
+    wmsOstatni(true);
 });
