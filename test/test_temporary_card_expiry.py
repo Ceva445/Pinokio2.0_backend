@@ -216,3 +216,19 @@ async def test_zwykla_edycja_nie_rusza_daty_karty(db_session):
 
     await db_session.refresh(karta)
     assert karta.last_used_at == data_przed
+
+
+async def test_zdjecie_znacznika_stalemu_pracownikowi(db_session):
+    """Znacznik stoi przy każdym pracowniku, nie tylko tymczasowym. Stały nie
+    ma karty gościa, więc nie ma czego przedłużać — i nic się nie wywraca."""
+    from routers.admin.api import update_employee
+
+    osoba = await _pracownik(db_session, "77:88:99:AA", wms_login="P-STALY2")
+    osoba.expired = True
+    await db_session.commit()
+
+    await update_employee(employee_id=osoba.id, payload={"expired": False},
+                          db=db_session, user=None)
+
+    await db_session.refresh(osoba)
+    assert osoba.expired is False
