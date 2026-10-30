@@ -34,6 +34,14 @@ def get_devices():
     return device_manager
 
 
+def komunikat_wygaslej_karty(employee) -> str:
+    """Jeden komunikat dla czytnika i dla monitora."""
+    return (
+        f"Karta pracownika {employee.wms_login} wygasła — rejestracja "
+        f"zablokowana. Skontaktuj się z administratorem."
+    )
+
+
 # ===============================
 # REGISTRATION PERMISSION CHECK (STRICT AND)
 # ===============================
@@ -157,16 +165,23 @@ async def process_rfid(
 
     if employee:
         if can_register:
-            registration_manager.start_or_replace(device_id, employee)
-            ui_message = (
-                f"Pracownik {employee.wms_login} aktywny. "
-                f"Przyłóż skaner lub drukarkę"
-            )
-            print("ui message:", ui_message)
-            ui_status = "success"
             if employee.expired:
-                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
-                ui_status = "warning"
+                # Karta po terminie nie otwiera sesji. Wcześniej sesja
+                # startowała mimo ostrzeżenia, więc sprzęt dawało się na nią
+                # wydać tak samo jak na kartę ważną. Zamykamy też sesję otwartą
+                # chwilę wcześniej na tym czytniku — inaczej urządzenie
+                # przyłożone po tej karcie trafiłoby do poprzedniego pracownika.
+                registration_manager.end(device_id)
+                ui_message = komunikat_wygaslej_karty(employee)
+                ui_status = "error"
+            else:
+                registration_manager.start_or_replace(device_id, employee)
+                ui_message = (
+                    f"Pracownik {employee.wms_login} aktywny. "
+                    f"Przyłóż skaner lub drukarkę"
+                )
+                print("ui message:", ui_message)
+                ui_status = "success"
         else:
             result = await db.execute(
                     select(DeviceDB).where(DeviceDB.employee_id == employee.id)
@@ -186,7 +201,7 @@ async def process_rfid(
             print("ui message:", ui_message)
             ui_status = "info"
             if employee.expired:
-                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_message = komunikat_wygaslej_karty(employee)
                 ui_status = "warning"
 
     else:
@@ -399,16 +414,23 @@ async def receive_esp32_data(
 
     if employee:
         if can_register:
-            registration_manager.start_or_replace(device_id, employee)
-            ui_message = (
-                f"Pracownik {employee.wms_login} aktywny. "
-                f"Przyłóż skaner lub drukarkę"
-            )
-            print("ui message:", ui_message)
-            ui_status = "success"
             if employee.expired:
-                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
-                ui_status = "warning"
+                # Karta po terminie nie otwiera sesji. Wcześniej sesja
+                # startowała mimo ostrzeżenia, więc sprzęt dawało się na nią
+                # wydać tak samo jak na kartę ważną. Zamykamy też sesję otwartą
+                # chwilę wcześniej na tym czytniku — inaczej urządzenie
+                # przyłożone po tej karcie trafiłoby do poprzedniego pracownika.
+                registration_manager.end(device_id)
+                ui_message = komunikat_wygaslej_karty(employee)
+                ui_status = "error"
+            else:
+                registration_manager.start_or_replace(device_id, employee)
+                ui_message = (
+                    f"Pracownik {employee.wms_login} aktywny. "
+                    f"Przyłóż skaner lub drukarkę"
+                )
+                print("ui message:", ui_message)
+                ui_status = "success"
         else:
             result = await db.execute(
                     select(DeviceDB).where(DeviceDB.employee_id == employee.id)
@@ -423,7 +445,7 @@ async def receive_esp32_data(
             print("ui message:", ui_message)
             ui_status = "info"
             if employee.expired:
-                ui_message = f"karta dla {employee.wms_login} wygasła zkontaktuj się z administratorem"
+                ui_message = komunikat_wygaslej_karty(employee)
                 ui_status = "warning"
 
     else:

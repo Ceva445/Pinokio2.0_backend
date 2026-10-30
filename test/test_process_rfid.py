@@ -167,14 +167,69 @@ async def test_T2_1_employee_starts_session(db_session, devices, manager, reg_ma
     assert p["session"]["timeout_seconds"] > 0
 
 
-async def test_T2_2_employee_expired_still_starts_session_but_warns(db_session, devices, manager, reg_manager, set_can_register):
+async def test_T2_2_employee_expired_does_not_start_session(db_session, devices, manager, reg_manager, set_can_register):
+    """Прострочена картка більше не відкриває сесію — раніше вона лише
+    попереджала, а видача йшла далі як зі звичайною карткою."""
     set_can_register(True)
     await make_employee(db_session, "EMP5", wms_login="ola2", expired=True)
     await process_rfid("dev-x", {"rfid": "EMP5"}, devices, manager, db_session, event_suffix=SUFFIX)
     p = _status(manager)
-    assert p["status"] == "warning"
+    assert p["status"] == "error"
     assert "wygasła" in p["message"]
-    assert reg_manager.get("dev-x") is not None  # сесія все одно стартувала
+    assert reg_manager.get("dev-x") is None
+
+
+async def test_T2_2b_device_after_expired_card_is_not_assigned(db_session, devices, manager, reg_manager, set_can_register):
+    """Сенс блокування: сканер, приставлений після простроченої картки,
+    ні до кого не чіпляється."""
+    set_can_register(True)
+    await make_employee(db_session, "EMP5B", wms_login="ola3", expired=True)
+    d = await make_device(db_session, "DEV5B", "Scan-5b", DeviceType.scanner, "S5B")
+
+    await process_rfid("dev-xb", {"rfid": "EMP5B"}, devices, manager, db_session, event_suffix=SUFFIX)
+    await process_rfid("dev-xb", {"rfid": "DEV5B"}, devices, manager, db_session, event_suffix=SUFFIX)
+
+    p = _status(manager)
+    assert p["status"] == "error"
+    assert "Najpierw przyłóż kartę pracownika" in p["message"]
+    await db_session.refresh(d)
+    assert d.employee_id is None
+    assert await _tx_count(db_session, TransactionType.registered) == 0
+
+
+async def test_T2_2c_expired_card_closes_open_session(db_session, devices, manager, reg_manager, set_can_register):
+    """Інакше прострочена картка ставала способом забрати пристрій на чужу
+    відкриту сесію."""
+    set_can_register(True)
+    poprawny = await make_employee(db_session, "EMP5C", wms_login="ok5c")
+    await make_employee(db_session, "EMP5D", wms_login="ola5d", expired=True)
+    d = await make_device(db_session, "DEV5C", "Scan-5c", DeviceType.scanner, "S5C")
+
+    await process_rfid("dev-xc", {"rfid": "EMP5C"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert reg_manager.get("dev-xc").employee.id == poprawny.id
+
+    await process_rfid("dev-xc", {"rfid": "EMP5D"}, devices, manager, db_session, event_suffix=SUFFIX)
+    assert reg_manager.get("dev-xc") is None
+
+    await process_rfid("dev-xc", {"rfid": "DEV5C"}, devices, manager, db_session, event_suffix=SUFFIX)
+    await db_session.refresh(d)
+    assert d.employee_id is None
+
+
+async def test_T2_2d_expired_employee_can_still_return_device(db_session, devices, manager, reg_manager, set_can_register):
+    """Здати пристрій мусить бути можна завжди — відчіпляння не вимагає сесії."""
+    set_can_register(True)
+    e = await make_employee(db_session, "EMP5E", wms_login="ola5e", expired=True)
+    d = await make_device(db_session, "DEV5E", "Scan-5e", DeviceType.scanner, "S5E", employee_id=e.id)
+
+    await process_rfid("dev-xe", {"rfid": "DEV5E"}, devices, manager, db_session, event_suffix=SUFFIX)
+
+    p = _status(manager)
+    assert p["status"] == "success"
+    assert "został odpięty" in p["message"]
+    await db_session.refresh(d)
+    assert d.employee_id is None
+    assert await _tx_count(db_session, TransactionType.unregistered) == 1
 
 
 async def test_T2_3_device_no_session_unassigned_error(db_session, devices, manager, reg_manager, set_can_register):
