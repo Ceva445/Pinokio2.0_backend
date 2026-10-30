@@ -198,6 +198,9 @@ async def update_employee(
             payload["site_id"] = await resolve_site_id(db, payload)
 
         do_unexpire = False
+        # Zapamiętujemy stan sprzed zapisu: po pętli pole jest już nadpisane,
+        # a trzeba wiedzieć, czy administrator właśnie zdjął wygaśnięcie.
+        bylo_wygasle = employee.expired
         for field in ["wms_login", "first_name", "last_name", "company", "rfid", "expired", "site_id"]:
             if field in payload:
                 value = payload[field]
@@ -232,7 +235,17 @@ async def update_employee(
         
         if do_unexpire:
             employee.expired = False
-            
+
+        # Administrator zdjął wygaśnięcie: karcie gościa rusza nowy okres.
+        # Bez tego data wydania zostaje stara, zadanie w tle widzi ją jako
+        # przeterminowaną i w ciągu pół godziny gasi pracownika z powrotem.
+        if bylo_wygasle and not employee.expired and employee.rfid:
+            karta = (await db.execute(
+                select(DBGuest).where(DBGuest.rfid == employee.rfid)
+            )).scalar_one_or_none()
+            if karta is not None and karta.used:
+                karta.last_used_at = func.now()
+
         await db.commit()
         await db.refresh(employee)
         return employee

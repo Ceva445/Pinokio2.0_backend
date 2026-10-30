@@ -151,3 +151,68 @@ async def test_zwykly_pracownik_bez_karty_goscia_nie_wygasa(db_session):
 
     await db_session.refresh(osoba)
     assert osoba.expired is False
+
+
+# ---------------------------------------------------------------------------
+# Ręczne zdjęcie wygaśnięcia
+# ---------------------------------------------------------------------------
+async def test_pole_expired_da_sie_kliknac():
+    """Było na sztywno disabled — administrator nie mógł nic z nim zrobić."""
+    from pathlib import Path
+
+    strona = Path("app/templates/admin/employees/detail.html").read_text(encoding="utf-8")
+
+    assert '<input type="checkbox" name="expired">' in strona
+    assert 'name="expired" disabled' not in strona
+
+
+async def test_zdjecie_wygasniecia_przedluza_karte(db_session):
+    """Bez nowej daty zadanie w tle wygasiłoby pracownika z powrotem."""
+    from routers.admin.api import update_employee
+
+    karta = await _karta(db_session, used=True, wydana=_temu(50))
+    osoba = await _pracownik(db_session, karta.rfid)
+    osoba.expired = True
+    await db_session.commit()
+
+    await update_employee(employee_id=osoba.id, payload={"expired": False},
+                          db=db_session, user=None)
+
+    await db_session.refresh(karta)
+    assert karta.last_used_at > _temu(1)
+
+    # I nie wraca przy najbliższym przebiegu zadania.
+    await oznacz_wygasle_karty(db_session, godzin=23)
+    await db_session.refresh(osoba)
+    assert osoba.expired is False
+
+
+async def test_reczne_wygaszenie_dziala(db_session):
+    from routers.admin.api import update_employee
+
+    karta = await _karta(db_session, used=True, wydana=_temu(2))
+    osoba = await _pracownik(db_session, karta.rfid)
+
+    await update_employee(employee_id=osoba.id, payload={"expired": True},
+                          db=db_session, user=None)
+
+    await db_session.refresh(osoba)
+    await db_session.refresh(karta)
+    assert osoba.expired is True
+    # Data wydania zostaje nietknięta — wygaszamy, nie przedłużamy.
+    assert karta.last_used_at < _temu(1)
+
+
+async def test_zwykla_edycja_nie_rusza_daty_karty(db_session):
+    """Zmiana nazwiska nie ma prawa przedłużać ważności karty."""
+    from routers.admin.api import update_employee
+
+    karta = await _karta(db_session, used=True, wydana=_temu(10))
+    osoba = await _pracownik(db_session, karta.rfid)
+    data_przed = karta.last_used_at
+
+    await update_employee(employee_id=osoba.id, payload={"last_name": "Inny"},
+                          db=db_session, user=None)
+
+    await db_session.refresh(karta)
+    assert karta.last_used_at == data_przed
