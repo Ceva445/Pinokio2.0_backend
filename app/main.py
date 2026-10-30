@@ -135,55 +135,77 @@ async def lifespan(app: FastAPI):
     logger.info("ESP32 Multi-Device Monitor stopped")
 
 
+async def oznacz_wygasle_karty(db: AsyncSession, godzin: int) -> dict:
+    """Jedno przejście: karty po terminie gasną, a świeżo wydanym rusza zegar.
+
+    Ważność liczy się od chwili wydania karty — pole last_used_at. Karta
+    wydana w poniedziałek o 8:00 przy progu 23 godzin jest martwa we wtorek
+    o 7:00, niezależnie od tego, czy ktoś nią jeszcze skanował.
+    """
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+
+    from models.db_employee import EmployeeDB
+    from models.db_guest import DBGuest
+
+    teraz = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Karty wydane, którym nikt nie zapisał daty. Dawniej tworzenie pracownika
+    # tymczasowego ustawiało samo used=True, więc warunek "last_used_at nie
+    # jest puste" odrzucał je na zawsze i nic nigdy nie wygasało. Takim kartom
+    # zegar rusza od teraz — lepiej policzyć je od tej chwili niż nigdy.
+    bez_daty = (await db.execute(
+        select(DBGuest).where(DBGuest.used.is_(True), DBGuest.last_used_at.is_(None))
+    )).scalars().all()
+    for karta in bez_daty:
+        karta.last_used_at = teraz
+        logger.info("Karta %s nie miala daty wydania - licze waznosc od teraz", karta.name)
+
+    granica = teraz - timedelta(hours=godzin)
+    po_terminie = (await db.execute(
+        select(DBGuest).where(
+            DBGuest.last_used_at.isnot(None),
+            DBGuest.last_used_at < granica,
+        )
+    )).scalars().all()
+
+    wygaszeni = 0
+    rfidy = [karta.rfid for karta in po_terminie]
+    if rfidy:
+        pracownicy = (await db.execute(
+            select(EmployeeDB).where(
+                EmployeeDB.rfid.in_(rfidy),
+                EmployeeDB.expired == False,      # noqa: E712 — tak czyta to SQL
+            )
+        )).scalars().all()
+
+        for pracownik in pracownicy:
+            pracownik.expired = True
+            wygaszeni += 1
+            logger.info("Employee %s %s marked as expired (temporary card duration exceeded)",
+                        pracownik.first_name, pracownik.last_name)
+
+    if bez_daty or wygaszeni:
+        await db.commit()
+
+    return {"bez_daty": len(bez_daty), "wygaszeni": wygaszeni}
+
+
 async def do_employee_expired_if_needed():
-    """Фонова задача для перевірки та помічення розенаділених карток як експірованих"""
+    """Фонова задача: тимчасові картки гаснуть після свого терміну."""
     from db.session import engine
     from sqlalchemy.ext.asyncio import async_sessionmaker
-    from sqlalchemy import select
-    from datetime import datetime, timezone, timedelta
-    from models.db_guest import DBGuest
-    from models.db_employee import EmployeeDB
-    
+
     async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     while True:
         try:
             # Брати інтервал з БД через конфіг-менеджер (з кешуванням)
             async with async_session_factory() as db:
                 config = await config_manager.get_config(db)
-                temporary_card_duration_hours = config.get("temporary_card_duration_hours", 72)
-                
-                now = datetime.now(timezone.utc).replace(tzinfo=None)
-                cutoff_time = now - timedelta(hours=temporary_card_duration_hours)
-                
-                # Отримати тільки експірованих гостей з БД (last_used_at < cutoff)
-                expired_guests = await db.execute(
-                    select(DBGuest).where(
-                        DBGuest.last_used_at.isnot(None),
-                        DBGuest.last_used_at < cutoff_time
-                    )
-                )
-                expired_guests_list = expired_guests.scalars().all()
-                
-                # Зібрати RFIDs експірованих гостей
-                expired_rfids = [guest.rfid for guest in expired_guests_list]
-                
-                # Якщо є експіровані, оновити всіх працівників одним запитом (уникнути N+1)
-                if expired_rfids:
-                    employees_result = await db.execute(
-                        select(EmployeeDB).where(
-                            EmployeeDB.rfid.in_(expired_rfids),
-                            EmployeeDB.expired == False
-                        )
-                    )
-                    employees = employees_result.scalars().all()
-                    
-                    for employee in employees:
-                        employee.expired = True
-                        logger.info(f"Employee {employee.first_name} {employee.last_name} marked as expired (temporary card duration exceeded)")
-                    
-                    await db.commit()
-            
+                godzin = config.get("temporary_card_duration_hours", 72)
+                await oznacz_wygasle_karty(db, godzin)
+
             # Перевіряти кожні 30 хвилин
             await asyncio.sleep(30 * 60)
             

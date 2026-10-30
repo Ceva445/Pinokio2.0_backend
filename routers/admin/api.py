@@ -530,6 +530,10 @@ async def create_temporary_employee(
         
         # Mark guest as used
         guest.used = True
+        # Od tej chwili liczy się ważność karty. Bez tej daty zadanie w tle
+        # omijało kartę na zawsze (szuka tylko tych z wypełnionym last_used_at),
+        # więc żaden pracownik tymczasowy nigdy nie wygasał.
+        guest.last_used_at = func.now()
         
         db.add(employee)
         db.add(guest)
