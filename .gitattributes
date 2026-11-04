@@ -1,0 +1,4 @@
+# Skrypty uruchamiane w kontenerze muszą mieć końce linii LF. Przy globalnym
+# core.autocrlf=true Windows wypisywał entrypoint.sh z CRLF i zbudowany lokalnie
+# obraz nie wstawał: "exec /entrypoint.sh: no such file or directory".
+*.sh text eol=lf
