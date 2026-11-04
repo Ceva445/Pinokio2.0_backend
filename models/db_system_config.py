@@ -11,7 +11,7 @@ class SystemConfigDB(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     
     # Таймаути та інтервали (в секундах)
-    access_token_expire_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    access_token_expire_minutes: Mapped[int] = mapped_column(Integer, default=720)
     device_timeout_minutes: Mapped[int] = mapped_column(Integer, default=5)
     registration_timeout_seconds: Mapped[int] = mapped_column(Integer, default=7)
     device_cleanup_interval_seconds: Mapped[int] = mapped_column(Integer, default=300)  # 5 хвилин

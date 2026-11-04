@@ -10,7 +10,8 @@ from db.session import get_db
 from schemas.user import UserCreate, UserOut, Token, UserUpdate
 from schemas.user import PasswordChange
 from models.db_user import UserDB, UserRole
-from managers.auth_manager import auth_manager
+from managers.auth_manager import auth_manager, ACCESS_TOKEN_EXPIRE_MINUTES
+from managers.config_manager import config_manager
 from managers import session_log
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -232,9 +233,17 @@ async def login_form(
         if watcher and watcher.get("user_id") != user.id:
             raise HTTPException(status.HTTP_409_CONFLICT, f"Urządzenie zajęte przez {watcher.get('username')}")
 
+    # Термін сесії бере з адмінки (system_config.access_token_expire_minutes).
+    # Раніше тут стояло жорстке timedelta(hours=12): поле в «Konfiguracja systemu»
+    # малювалося, адмін його зберігав, а логін далі видавав свої 12 годин.
+    cfg = await config_manager.get_config(db)
+    minuty = int(cfg.get("access_token_expire_minutes") or 0)
+    if minuty <= 0:
+        minuty = ACCESS_TOKEN_EXPIRE_MINUTES
+
     access_token = auth_manager.create_access_token(
         data={"sub": user.username},
-        expires_delta=timedelta(hours=12)
+        expires_delta=timedelta(minutes=minuty)
     )
 
     user_dict = {

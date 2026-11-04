@@ -33,7 +33,7 @@ class ConfigUpdateRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "access_token_expire_minutes": 30,
+                "access_token_expire_minutes": 720,
                 "device_timeout_minutes": 5,
                 "registration_timeout_seconds": 7,
                 "allow_registration_without_login": False,

@@ -7,13 +7,16 @@ from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models.db_user import UserDB
+import config as default_config
 
 logger = logging.getLogger(__name__)
 
 # Конфігурація
 SECRET_KEY = "your-secret-key-here-change-in-production"  # Змініть на безпечний ключ
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Резерв на випадок, коли викликач не передав свого терміну. Актуальне значення
+# адмін задає в панелі (system_config.access_token_expire_minutes).
+ACCESS_TOKEN_EXPIRE_MINUTES = default_config.ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Використовуємо pbkdf2_sha256 щоб уникнути проблем з bcrypt
 pwd_context = CryptContext(
