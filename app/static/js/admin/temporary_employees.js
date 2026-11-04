@@ -118,6 +118,25 @@ async function api(url, options = {}) {
     return res.status === 204 ? null : res.json();
 }
 
+/* Na szerokim ekranie Chrome rysuje rozwiniętą listę gości przesuniętą w lewo
+   względem swojego okienka i zjada początek każdego wiersza — nazwa karty
+   znika, zostaje sam ogon z RFID. Wcięcie na starcie napisu oddaje te brakujące
+   ~90 px z zapasem, żeby nazwa nie zaczynała się tuż przy krawędzi.
+   Firetek, bo zwykłe spacje przeglądarka potrafi skleić.
+   Jedna liczba do podkręcenia, jeśli obcięcie wyjdzie inne: 1 firet = 14 px. */
+const WCIECIE = "\u2003".repeat(10);
+
+function zWcieciem(tekst) {
+    return WCIECIE + tekst;
+}
+
+/* Pierwsza pozycja siedzi w szablonie, a obcina ją tak samo jak resztę. */
+function wcinajPierwsza(select) {
+    if (select && select.options.length) {
+        select.options[0].textContent = zWcieciem(select.options[0].textContent.trim());
+    }
+}
+
 /* ================================
    LOAD UNUSED GUESTS
 ================================ */
@@ -128,6 +147,8 @@ async function loadGuests() {
     try {
         const guests = await api("/admin/api/guests");
         
+        wcinajPierwsza(guestSelect);
+
         // Clear existing options except the first one
         while (guestSelect.options.length > 1) {
             guestSelect.remove(1);
@@ -136,29 +157,89 @@ async function loadGuests() {
         // Zajęte karty zostają na liście — widać, że istnieją i że są w użyciu —
         // ale nie da się ich wybrać. Serwer i tak odrzuciłby je ("Gość został
         // już użyty"), tylko dopiero po wypełnieniu całego formularza.
+        // Zajętą poznać po napisie, nie po tle: pokolorowane <option> każe
+        // przeglądarce rysować listę po swojemu.
         for (const guest of guests) {
             const option = document.createElement("option");
             option.value = guest.id;
             option.dataset.rfid = guest.rfid ?? "";
-            option.textContent = `${guest.name} (RFID: ${guest.rfid})`;
-            if (guest.used) {
-                option.disabled = true;
-                option.className = "guest-option--used";
-                option.textContent += " — zajęta";
-            }
+            option.textContent = zWcieciem(guest.used
+                ? `${guest.name} (RFID: ${guest.rfid}) — zajęta`
+                : `${guest.name} (RFID: ${guest.rfid})`);
+            option.disabled = Boolean(guest.used);
             guestSelect.appendChild(option);
         }
 
         if (guests.length === 0) {
             const option = document.createElement("option");
             option.value = "";
-            option.textContent = "Brak dostępnych gości";
+            option.textContent = zWcieciem("Brak dostępnych gości");
             option.disabled = true;
             guestSelect.appendChild(option);
         }
     } catch (err) {
         console.error("❌ Error loading guests:", err);
         showError("Nie udało się załadować listy gości: " + err.message);
+    }
+}
+
+/* ================================
+   LOAD EMPLOYEES WITHOUT A CARD
+================================ */
+async function loadReusableEmployees() {
+    const select = document.getElementById("reuseEmployeeSelect");
+    if (!select) return;
+
+    try {
+        const pracownicy = await api("/admin/api/employees/without-card");
+
+        // Ta sama lista rozwijana, ta sama obcięta krawędź.
+        wcinajPierwsza(select);
+
+        for (const p of pracownicy) {
+            const option = document.createElement("option");
+            option.value = p.id;
+            option.dataset.wmsLogin = p.wms_login ?? "";
+            option.dataset.firstName = p.first_name ?? "";
+            option.dataset.lastName = p.last_name ?? "";
+            option.dataset.company = p.company ?? "";
+            option.dataset.siteId = p.site_id ?? "";
+            option.textContent = zWcieciem(
+                `${p.wms_login || "bez loginu"} — ${p.first_name} ${p.last_name} (${p.company})`);
+            select.appendChild(option);
+        }
+
+        if (pracownicy.length === 0) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.disabled = true;
+            option.textContent = zWcieciem("Brak pracowników bez karty");
+            select.appendChild(option);
+        }
+    } catch (err) {
+        console.error("❌ Error loading employees without card:", err);
+        showError("Nie udało się załadować pracowników bez karty: " + err.message);
+    }
+}
+
+/* Dane wybranego pracownika idą z bazy: pokazujemy je, ale nie pozwalamy
+   zmieniać — ponowne wydanie karty nie jest edycją kadr. Przy "nowym
+   pracowniku" pola wracają puste i znowu wymagane. */
+function ustawPolaPracownika(form, dane) {
+    for (const nazwa of ["wms_login", "first_name", "last_name", "company"]) {
+        const pole = form[nazwa];
+        if (!pole) continue;
+        pole.value = dane ? dane[nazwa] : "";
+        pole.readOnly = Boolean(dane);
+        // Pracownik z bazy może nie mieć loginu WMS, a required na pustym
+        // polu tylko do wglądu nie dałby wysłać formularza.
+        pole.required = !dane;
+    }
+
+    const site = form.site_id;
+    if (site) {
+        site.value = dane ? dane.site_id : "";
+        site.disabled = Boolean(dane);
     }
 }
 
@@ -191,12 +272,27 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load guests when page loads
     loadGuests();
     loadSitesForTemporary();
+    loadReusableEmployees();
 
     const form = document.getElementById("temporaryEmployeeCreateForm");
     if (!form) return;
 
     const guestSelect = document.getElementById("guestSelect");
     const rfidDisplay = form.rfid_display;
+    const reuseSelect = document.getElementById("reuseEmployeeSelect");
+
+    if (reuseSelect) {
+        reuseSelect.addEventListener("change", () => {
+            const wybrany = reuseSelect.options[reuseSelect.selectedIndex];
+            ustawPolaPracownika(form, reuseSelect.value ? {
+                wms_login: wybrany.dataset.wmsLogin ?? "",
+                first_name: wybrany.dataset.firstName ?? "",
+                last_name: wybrany.dataset.lastName ?? "",
+                company: wybrany.dataset.company ?? "",
+                site_id: wybrany.dataset.siteId ?? ""
+            } : null);
+        });
+    }
 
     // When guest is selected, update the RFID display
     if (guestSelect) {
@@ -222,9 +318,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+            // Przy ponownym zatrudnieniu wysyłamy samo id: pola są tylko do
+            // wglądu, a dane bierze się z bazy.
+            const ponownie = reuseSelect && reuseSelect.value;
             const result = await api("/admin/api/temporary-employees", {
                 method: "POST",
-                body: JSON.stringify({
+                body: JSON.stringify(ponownie ? {
+                    guest_id: parseInt(guestSelect.value),
+                    employee_id: parseInt(reuseSelect.value)
+                } : {
                     guest_id: parseInt(guestSelect.value),
                     wms_login: form.wms_login.value || null,
                     first_name: form.first_name.value,
@@ -234,7 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
-            showSuccess("Pracownik tymczasowy został utworzony ✅");
+            showSuccess(result?.message || "Pracownik tymczasowy został utworzony ✅");
             // Ten skrypt obsługuje formularz i u admina, i u kierownika. Stały
             // adres /admin/employees wyrzucał kierownika na logowanie (403),
             // więc dokąd wrócić, mówi sama strona.

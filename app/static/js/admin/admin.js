@@ -537,7 +537,7 @@ async function loadEmployees() {
                 <td>${e.first_name}</td>
                 <td>${e.last_name}</td>
                 <td>${e.company}</td>
-                <td>${e.rfid}</td>
+                <td>${e.rfid ?? "— bez karty"}</td>
                 <td>${siteNames.get(e.site_id) ?? ""}</td>
                 <td>${e.expired ? "✅" : ""}</td>
                 <td><a href="/admin/employees/${e.id}">✏️</a></td>

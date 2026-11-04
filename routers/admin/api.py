@@ -198,53 +198,52 @@ async def update_employee(
             payload["site_id"] = await resolve_site_id(db, payload)
 
         do_unexpire = False
-        # Zapamiętujemy stan sprzed zapisu: po pętli pole jest już nadpisane,
-        # a trzeba wiedzieć, czy administrator właśnie zdjął wygaśnięcie.
-        bylo_wygasle = employee.expired
         for field in ["wms_login", "first_name", "last_name", "company", "rfid", "expired", "site_id"]:
             if field in payload:
                 value = payload[field]
 
                 if field == "rfid":
-                    # Get both guests in parallel and batch the updates
-                    old_guest_result = await db.execute(
-                        select(DBGuest).where(DBGuest.rfid == employee.rfid)
-                    )
-                    old_guest = old_guest_result.scalar_one_or_none()
-                    
-                    new_guest_result = await db.execute(
-                        select(DBGuest).where(DBGuest.rfid == value)
-                    )
-                    new_guest = new_guest_result.scalar_one_or_none()
-                    
-                    # Batch all updates before committing once
+                    # Puste pole znaczy "bez karty", a nie pusty napis: drugi
+                    # taki pracownik wpadłby na unikalny indeks.
+                    value = (value or "").strip() or None
+
+                    # Formularz przysyła rfid przy każdym zapisie. Bez tego
+                    # warunku zwykła poprawka nazwiska zwalniała kartę i
+                    # wydawała ją z powrotem z nową datą, czyli przedłużała
+                    # termin w nieskończoność.
+                    if value == employee.rfid:
+                        continue
+
+                    old_guest = None
+                    if employee.rfid:
+                        old_guest = (await db.execute(
+                            select(DBGuest).where(DBGuest.rfid == employee.rfid)
+                        )).scalar_one_or_none()
+
+                    new_guest = None
+                    if value:
+                        new_guest = (await db.execute(
+                            select(DBGuest).where(DBGuest.rfid == value)
+                        )).scalar_one_or_none()
+
                     if old_guest and old_guest.used:
                         old_guest.used = False
                         old_guest.last_used_at = None
                         do_unexpire = True  # Unexpire employee if RFID is changing from an expired one
-                    
+
                     if new_guest:
                         new_guest.used = True
                         new_guest.last_used_at = func.now()
-                    
-                    # Single commit for both changes
+
+                    employee.rfid = value
                     await db.commit()
+                    continue
                 if isinstance(value, str):
                     value = value.strip()
                 setattr(employee, field, value)             
         
         if do_unexpire:
             employee.expired = False
-
-        # Administrator zdjął wygaśnięcie: karcie gościa rusza nowy okres.
-        # Bez tego data wydania zostaje stara, zadanie w tle widzi ją jako
-        # przeterminowaną i w ciągu pół godziny gasi pracownika z powrotem.
-        if bylo_wygasle and not employee.expired and employee.rfid:
-            karta = (await db.execute(
-                select(DBGuest).where(DBGuest.rfid == employee.rfid)
-            )).scalar_one_or_none()
-            if karta is not None and karta.used:
-                karta.last_used_at = func.now()
 
         await db.commit()
         await db.refresh(employee)
@@ -494,6 +493,37 @@ async def delete_guest(
             detail="Wewnętrzny błąd serwera"
         )
 
+@router.get("/employees/without-card")
+async def get_employees_without_card(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Pracownicy bez karty — pula do ponownego zatrudnienia.
+
+    Zwykła lista pracowników jest tylko dla administratora, a ten formularz
+    wypełnia też kierownik, dlatego osobne wejście z własnym zakresem danych.
+    Zablokowanych tu nie ma: blokadę zdejmuje administrator w edycji
+    pracownika, nie kierownik przez wydanie karty.
+    """
+    pracownicy = (await db.execute(
+        select(EmployeeDB)
+        .where(EmployeeDB.rfid.is_(None), EmployeeDB.expired.is_(False))
+        .order_by(EmployeeDB.wms_login)
+    )).scalars().all()
+
+    return [
+        {
+            "id": pracownik.id,
+            "wms_login": pracownik.wms_login,
+            "first_name": pracownik.first_name,
+            "last_name": pracownik.last_name,
+            "company": pracownik.company,
+            "site_id": pracownik.site_id,
+        }
+        for pracownik in pracownicy
+    ]
+
+
 @router.post("/temporary-employees")
 async def create_temporary_employee(
     payload: dict = Body(...),
@@ -504,8 +534,12 @@ async def create_temporary_employee(
     from models.db_guest import DBGuest
     
     try:
-        # Validate required fields
-        required_fields = ["guest_id", "first_name", "last_name", "company"]
+        # Ponowne zatrudnienie: formularz podaje id pracownika, którego karta
+        # kiedyś wygasła. Jego dane biorą się z bazy, więc nie są wymagane.
+        employee_id = payload.get("employee_id")
+
+        required_fields = (["guest_id"] if employee_id
+                           else ["guest_id", "first_name", "last_name", "company"])
         for field in required_fields:
             if field not in payload or not payload[field]:
                 raise HTTPException(
@@ -531,15 +565,40 @@ async def create_temporary_employee(
                 detail="Gość został już użyty"
             )
         
-        # Create employee with RFID from guest
-        employee = EmployeeDB(
-            first_name=payload["first_name"].strip(),
-            last_name=payload["last_name"].strip(),
-            company=payload["company"].strip(),
-            rfid=guest.rfid,
-            wms_login=payload.get("wms_login", "").strip(),
-            site_id=await resolve_site_id(db, payload)
-        )
+        if employee_id:
+            employee = (await db.execute(
+                select(EmployeeDB).where(EmployeeDB.id == int(employee_id))
+            )).scalar_one_or_none()
+
+            if not employee:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Pracownik nie znaleziony"
+                )
+            if employee.rfid:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ten pracownik ma już kartę"
+                )
+            if employee.expired:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Pracownik jest zablokowany — blokadę zdejmuje "
+                           "administrator w edycji pracownika"
+                )
+
+            # Dane zostają te z bazy; formularz pokazuje je tylko do wglądu.
+            employee.rfid = guest.rfid
+        else:
+            # Create employee with RFID from guest
+            employee = EmployeeDB(
+                first_name=payload["first_name"].strip(),
+                last_name=payload["last_name"].strip(),
+                company=payload["company"].strip(),
+                rfid=guest.rfid,
+                wms_login=payload.get("wms_login", "").strip(),
+                site_id=await resolve_site_id(db, payload)
+            )
         
         # Mark guest as used
         guest.used = True
@@ -555,7 +614,8 @@ async def create_temporary_employee(
         
         return {
             "employee": employee,
-            "message": "Pracownik tymczasowy został utworzony ✅"
+            "message": ("Pracownik dostał kartę ponownie ✅" if employee_id
+                        else "Pracownik tymczasowy został utworzony ✅")
         }
         
     except IntegrityError as e:

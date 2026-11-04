@@ -34,11 +34,16 @@ def get_devices():
     return device_manager
 
 
-def komunikat_wygaslej_karty(employee) -> str:
-    """Jeden komunikat dla czytnika i dla monitora."""
+def komunikat_zablokowanego(employee) -> str:
+    """Jeden komunikat dla czytnika i dla monitora.
+
+    Znacznik expired stawia dziś tylko administrator. Karta gościa po terminie
+    odczepia się od pracownika (puste rfid), więc jej sam czytnik już nie zna i
+    ten komunikat jej nie dotyczy.
+    """
     return (
-        f"Karta pracownika {employee.wms_login} wygasła — rejestracja "
-        f"zablokowana. Skontaktuj się z administratorem."
+        f"Pracownik {employee.wms_login} jest zablokowany — rejestracja "
+        f"niemożliwa. Skontaktuj się z administratorem."
     )
 
 
@@ -166,13 +171,13 @@ async def process_rfid(
     if employee:
         if can_register:
             if employee.expired:
-                # Karta po terminie nie otwiera sesji. Wcześniej sesja
-                # startowała mimo ostrzeżenia, więc sprzęt dawało się na nią
-                # wydać tak samo jak na kartę ważną. Zamykamy też sesję otwartą
+                # Zablokowany pracownik nie otwiera sesji. Wcześniej sesja
+                # startowała mimo ostrzeżenia, więc sprzęt dawało się na niego
+                # wydać tak samo jak na kartę czynną. Zamykamy też sesję otwartą
                 # chwilę wcześniej na tym czytniku — inaczej urządzenie
                 # przyłożone po tej karcie trafiłoby do poprzedniego pracownika.
                 registration_manager.end(device_id)
-                ui_message = komunikat_wygaslej_karty(employee)
+                ui_message = komunikat_zablokowanego(employee)
                 ui_status = "error"
             else:
                 registration_manager.start_or_replace(device_id, employee)
@@ -201,7 +206,7 @@ async def process_rfid(
             print("ui message:", ui_message)
             ui_status = "info"
             if employee.expired:
-                ui_message = komunikat_wygaslej_karty(employee)
+                ui_message = komunikat_zablokowanego(employee)
                 ui_status = "warning"
 
     else:

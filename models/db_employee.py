@@ -8,7 +8,9 @@ class EmployeeDB(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     last_name: Mapped[str]
     first_name: Mapped[str]
-    rfid: Mapped[str] = mapped_column(unique=True, index=True)
+    # Puste po zdjęciu karty gościa: pracownik zostaje w bazie razem
+    # z historią i czeka na ponowne zatrudnienie.
+    rfid: Mapped[str | None] = mapped_column(unique=True, index=True, nullable=True)
     company: Mapped[str]
     wms_login: Mapped[str] = mapped_column(unique=True, index=True, nullable=True)
     expired: Mapped[bool] = mapped_column(default=False)

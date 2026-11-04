@@ -119,13 +119,13 @@ async def test_T1_3_employee_info_lists_devices(db_session, devices, manager, re
     assert "scanner: Scan-1" in p["message"]
 
 
-async def test_T1_4_employee_expired_warning(db_session, devices, manager, reg_manager, set_can_register):
+async def test_T1_4_employee_blocked_warning(db_session, devices, manager, reg_manager, set_can_register):
     set_can_register(False)
     await make_employee(db_session, "EMP2", wms_login="ola", expired=True)
     await process_rfid("d", {"rfid": "EMP2"}, devices, manager, db_session, event_suffix=SUFFIX)
     p = _status(manager)
     assert p["status"] == "warning"
-    assert "wygasła" in p["message"]
+    assert "zablokowany" in p["message"]
 
 
 async def test_T1_5_device_unassigned_info(db_session, devices, manager, reg_manager, set_can_register):
@@ -167,20 +167,20 @@ async def test_T2_1_employee_starts_session(db_session, devices, manager, reg_ma
     assert p["session"]["timeout_seconds"] > 0
 
 
-async def test_T2_2_employee_expired_does_not_start_session(db_session, devices, manager, reg_manager, set_can_register):
-    """Прострочена картка більше не відкриває сесію — раніше вона лише
+async def test_T2_2_employee_blocked_does_not_start_session(db_session, devices, manager, reg_manager, set_can_register):
+    """Заблокований працівник більше не відкриває сесію — раніше система лише
     попереджала, а видача йшла далі як зі звичайною карткою."""
     set_can_register(True)
     await make_employee(db_session, "EMP5", wms_login="ola2", expired=True)
     await process_rfid("dev-x", {"rfid": "EMP5"}, devices, manager, db_session, event_suffix=SUFFIX)
     p = _status(manager)
     assert p["status"] == "error"
-    assert "wygasła" in p["message"]
+    assert "zablokowany" in p["message"]
     assert reg_manager.get("dev-x") is None
 
 
-async def test_T2_2b_device_after_expired_card_is_not_assigned(db_session, devices, manager, reg_manager, set_can_register):
-    """Сенс блокування: сканер, приставлений після простроченої картки,
+async def test_T2_2b_device_after_blocked_card_is_not_assigned(db_session, devices, manager, reg_manager, set_can_register):
+    """Сенс блокування: сканер, приставлений після заблокованої картки,
     ні до кого не чіпляється."""
     set_can_register(True)
     await make_employee(db_session, "EMP5B", wms_login="ola3", expired=True)
@@ -197,8 +197,8 @@ async def test_T2_2b_device_after_expired_card_is_not_assigned(db_session, devic
     assert await _tx_count(db_session, TransactionType.registered) == 0
 
 
-async def test_T2_2c_expired_card_closes_open_session(db_session, devices, manager, reg_manager, set_can_register):
-    """Інакше прострочена картка ставала способом забрати пристрій на чужу
+async def test_T2_2c_blocked_card_closes_open_session(db_session, devices, manager, reg_manager, set_can_register):
+    """Інакше заблокована картка ставала способом забрати пристрій на чужу
     відкриту сесію."""
     set_can_register(True)
     poprawny = await make_employee(db_session, "EMP5C", wms_login="ok5c")
@@ -216,7 +216,7 @@ async def test_T2_2c_expired_card_closes_open_session(db_session, devices, manag
     assert d.employee_id is None
 
 
-async def test_T2_2d_expired_employee_can_still_return_device(db_session, devices, manager, reg_manager, set_can_register):
+async def test_T2_2d_blocked_employee_can_still_return_device(db_session, devices, manager, reg_manager, set_can_register):
     """Здати пристрій мусить бути можна завжди — відчіпляння не вимагає сесії."""
     set_can_register(True)
     e = await make_employee(db_session, "EMP5E", wms_login="ola5e", expired=True)

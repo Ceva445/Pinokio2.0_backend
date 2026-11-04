@@ -135,15 +135,22 @@ async def lifespan(app: FastAPI):
     logger.info("ESP32 Multi-Device Monitor stopped")
 
 
-async def oznacz_wygasle_karty(db: AsyncSession, godzin: int) -> dict:
-    """Jedno przejście: karty po terminie gasną, a świeżo wydanym rusza zegar.
+async def zdejmij_karty_po_terminie(db: AsyncSession, godzin: int) -> dict:
+    """Jedno przejście: karty po terminie wracają do puli.
 
     Ważność liczy się od chwili wydania karty — pole last_used_at. Karta
     wydana w poniedziałek o 8:00 przy progu 23 godzin jest martwa we wtorek
     o 7:00, niezależnie od tego, czy ktoś nią jeszcze skanował.
+
+    Po terminie karta odczepia się od pracownika: pracownikowi zostaje puste
+    rfid, czyli żadnej rejestracji, a karta wraca na listę wolnych i można ją
+    wydać komuś innemu. Sam pracownik zostaje w bazie razem z historią i
+    loginem WMS — przy ponownym zatrudnieniu bierze się ten sam rekord, zamiast
+    zakładać drugi z dopiskiem w loginie.
     """
     from datetime import datetime, timedelta, timezone
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
 
     from models.db_employee import EmployeeDB
     from models.db_guest import DBGuest
@@ -164,35 +171,45 @@ async def oznacz_wygasle_karty(db: AsyncSession, godzin: int) -> dict:
     granica = teraz - timedelta(hours=godzin)
     po_terminie = (await db.execute(
         select(DBGuest).where(
+            DBGuest.used.is_(True),
             DBGuest.last_used_at.isnot(None),
             DBGuest.last_used_at < granica,
         )
     )).scalars().all()
 
-    wygaszeni = 0
-    rfidy = [karta.rfid for karta in po_terminie]
-    if rfidy:
-        pracownicy = (await db.execute(
-            select(EmployeeDB).where(
-                EmployeeDB.rfid.in_(rfidy),
-                EmployeeDB.expired == False,      # noqa: E712 — tak czyta to SQL
-            )
-        )).scalars().all()
+    zdjete = 0
+    for karta in po_terminie:
+        pracownik = (await db.execute(
+            select(EmployeeDB)
+            .options(selectinload(EmployeeDB.devices))
+            .where(EmployeeDB.rfid == karta.rfid)
+        )).scalar_one_or_none()
 
-        for pracownik in pracownicy:
-            pracownik.expired = True
-            wygaszeni += 1
-            logger.info("Employee %s %s marked as expired (temporary card duration exceeded)",
-                        pracownik.first_name, pracownik.last_name)
+        karta.used = False
+        karta.last_used_at = None
+        zdjete += 1
 
-    if bez_daty or wygaszeni:
+        if pracownik is None:
+            logger.info("Karta %s po terminie wraca do puli - nikt jej nie trzymal", karta.name)
+            continue
+
+        # Sprzęt zostaje zapisany na pracownika: zdanie urządzenia nie wymaga
+        # karty, wiec oddac je mozna i po zdjeciu karty. Do logu, zeby bylo
+        # widac, komu sprzet zostal na rekach.
+        w_rekach = ", ".join(f"{d.type.value}: {d.name}" for d in pracownik.devices)
+        pracownik.rfid = None
+        logger.info("Karta %s po terminie zdjeta pracownikowi %s%s",
+                    karta.name, pracownik.wms_login,
+                    f" - sprzet nadal u niego: {w_rekach}" if w_rekach else "")
+
+    if bez_daty or zdjete:
         await db.commit()
 
-    return {"bez_daty": len(bez_daty), "wygaszeni": wygaszeni}
+    return {"bez_daty": len(bez_daty), "zdjete": zdjete}
 
 
 async def do_employee_expired_if_needed():
-    """Фонова задача: тимчасові картки гаснуть після свого терміну."""
+    """Фонова задача: тимчасові картки знімаються після свого терміну."""
     from db.session import engine
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -204,7 +221,7 @@ async def do_employee_expired_if_needed():
             async with async_session_factory() as db:
                 config = await config_manager.get_config(db)
                 godzin = config.get("temporary_card_duration_hours", 72)
-                await oznacz_wygasle_karty(db, godzin)
+                await zdejmij_karty_po_terminie(db, godzin)
 
             # Перевіряти кожні 30 хвилин
             await asyncio.sleep(30 * 60)

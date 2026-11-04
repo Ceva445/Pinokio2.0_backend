@@ -53,9 +53,8 @@ async def test_zajeta_karta_jest_widoczna_ale_niewybieralna():
     po wypełnieniu całego formularza. Lista ma to powiedzieć od razu."""
     skrypt = SKRYPT.read_text(encoding="utf-8")
 
-    assert "if (guest.used)" in skrypt
-    assert "option.disabled = true" in skrypt
-    assert 'option.className = "guest-option--used"' in skrypt
+    assert "option.disabled = Boolean(guest.used)" in skrypt
+    assert "zajęta" in skrypt
 
 
 async def test_rfid_nie_zalezy_od_napisu_opcji():
@@ -66,7 +65,17 @@ async def test_rfid_nie_zalezy_od_napisu_opcji():
     assert "selectedOption.dataset.rfid" in skrypt
 
 
-async def test_zajeta_karta_ma_wlasne_tlo():
+async def test_opcje_nie_maja_wlasnego_tla():
+    """Pokolorowane <option> przeglądarka rysuje po swojemu — rozwinięta lista
+    przesuwała się w bok i początek każdego wiersza znikał. Zajętą kartę widać
+    po samym napisie."""
     css = Path("app/static/css/admin.css").read_text(encoding="utf-8")
 
-    assert "#guestSelect option.guest-option--used" in css
+    assert "#guestSelect option" not in css
+
+
+async def test_podpis_stoi_pod_polem():
+    """<small> jest liniowe i na szerokim ekranie siadało obok listy."""
+    css = Path("app/static/css/admin.css").read_text(encoding="utf-8")
+
+    assert "#temporaryEmployeeCreateForm .form-group small" in css
