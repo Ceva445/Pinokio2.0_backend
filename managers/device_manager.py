@@ -20,17 +20,26 @@ class DeviceManager:
         logger.info(f"Device timeout updated to {timeout_minutes} minutes")
         
     def register_device(self, device_id: str, name: Optional[str] = None) -> Device:
-        """Зареєструвати новий пристрій"""
+        """Зареєструвати пристрій і вважати його онлайн — він щойно підʼєднався.
+
+        Device() народжується з is_online=False, і раніше новий рядок так і
+        лишався офлайн до першого скану: зчитувач тримав відкритий WS, а
+        /auth/available-esps його не показував (бо фільтрує по is_online), тож
+        менеджер не міг увійти — «Wybrane urządzenie jest niedostępne». Після
+        рестарту сервера це стосувалося ВСІХ зчитувачів: усі в памʼяті нові.
+        Підʼєднання саме по собі вже є ознакою життя.
+        """
         if device_id not in self.devices:
             device = Device(device_id, name)
-            device.connected_at = datetime.now()
             self.devices[device_id] = device
             logger.info("Device registered: %s (%s)", device_id, device.name)
         else:
             device = self.devices[device_id]
-            device.is_online = True
-            device.connected_at = datetime.now()
-            
+
+        device.is_online = True
+        device.connected_at = datetime.now()
+        device.last_seen = datetime.now()
+
         return device
     
     def update_device_data(self, device_id: str, data: dict) -> Device:
