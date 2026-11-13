@@ -98,6 +98,21 @@ async def manager_usage_report(
 
 
 # ===============================
+# KARTY ZASTĘPCZE
+# ===============================
+
+@router.get("/borrowed-cards", response_class=HTMLResponse)
+async def manager_borrowed_cards(
+    request: Request,
+    current_user: dict = Depends(require_manager_or_admin)
+):
+    return templates.TemplateResponse(
+        "manager/borrowed_cards.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
 

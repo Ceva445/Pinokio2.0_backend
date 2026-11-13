@@ -1,0 +1,10 @@
+{% extends "manager/base_manager.html" %}
+
+{% block manager_content %}
+{# Zwolnienie karty przed terminem zostaje przy administratorze; kierownikowi
+   karta wraca sama — po terminie albo gdy pracownik przyłoży własną. #}
+{% set moze_zwolnic = false %}
+{% include "partials/borrowed_cards.html" %}
+
+<script src="{{ url_for('static', path='js/admin/borrowed_cards.js') }}?v=1"></script>
+{% endblock %}

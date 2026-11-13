@@ -974,6 +974,21 @@
 
 .multi__clear:hover { color: var(--text-primary); }
 
+/* Rejestracja na pożyczonej karcie gościa. Pracownik w wierszu jest ten sam,
+   znacznik mówi tylko, czym przyłożono — stąd mały, spokojny napis obok
+   nazwiska, a nie osobna kolumna. */
+.tag-borrowed {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border: 1px solid #7c5cff;
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #c7bcff;
+    white-space: nowrap;
+}
+
 /* Formularz pracownika tymczasowego.
 
    Pola rozciągnięte na całą szerokość ekranu dawały listę rozwijaną szerszą

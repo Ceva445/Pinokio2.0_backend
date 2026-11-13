@@ -1230,6 +1230,9 @@ async function loadTransactions(page = 1) {
                     ${t.employee
                         ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
                         : performer}
+                    ${t.source === "borrowed"
+                        ? `<span class="tag-borrowed">karta zastępcza</span>`
+                        : ""}
                 </td>
                 <td>${t.device?.name ?? "—"}</td>
                 <td>${signature}</td>

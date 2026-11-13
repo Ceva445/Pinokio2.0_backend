@@ -1,0 +1,8 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+{% set moze_zwolnic = true %}
+{% include "partials/borrowed_cards.html" %}
+
+<script src="{{ url_for('static', path='js/admin/borrowed_cards.js') }}?v=1"></script>
+{% endblock %}

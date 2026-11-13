@@ -1,0 +1,58 @@
+{# Ekran kart zastępczych — ten sam dla kierownika i administratora.
+   `moze_zwolnic` ustawia szablon nadrzędny: ręczne zwolnienie karty przed
+   terminem zostaje przy administratorze. #}
+<h2>🪪 Karty zastępcze</h2>
+
+<p class="drill-muted">
+    Pracownik zostawił kartę w domu? Pożycz mu kartę gościa na zmianę.
+    Jego własna karta działa przez cały czas dalej, a rejestracje z obu kart
+    trafiają na ten sam rekord — historia i statystyka zostają całe.
+</p>
+
+<form id="borrowedCardForm" class="admin-form">
+    <div class="form-group">
+        <label for="borrowedEmployeeSearch">Szukaj pracownika</label>
+        <input type="text" id="borrowedEmployeeSearch" class="config-input"
+               placeholder="nazwisko, imię albo login WMS" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+        <label for="borrowedEmployeeSelect">Pracownik *</label>
+        <select name="employee_id" id="borrowedEmployeeSelect" required>
+            <option value="">-- Wybierz pracownika --</option>
+        </select>
+        <small class="drill-muted">
+            Pracownicy z własną kartą, bez zablokowanych.
+        </small>
+    </div>
+
+    <div class="form-group">
+        <label for="borrowedGuestSelect">Wolna karta gościa *</label>
+        <select name="guest_id" id="borrowedGuestSelect" required>
+            <option value="">-- Wybierz kartę --</option>
+        </select>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">🪪 Wydaj kartę</button>
+    </div>
+</form>
+
+<h3>Na rękach</h3>
+<table class="admin-table" id="borrowedCardsTable"
+       data-can-release="{{ 'true' if moze_zwolnic else 'false' }}">
+    <thead>
+        <tr>
+            <th>Pracownik</th>
+            <th>Karta</th>
+            <th>Wydana</th>
+            <th>Ważna do</th>
+            <th>Zostało</th>
+            <th>Wydał</th>
+            {% if moze_zwolnic %}<th></th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td colspan="7">Ładowanie...</td></tr>
+    </tbody>
+</table>

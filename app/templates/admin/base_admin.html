@@ -2,7 +2,7 @@
 
 {% block styles %}
     <link rel="stylesheet" href="{{ url_for('static', path='css/monitor.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=23">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}?v=24">
 {% endblock %}
 
 {% block content %}
@@ -16,6 +16,7 @@
             {% if not (user and user.role == "observer") %}
             <li><a href="/admin/employees">Pracownicy</a></li>
             <li><a href="/admin/temporary-employees/create">Dodaj pracownika tymczasowego</a></li>
+            <li><a href="/admin/borrowed-cards">🪪 Karty zastępcze</a></li>
             <li><a href="/admin/guests">Goście</a></li>
             <li><a href="/admin/devices">Urządzenia</a></li>
             <li><a href="/admin/damage-reports">🔧 Protokół uszkodzenia</a></li>

@@ -60,6 +60,21 @@ async def employee_detail(
 
 
 # ===============================
+# KARTY ZASTĘPCZE
+# ===============================
+
+@router.get("/borrowed-cards", response_class=HTMLResponse)
+async def admin_borrowed_cards(
+    request: Request,
+    current_user=Depends(require_admin)
+):
+    return templates.TemplateResponse(
+        "admin/borrowed_cards.html",
+        {"request": request, "user": current_user}
+    )
+
+
+# ===============================
 # TEMPORARY EMPLOYEES PAGES
 # ===============================
 
