@@ -524,6 +524,47 @@ async def get_employees_without_card(
     ]
 
 
+@router.get("/employees/with-card")
+async def get_employees_with_card(
+    q: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_manager_or_admin)
+):
+    """Pracownicy z własną kartą — tym pożycza się kartę zastępczą.
+
+    Zwykła lista pracowników jest tylko dla administratora, a ten formularz
+    wypełnia też kierownik, stąd osobne wejście z własnym zakresem danych.
+    Zablokowanych nie ma: im i tak nie wolno rejestrować sprzętu.
+    """
+    stmt = (
+        select(EmployeeDB)
+        .where(EmployeeDB.rfid.isnot(None), EmployeeDB.expired.is_(False))
+        .order_by(EmployeeDB.last_name, EmployeeDB.first_name)
+    )
+
+    if q:
+        wzor = f"%{q.strip()}%"
+        stmt = stmt.where(or_(
+            EmployeeDB.wms_login.ilike(wzor),
+            EmployeeDB.first_name.ilike(wzor),
+            EmployeeDB.last_name.ilike(wzor),
+        ))
+
+    pracownicy = (await db.execute(stmt)).scalars().all()
+
+    return [
+        {
+            "id": pracownik.id,
+            "wms_login": pracownik.wms_login,
+            "first_name": pracownik.first_name,
+            "last_name": pracownik.last_name,
+            "company": pracownik.company,
+            "site_id": pracownik.site_id,
+        }
+        for pracownik in pracownicy
+    ]
+
+
 @router.post("/temporary-employees")
 async def create_temporary_employee(
     payload: dict = Body(...),

@@ -13,8 +13,9 @@ from managers.config_manager import config_manager
 from db.session import get_db
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB, DeviceType
-from models.db_transaction import TransactionDB
+from models.db_transaction import TRANSACTION_SOURCE_BORROWED, TransactionDB
 from models.db_guest import DBGuest
+from services import borrowed_cards
 from schemas.transaction import TransactionType
 from routers.auth import get_current_user
 from app.dependencies.admin import forbid_observer
@@ -31,6 +32,15 @@ def get_manager():
 def get_devices():
     from app.main import device_manager
     return device_manager
+
+
+def zrodlo_rejestracji(session) -> str | None:
+    """Czym otwarto sesje: karta zastepcza zostawia slad w historii.
+
+    None = zwykla karta pracownika; tak powstaje wiekszosc wierszy i tak
+    wygladaja wszystkie dotychczasowe.
+    """
+    return TRANSACTION_SOURCE_BORROWED if getattr(session, "borrowed", False) else None
 
 
 def komunikat_zablokowanego(employee) -> str:
@@ -166,7 +176,48 @@ async def process_rfid(
     )
     employee = result.scalar_one_or_none()
 
-    if employee:
+    # Pracownik przylozyl wlasna karte, a ma na rekach zastepcza: znalazla sie,
+    # wiec pozyczke zamykamy od razu i karta wraca do puli.
+    zwrocona = None
+    if employee is not None:
+        pozyczka_pracownika = await borrowed_cards.aktywna_pracownika(db, employee.id)
+        if pozyczka_pracownika is not None:
+            await borrowed_cards.zwroc(
+                db, pozyczka_pracownika, borrowed_cards.POWOD_WLASNA_KARTA,
+                guest=pozyczka_pracownika.guest,
+            )
+            zwrocona = pozyczka_pracownika.guest.name if pozyczka_pracownika.guest else None
+
+    # Karty zastepczej nie ma wsrod pracownikow — pracownika znajdujemy po
+    # wierszu pozyczki. employees.rfid zostaje nietkniete, wiec sesja, sprzet
+    # i historia ida na ten sam rekord co przy wlasnej karcie.
+    pozyczka = None
+    pozyczka_po_terminie = None
+    if employee is None:
+        pozyczka = await borrowed_cards.aktywna_po_rfid(db, rfid)
+        if pozyczka is not None:
+            if pozyczka.expires_at <= borrowed_cards.teraz_utc():
+                # Zadanie w tle chodzi co pol godziny, wiec karta po terminie
+                # moze jeszcze tu trafic. Zwalniamy ja w tej samej chwili,
+                # zamiast udawac, ze nic sie nie stalo.
+                await borrowed_cards.zwroc(
+                    db, pozyczka, borrowed_cards.POWOD_TERMIN, guest=pozyczka.guest,
+                )
+                pozyczka_po_terminie = pozyczka
+                pozyczka = None
+            else:
+                employee = pozyczka.employee
+
+    if pozyczka_po_terminie is not None:
+        registration_manager.end(device_id)
+        ui_message = (
+            "Karta zastępcza straciła ważność — rejestracja niemożliwa. "
+            "Zgłoś się do kierownika po nową."
+        )
+        ui_status = "error"
+        ui_code = "unknown_rfid"
+
+    elif employee:
         if can_register:
             if employee.expired:
                 # Zablokowany pracownik nie otwiera sesji. Wcześniej sesja
@@ -178,9 +229,12 @@ async def process_rfid(
                 ui_message = komunikat_zablokowanego(employee)
                 ui_status = "error"
             else:
-                registration_manager.start_or_replace(device_id, employee)
+                registration_manager.start_or_replace(
+                    device_id, employee, borrowed=pozyczka is not None
+                )
                 ui_message = (
-                    f"Pracownik {employee.wms_login} aktywny. "
+                    f"Pracownik {employee.wms_login} aktywny"
+                    f"{' (karta zastępcza)' if pozyczka is not None else ''}. "
                     f"Przyłóż skaner lub drukarkę"
                 )
                 print("ui message:", ui_message)
@@ -206,6 +260,9 @@ async def process_rfid(
             if employee.expired:
                 ui_message = komunikat_zablokowanego(employee)
                 ui_status = "warning"
+
+        if zwrocona and ui_message:
+            ui_message = f"{ui_message} Karta zastępcza {zwrocona} zwrócona."
 
     else:
         # ---------- DEVICE ----------
@@ -315,6 +372,7 @@ async def process_rfid(
                                 device_id=device_db.id,
                                 employee_id=employee.id,
                                 manager_id=authorizer_id,
+                                source=zrodlo_rejestracji(session),
                             )
                             db.add(transaction)
                             await db.commit()
@@ -330,6 +388,7 @@ async def process_rfid(
                                 device_id=device_db.id,
                                 employee_id=employee.id,
                                 manager_id=authorizer_id,
+                                source=zrodlo_rejestracji(session),
                             )
                             db.add(transaction)
                             await db.commit()

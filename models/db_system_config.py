@@ -29,6 +29,10 @@ class SystemConfigDB(Base):
     # Настройка довжини часу дозволу працювати працівнику на тимчасовій карті в шодинах
     temporary_card_duration_hours: Mapped[int] = mapped_column(Integer, default=72)
 
+    # Скільки годин діє картка гостя, позичена штатному працівникові, який
+    # забув свою. Окремий термін: позика на зміну, а не на кілька днів.
+    borrowed_card_duration_hours: Mapped[int] = mapped_column(Integer, default=12)
+
     # Розклад email-нотифікацій про неповернені пристрої
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Час(и) відправки за день, HH:MM через кому (час Europe/Warsaw). Напр. "09:00,15:00"
@@ -54,6 +58,7 @@ class SystemConfigDB(Base):
             "allow_registration_without_login": self.allow_registration_without_login,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "temporary_card_duration_hours": self.temporary_card_duration_hours,
+            "borrowed_card_duration_hours": self.borrowed_card_duration_hours,
             "email_notifications_enabled": self.email_notifications_enabled,
             "email_send_times": self.email_send_times,
             "email_send_times_saturday": self.email_send_times_saturday,

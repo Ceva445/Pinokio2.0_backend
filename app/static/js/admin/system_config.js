@@ -36,6 +36,7 @@ function fillForm(config) {
         'authCleanupInterval': config.auth_cleanup_interval_seconds,
         'deviceNotReturnedHours': config.device_not_returned_hours,
         'temporaryCardDurationHours': config.temporary_card_duration_hours,
+        'borrowedCardDurationHours': config.borrowed_card_duration_hours,
         'managerIdleLogoutMinutes': config.manager_idle_logout_minutes
     };
     

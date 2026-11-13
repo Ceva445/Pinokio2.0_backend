@@ -144,6 +144,28 @@
             </fieldset>
 
             <fieldset class="config-fieldset">
+                <legend>🪪 Karta zastępcza</legend>
+
+                <div class="form-group">
+                    <label for="borrowedCardDurationHours">Ważność karty zastępczej (godziny)</label>
+                    <input
+                        type="number"
+                        id="borrowedCardDurationHours"
+                        name="borrowed_card_duration_hours"
+                        min="1"
+                        max="168"
+                        class="config-input"
+                    >
+                    <small>
+                        Na ile godzin kierownik pożycza kartę gościa pracownikowi, który
+                        zapomniał własnej (domyślnie 12 godzin, czyli jedna zmiana).
+                        Zmiana działa na nowe wydania — już wydanym kartom termin
+                        policzono w chwili wydania.
+                    </small>
+                </div>
+            </fieldset>
+
+            <fieldset class="config-fieldset">
                 <legend>⏱️ Automatyczne wylogowanie managera</legend>
 
                 <div class="form-group">

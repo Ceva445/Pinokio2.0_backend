@@ -24,6 +24,7 @@ class ConfigUpdateRequest(BaseModel):
     device_not_returned_hours: Optional[int] = None
     allow_registration_without_login: Optional[bool] = None
     temporary_card_duration_hours: Optional[int] = None
+    borrowed_card_duration_hours: Optional[int] = None
     email_notifications_enabled: Optional[bool] = None
     email_send_times: Optional[str] = None
     email_send_times_saturday: Optional[str] = None
@@ -95,6 +96,8 @@ async def update_config(
             raise ValueError("device_not_returned_hours must be > 0")
         if "temporary_card_duration_hours" in updates and updates["temporary_card_duration_hours"] <= 0:
             raise ValueError("temporary_card_duration_hours must be > 0")
+        if "borrowed_card_duration_hours" in updates and updates["borrowed_card_duration_hours"] <= 0:
+            raise ValueError("borrowed_card_duration_hours must be > 0")
 
         # Валідація розкладів email (будні/субота/неділя): "HH:MM,HH:MM..."
         # Порожній рядок дозволено = того дня не слати. Нормалізуємо (унікальні, сортовані).

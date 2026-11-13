@@ -4,8 +4,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RegistrationSession:
-    def __init__(self, employee):
+    # borrowed: sesje otworzyla karta zastepcza (pracownik zapomnial wlasnej).
+    # Idzie stad do historii rejestracji, zeby po latach bylo widac, czym
+    # sprzet wydano - sam pracownik jest ten sam.
+    def __init__(self, employee, borrowed: bool = False):
         self.employee = employee
+        self.borrowed = borrowed
         self.started_at = datetime.now(timezone.utc)
 
     def touch(self):
@@ -21,8 +25,8 @@ class RegistrationManager:
         self.timeout = timedelta(seconds=timeout_seconds)
         logger.info(f"Registration timeout updated to {timeout_seconds} seconds")
 
-    def start_or_replace(self, esp_id: str, employee):
-        self.sessions[esp_id] = RegistrationSession(employee)
+    def start_or_replace(self, esp_id: str, employee, borrowed: bool = False):
+        self.sessions[esp_id] = RegistrationSession(employee, borrowed)
 
     def get(self, esp_id: str):
         session = self.sessions.get(esp_id)

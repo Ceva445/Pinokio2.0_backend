@@ -13,3 +13,4 @@ from .db_system_config import SystemConfigDB
 from .db_guest import DBGuest
 from .db_firmware import FirmwareDB
 from .db_damage_report import DamageReportDB
+from .db_borrowed_card import BorrowedCardDB

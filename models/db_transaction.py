@@ -14,6 +14,11 @@ class TransactionType(enum.Enum):
 # Wartość kolumny `source` dla zwrotu zdjętego ręcznie z panelu administratora.
 TRANSACTION_SOURCE_PANEL = "panel"
 
+# Rejestracja na karcie zastępczej: pracownik zapomniał własnej i dostał na
+# zmianę kartę gościa. Pracownik w wierszu jest ten sam — znacznik mówi tylko,
+# czym przyłożono.
+TRANSACTION_SOURCE_BORROWED = "borrowed"
+
 
 class TransactionDB(Base):
     __tablename__ = "transactions"

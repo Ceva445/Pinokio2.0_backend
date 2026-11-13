@@ -24,6 +24,7 @@ from routers.admin.api_users import router as admin_users_api_router
 from routers.admin.device_statuses import router as admin_device_statuses_router
 from routers.admin.api_sites import router as admin_sites_router
 from routers.admin.api_system_config import router as admin_system_config_router
+from routers.admin.api_borrowed_cards import router as admin_borrowed_cards_router
 from routers.admin.api_firmware import router as admin_firmware_router
 from routers.admin.pages import router as admin_pages_router
 from routers.admin.admin_transactions import router as admin_transactions_router
@@ -152,17 +153,27 @@ async def zdejmij_karty_po_terminie(db: AsyncSession, godzin: int) -> dict:
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
+    from models.db_borrowed_card import BorrowedCardDB
     from models.db_employee import EmployeeDB
     from models.db_guest import DBGuest
 
     teraz = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Karta pozyczona pracownikowi ma wlasny, krotszy termin i wlasne zadanie.
+    # Gdyby wpadla tutaj, ten przebieg zwolnilby ja wczesniej, zostawiajac
+    # otwarty wiersz pozyczki - czyli karte wydana i wolna naraz.
+    pozyczone = select(BorrowedCardDB.guest_id).where(BorrowedCardDB.returned_at.is_(None))
 
     # Karty wydane, którym nikt nie zapisał daty. Dawniej tworzenie pracownika
     # tymczasowego ustawiało samo used=True, więc warunek "last_used_at nie
     # jest puste" odrzucał je na zawsze i nic nigdy nie wygasało. Takim kartom
     # zegar rusza od teraz — lepiej policzyć je od tej chwili niż nigdy.
     bez_daty = (await db.execute(
-        select(DBGuest).where(DBGuest.used.is_(True), DBGuest.last_used_at.is_(None))
+        select(DBGuest).where(
+            DBGuest.used.is_(True),
+            DBGuest.last_used_at.is_(None),
+            DBGuest.id.notin_(pozyczone),
+        )
     )).scalars().all()
     for karta in bez_daty:
         karta.last_used_at = teraz
@@ -174,6 +185,7 @@ async def zdejmij_karty_po_terminie(db: AsyncSession, godzin: int) -> dict:
             DBGuest.used.is_(True),
             DBGuest.last_used_at.isnot(None),
             DBGuest.last_used_at < granica,
+            DBGuest.id.notin_(pozyczone),
         )
     )).scalars().all()
 
@@ -222,6 +234,14 @@ async def do_employee_expired_if_needed():
                 config = await config_manager.get_config(db)
                 godzin = config.get("temporary_card_duration_hours", 72)
                 await zdejmij_karty_po_terminie(db, godzin)
+
+                # Karty zastepcze: wlasny termin, ta sama petla. Czytnik
+                # zwalnia taka karte takze przy probie uzycia po czasie, wiec
+                # polgodzinny krok nikogo nie przepuszcza dalej niz do ekranu.
+                from services import borrowed_cards
+                zwolnione = await borrowed_cards.zwolnij_po_terminie(db)
+                if zwolnione:
+                    logger.info("Karty zastepcze po terminie: %s", zwolnione)
 
             # Перевіряти кожні 30 хвилин
             await asyncio.sleep(30 * 60)
@@ -643,6 +663,7 @@ app.include_router(admin_device_statuses_router)
 app.include_router(admin_sites_router)
 app.include_router(admin_users_api_router)
 app.include_router(admin_system_config_router)
+app.include_router(admin_borrowed_cards_router)
 app.include_router(admin_pages_router)
 app.include_router(admin_transactions_router)
 app.include_router(admin_device_transactions_router)
