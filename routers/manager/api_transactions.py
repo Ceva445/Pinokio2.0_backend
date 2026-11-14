@@ -5,6 +5,9 @@ from sqlalchemy.orm import joinedload
 
 from db.session import get_db
 from app.dependencies.admin import require_manager_or_admin
+# Wiersz historii liczony tam, gdzie ekran administratora: ten sam ksztalt i
+# ta sama lista pol, wiec jedna poprawka wystarczy na oba ekrany.
+from routers.admin.admin_transactions import _item, filtruj_po_karcie
 from models.db_transaction import TransactionDB
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB
@@ -26,13 +29,14 @@ async def get_transactions(
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
     tx_type: TransactionType | None = Query(None),
+    source: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_manager_or_admin)
 ):
     stmt = (
         select(TransactionDB)
         .options(
-            joinedload(TransactionDB.employee),
+            joinedload(TransactionDB.employee).joinedload(EmployeeDB.site),
             joinedload(TransactionDB.device),
             joinedload(TransactionDB.manager)
         )
@@ -73,6 +77,9 @@ async def get_transactions(
     if tx_type:
         stmt = stmt.where(TransactionDB.type == tx_type)
 
+    # 🪪 karta zastępcza
+    stmt = filtruj_po_karcie(stmt, source)
+
     # 🔢 total
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar_one()
@@ -83,7 +90,9 @@ async def get_transactions(
     result = await db.execute(stmt)
 
     return {
-        "items": result.scalars().all(),
+        # Wierszem, nie obiektem ORM: wprost oddany model wysylal do
+        # przegladarki calego managera razem z password_hash.
+        "items": [_item(t) for t in result.scalars().all()],
         "page": page,
         "pages": pages,
         "total": total

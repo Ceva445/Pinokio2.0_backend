@@ -32,6 +32,12 @@
         <option value="registered">registered</option>
         <option value="unregistered">unregistered</option>
     </select>
+
+    <select id="transactionSource" style="width:200px">
+        <option value="">Wszystkie karty</option>
+        <option value="borrowed">Tylko karta zastępcza</option>
+        <option value="own">Bez karty zastępczej</option>
+    </select>
 </div>
 
 <table id="transactionsTable">
@@ -82,12 +88,14 @@ async function loadTransactions(page = 1) {
     const dateFromInput = document.getElementById("transactionDateFrom");
     const dateToInput = document.getElementById("transactionDateTo");
     const typeInput = document.getElementById("transactionType");
+    const sourceInput = document.getElementById("transactionSource");
 
     const employee_q = employeeInput?.value ?? "";
     const device_q = deviceInput?.value ?? "";
     const date_from = dateFromInput?.value ?? "";
     const date_to = dateToInput?.value ?? "";
     const tx_type = typeInput?.value ?? "";
+    const source = sourceInput?.value ?? "";
 
     const params = new URLSearchParams({
         page: page,
@@ -99,6 +107,7 @@ async function loadTransactions(page = 1) {
     if (date_from) params.append("date_from", date_from);
     if (date_to) params.append("date_to", date_to);
     if (tx_type) params.append("tx_type", tx_type);
+    if (source) params.append("source", source);
 
     tbody.innerHTML = `<tr><td colspan="5">Ładowanie danych...</td></tr>`;
 
@@ -120,6 +129,9 @@ async function loadTransactions(page = 1) {
                     ${t.employee
                         ? `${t.employee.wms_login ?? ""} ${t.employee.first_name} ${t.employee.last_name}`
                         : "—"}
+                    ${t.source === "borrowed"
+                        ? `<span class="tag-borrowed">karta zastępcza</span>`
+                        : ""}
                 </td>
                 <td>${t.device?.name ?? "—"}</td>
                 <td>
@@ -343,8 +355,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const dateFromInput = document.getElementById("transactionDateFrom");
     const dateToInput = document.getElementById("transactionDateTo");
     const typeInput = document.getElementById("transactionType");
+    const sourceInput = document.getElementById("transactionSource");
 
-    [employeeInput, deviceInput, dateFromInput, dateToInput, typeInput].forEach(el => {
+    [employeeInput, deviceInput, dateFromInput, dateToInput,
+     typeInput, sourceInput].forEach(el => {
         if (el) el.addEventListener("change", () => loadTransactions(1));
     });
 });
