@@ -5,7 +5,7 @@ from sqlalchemy.orm import joinedload
 
 from db.session import get_db
 from app.dependencies.admin import require_manager_or_admin
-from models.db_transaction import TransactionDB
+from models.db_transaction import TRANSACTION_SOURCE_BORROWED, TransactionDB
 from models.db_employee import EmployeeDB
 from models.db_device import DeviceDB
 from datetime import datetime, time
@@ -30,6 +30,29 @@ LOCAL_TZ = ZoneInfo("Europe/Warsaw")
 def _as_local(moment: datetime) -> datetime:
     """Час із форми — місцевий; уже зонований лишаємо як є."""
     return moment if moment.tzinfo else moment.replace(tzinfo=LOCAL_TZ)
+
+
+# Wartosci filtra "Karta" z ekranu rejestracji.
+ZRODLO_ZASTEPCZA = "borrowed"
+ZRODLO_WLASNA = "own"
+
+
+def filtruj_po_karcie(stmt, zrodlo: str | None):
+    """Zaweza historie do wydan z karty zastepczej albo bez niej.
+
+    Kolumna `source` mowi, czym przylozono: "borrowed" to karta pozyczona,
+    puste pole to zwykla karta pracownika, a "panel" to zwrot zdjety recznie
+    przez administratora. Zwroty z panelu nie sa wydaniem z karty zastepczej,
+    wiec przy "bez karty zastepczej" zostaja na liscie.
+    """
+    if zrodlo == ZRODLO_ZASTEPCZA:
+        return stmt.where(TransactionDB.source == TRANSACTION_SOURCE_BORROWED)
+    if zrodlo == ZRODLO_WLASNA:
+        return stmt.where(or_(
+            TransactionDB.source.is_(None),
+            TransactionDB.source != TRANSACTION_SOURCE_BORROWED,
+        ))
+    return stmt
 
 
 def _item(t: TransactionDB) -> dict:
@@ -75,6 +98,7 @@ async def get_transactions(
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
     tx_type: TransactionType | None = Query(None),
+    source: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_manager_or_admin)
 ):
@@ -122,6 +146,9 @@ async def get_transactions(
     # 🔄 тип транзакції
     if tx_type:
         stmt = stmt.where(TransactionDB.type == tx_type)
+
+    # 🪪 karta zastępcza
+    stmt = filtruj_po_karcie(stmt, source)
 
     # 🔢 total
     count_stmt = select(func.count()).select_from(stmt.subquery())

@@ -1187,12 +1187,14 @@ async function loadTransactions(page = 1) {
     const dateFromInput = document.getElementById("transactionDateFrom");
     const dateToInput = document.getElementById("transactionDateTo");
     const typeInput = document.getElementById("transactionType");
+    const sourceInput = document.getElementById("transactionSource");
 
     const employee_q = employeeInput?.value ?? "";
     const device_q = deviceInput?.value ?? "";
     const date_from = dateFromInput?.value ?? "";
     const date_to = dateToInput?.value ?? "";
     const tx_type = typeInput?.value ?? "";
+    const source = sourceInput?.value ?? "";
 
     // Rozmiar strony ustala serwer (PAGE_SIZE) — wysyłanie go stąd tylko
     // udawałoby, że klient ma na to wpływ.
@@ -1203,6 +1205,7 @@ async function loadTransactions(page = 1) {
     if (date_from) params.append("date_from", date_from);
     if (date_to) params.append("date_to", date_to);
     if (tx_type) params.append("tx_type", tx_type);
+    if (source) params.append("source", source);
 
     tbody.innerHTML = `<tr><td colspan="5">Ładowanie danych...</td></tr>`;
     const requestId = ++transactionsRequestId;
@@ -1486,7 +1489,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // date + select — одразу
-    [dateFromInput, dateToInput, typeInput].forEach(input => {
+    [dateFromInput, dateToInput, typeInput, sourceInput].forEach(input => {
         if (!input) return;
         input.addEventListener("change", () => loadTransactions(1));
     });

@@ -11,7 +11,12 @@ from sqlalchemy import select
 
 from models.db_device import DeviceDB, DeviceType
 from models.db_employee import EmployeeDB
-from models.db_transaction import TransactionDB, TransactionType
+from models.db_transaction import (
+    TRANSACTION_SOURCE_BORROWED,
+    TRANSACTION_SOURCE_PANEL,
+    TransactionDB,
+    TransactionType,
+)
 from models.db_user import UserDB, UserRole
 from routers.admin.admin_transactions import get_transactions
 
@@ -21,7 +26,7 @@ pytestmark = pytest.mark.asyncio
 async def _call(db, **filters):
     params = {
         "page": 1, "employee_q": None, "device_q": None,
-        "date_from": None, "date_to": None, "tx_type": None,
+        "date_from": None, "date_to": None, "tx_type": None, "source": None,
     }
     params.update(filters)
     return await get_transactions(db=db, user=None, **params)
@@ -147,3 +152,53 @@ async def test_rows_do_not_carry_password_hashes(db_session, shift):
 
 async def test_no_filters_returns_everything(db_session, shift):
     assert (await _call(db_session))["total"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Karta zastępcza
+# ---------------------------------------------------------------------------
+@pytest.fixture
+async def zastepcza(db_session, shift):
+    """Jedno wydanie w zmianie poszło z karty zastępczej."""
+    wydania = (await db_session.execute(
+        select(TransactionDB)
+        .where(TransactionDB.type == TransactionType.registered)
+        .order_by(TransactionDB.timestamp)
+    )).scalars().all()
+    wydania[0].source = TRANSACTION_SOURCE_BORROWED
+    # Zwrot zdjęty ręcznie z panelu: inne źródło, ale nie karta zastępcza.
+    zwroty = (await db_session.execute(
+        select(TransactionDB).where(TransactionDB.type == TransactionType.unregistered)
+    )).scalars().all()
+    zwroty[0].source = TRANSACTION_SOURCE_PANEL
+    await db_session.commit()
+    return wydania[0]
+
+
+async def test_filter_shows_only_borrowed(db_session, zastepcza):
+    page = await _call(db_session, source="borrowed")
+
+    assert page["total"] == 1
+    assert page["items"][0]["id"] == zastepcza.id
+    assert page["items"][0]["source"] == TRANSACTION_SOURCE_BORROWED
+
+
+async def test_filter_hides_borrowed(db_session, zastepcza):
+    """«Bez karty zastępczej» zostawia też zwroty z panelu — to nie wydanie
+    z pożyczonej karty, tylko inny sposób zdjęcia sprzętu."""
+    page = await _call(db_session, source="own")
+
+    assert page["total"] == 4
+    assert all(t["source"] != TRANSACTION_SOURCE_BORROWED for t in page["items"])
+
+
+async def test_card_filter_stacks_with_type(db_session, zastepcza):
+    page = await _call(db_session, source="borrowed",
+                       tx_type=TransactionType.unregistered)
+
+    assert page["total"] == 0
+
+
+async def test_unknown_card_filter_changes_nothing(db_session, zastepcza):
+    """Nieznana wartość w parametrze nie może po cichu obciąć historii."""
+    assert (await _call(db_session, source="cokolwiek"))["total"] == 5
