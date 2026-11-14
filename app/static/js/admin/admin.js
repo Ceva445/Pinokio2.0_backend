@@ -1447,6 +1447,21 @@ function renderTransactionsPagination(page, pages) {
    TRANSACTIONS AUTOSTART
 ================================ */
 
+/* Pole daty potrafi trzymac to, co czlowiek wpisal, poza swoim `value`:
+   gdy data jest niedokonczona (sam rok albo sam miesiac), `value` jest juz
+   puste, a na ekranie dalej stoi wpisany fragment. Samo value = "" takiego
+   pola nie czysci - dopiero przelaczenie typu kasuje surowy wpis. */
+function wyczyscPoleFiltra(input) {
+    if (!input) return;
+    input.value = "";
+    if (input.validity?.badInput) {
+        const typ = input.type;
+        input.type = "text";
+        input.value = "";
+        input.type = typ;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     if (!document.querySelector("#transactionsTable")) return;
 
@@ -1457,6 +1472,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const dateFromInput = document.getElementById("transactionDateFrom");
     const dateToInput = document.getElementById("transactionDateTo");
     const typeInput = document.getElementById("transactionType");
+    const sourceInput = document.getElementById("transactionSource");
 
     let timeout;
 
@@ -1478,8 +1494,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const resetButton = document.getElementById("transactionFiltersReset");
     if (resetButton) {
         resetButton.addEventListener("click", () => {
-            [employeeInput, deviceInput, dateFromInput, dateToInput, typeInput]
-                .forEach(input => { if (input) input.value = ""; });
+            [employeeInput, deviceInput, dateFromInput, dateToInput,
+             typeInput, sourceInput].forEach(wyczyscPoleFiltra);
             loadTransactions(1);
         });
     }
